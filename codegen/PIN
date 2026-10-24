@@ -1,0 +1,6 @@
+# The schema-dist this SDK is generated from. Vendored into codegen/schema-dist/ verbatim by
+#   git -C <schema-dist clone> archive <tag> | tar -x -C codegen/schema-dist
+# The manifest hash is recorded here, on our side, because a tag can move and a moved tag brings its own agreeing
+# manifest. codegen/generate.py (and --check) refuses to run when the vendored tree disagrees with this file.
+tag: v0.33.0-dist.56
+manifest_sha256: d206d35cf3b8628765143f80071e706db1fa1b49be1f205b2c2580703bc402fd
