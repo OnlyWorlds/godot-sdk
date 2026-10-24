@@ -1,7 +1,7 @@
 # OnlyWorlds SDK for Godot (spike)
 
 A GDScript addon that reads OnlyWorlds world folders and `.owworld` files into typed elements, and writes them back
-in the format's own bytes. Godot 4.7, the standard build (no C#). Not released; no remote.
+in the format's own bytes. Godot 4.7, the standard build (no C#). Not released; private at `OnlyWorlds/godot-sdk`.
 
 ```gdscript
 var world := OWWorld.read_folder("C:/worlds/moppetopia")
@@ -34,7 +34,12 @@ godot --headless --path . --import                               # once per clon
 godot --headless --path . --script res://tests/run.gd            # exits 0 only when every test passes
 python tools/check_writer.py out.owworld                         # run_py.py's reader and check_writer on a file
 godot --path . --write-movie frames/map.png --quit-after 4 res://demo/moppetopia_map.tscn
+godot --headless --path . --export-release "Windows Desktop" build/windows/ow-godot-demo.exe   # needs 4.7.2's templates
+build/windows/ow-godot-demo.exe -- --world=<folder | file.owworld> --capture=frame.png
 ```
+
+The exported demo (Windows x86_64, 2026-10-24) reads Moppetopia from a folder and from an `.owworld`, and both
+frames are byte-identical to the editor's.
 
 The tests read Sikelia and Moppetopia from their places on this machine (`OW_SIKELIA`, `OW_MOPPETOPIA` override); a
 test whose world is missing is skipped, never passed.

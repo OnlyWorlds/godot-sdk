@@ -2,8 +2,8 @@ extends Node2D
 ## A world in a scene: reads a world folder, draws its root Map's image, and each Pin on that map at its position
 ## (x, y from the map's bottom-left, per the schema) with its name (the pinned element's, when the pin has none).
 ##
-## The folder: [code]-- --world=<folder>[/code] on the command line, else OW_MOPPETOPIA, else Moppetopia's place on
-## this machine. [code]-- --capture=<file.png>[/code] saves the third frame and quits.
+## The world: [code]-- --world=<folder | file.owworld>[/code] on the command line, else OW_MOPPETOPIA, else
+## Moppetopia's place on this machine. [code]-- --capture=<file.png>[/code] saves the third frame and quits.
 
 const DEFAULT_WORLD := "C:/Users/Titus/Carrier/Armature/projects/moppetopia-world"
 const IMAGE_EXTENSIONS := ["webp", "png", "jpg", "jpeg"]
@@ -25,7 +25,15 @@ func _ready() -> void:
 			folder = a.substr(8)
 		elif a.begins_with("--capture="):
 			_capture = a.substr(10)
-	world = OWWorld.read_folder(folder)
+	var archive: OWWorldArchive.Result = null
+	if folder.get_extension().to_lower() == "owworld":
+		archive = OWWorldArchive.read_file(folder)
+		if not archive.ok:
+			push_error("%s refused: %s (%s)" % [folder, archive.reason, archive.message])
+			return
+		world = archive.to_world()
+	else:
+		world = OWWorld.read_folder(folder)
 	if world == null:
 		push_error("no world at %s" % folder)
 		return
@@ -33,7 +41,7 @@ func _ready() -> void:
 	if map == null:
 		push_error("%s has no map without a parent" % folder)
 		return
-	texture = _map_texture(folder)
+	texture = _map_texture_in(archive.files) if archive != null else _map_texture(folder)
 	for p: OWPin in world.of_type("pin"):
 		if p.map != map.id or p.x == null or p.y == null:
 			continue
@@ -80,6 +88,30 @@ func _map_texture(folder: String) -> Texture2D:
 		var err := img.load(path)
 		if err == OK:
 			image_note = "%s (%s, %dx%d)" % [path.get_file(), path.get_extension(), img.get_width(), img.get_height()]
+			return ImageTexture.create_from_image(img)
+		image_note += "%s did not load (error %d); " % [path.get_file(), err]
+	image_note += "no image loaded"
+	return null
+
+## The same choice from an archive's files (path inside the world -> bytes): nothing touches the disk.
+func _map_texture_in(files: Dictionary) -> Texture2D:
+	var under := "media/" + map.id + "/"
+	var paths := []
+	for p in files:
+		if p.begins_with(under) and p.get_extension().to_lower() in IMAGE_EXTENSIONS:
+			paths.append(p)
+	var wanted := map.image_url.get_file()
+	paths.sort_custom(func(a, b): return (a.get_file() == wanted) and not (b.get_file() == wanted))
+	for path in paths:
+		var img := Image.new()
+		var bytes: PackedByteArray = files[path]
+		var err := ERR_FILE_UNRECOGNIZED
+		match path.get_extension().to_lower():
+			"webp": err = img.load_webp_from_buffer(bytes)
+			"png": err = img.load_png_from_buffer(bytes)
+			_: err = img.load_jpg_from_buffer(bytes)
+		if err == OK:
+			image_note = "%s (%s, %dx%d, from the archive)" % [path.get_file(), path.get_extension(), img.get_width(), img.get_height()]
 			return ImageTexture.create_from_image(img)
 		image_note += "%s did not load (error %d); " % [path.get_file(), err]
 	image_note += "no image loaded"
