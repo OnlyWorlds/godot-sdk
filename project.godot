@@ -1,0 +1,14 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="OnlyWorlds Godot SDK"
+config/description="The OnlyWorlds SDK for Godot: world folders and .owworld files as typed elements."
+config/features=PackedStringArray("4.7")
+run/main_scene="res://demo/moppetopia_map.tscn"
+
+[display]
+
+window/size/viewport_width=1200
+window/size/viewport_height=800
