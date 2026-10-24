@@ -3,9 +3,9 @@
 # Data, not code: Unicode 15.1.0.
 # - FOLD: the C and S rows of CaseFolding-15.1.0.txt as vendored in schema-dist
 #   (fixtures/owworld/), OW-18's simple case folding.
-# - DECOMP, CCC, COMPOSE: NFC's data, generated from Python 3.13.1's unicodedata
-#   (unidata_version 15.1.0). schema-dist publishes no NFC file yet; when it does,
-#   the generator reads that file instead and this one keeps its shape.
+# - DECOMP, CCC, COMPOSE: NFC's data from UnicodeData-15.1.0.txt and
+#   CompositionExclusions-15.1.0.txt as vendored in schema-dist (fixtures/owworld/), checked
+#   equal to Python 3.13.1's unicodedata (unidata_version 15.1.0).
 # - WHITE_SPACE: what Python's str.strip() strips, for trimming a world id as the reference checker does.
 extends RefCounted
 

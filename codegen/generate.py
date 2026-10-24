@@ -255,6 +255,56 @@ def simple_folds() -> dict[int, int]:
 HANGUL_S0, HANGUL_COUNT = 0xAC00, 11172
 
 
+UNICODE_DATA = DIST / "fixtures" / "owworld" / f"UnicodeData-{UNICODE_VERSION}.txt"
+COMPOSITION_EXCLUSIONS = DIST / "fixtures" / "owworld" / f"CompositionExclusions-{UNICODE_VERSION}.txt"
+
+
+def nfc_tables_from_files() -> dict:
+    """NFC's data from the two Unicode files schema-dist vendors beside the case folds (serial 57, folder spec 4.7:
+    every reader builds OW-18's NFC from them, never from a runtime). UnicodeData's field 3 is the combining class and
+    field 5 the decomposition (one in angle brackets is compatibility, skipped). The primary composites are the
+    two-part canonical decompositions minus Full_Composition_Exclusion: the file's listed code points plus what its
+    comments derive from UnicodeData, singletons and non-starter decompositions. The reference checker's `load_nfc`,
+    in the same shape this file emits."""
+    raw, ccc = {}, {}
+    for line in UNICODE_DATA.read_text(encoding="utf-8").splitlines():
+        fields = line.split(";")
+        cp = int(fields[0], 16)
+        if fields[3] != "0":
+            ccc[cp] = int(fields[3])
+        if fields[5] and not fields[5].startswith("<"):
+            raw[cp] = [int(x, 16) for x in fields[5].split()]
+    excluded = set()
+    for line in COMPOSITION_EXCLUSIONS.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            lo, _, hi = line.partition("..")
+            excluded.update(range(int(lo, 16), int(hi or lo, 16) + 1))
+    for cp, d in raw.items():
+        if len(d) == 1 or ccc.get(cp, 0) or ccc.get(d[0], 0):
+            excluded.add(cp)
+
+    def full(cp):
+        return [c for d in raw[cp] for c in full(d)] if cp in raw else [cp]
+
+    def ordered(cps):
+        # Canonical ordering: a stable sort of each run of non-starters by class, as NFD gives it.
+        out, run = [], []
+        for c in cps + [None]:
+            if c is not None and ccc.get(c, 0):
+                run.append(c)
+                continue
+            out += sorted(run, key=lambda x: ccc[x])
+            run = []
+            if c is not None:
+                out.append(c)
+        return out
+
+    decomp = {cp: ordered(full(cp)) for cp in raw}
+    compose = {(d[0], d[1]): cp for cp, d in raw.items() if len(d) == 2 and cp not in excluded}
+    return {"decomp": decomp, "ccc": ccc, "compose": compose}
+
+
 def nfc_tables_from_unicodedata() -> dict:
     """NFC's data from Python's unicodedata: each code point's full canonical decomposition (Hangul left to the
     algorithm), every non-zero canonical combining class, and the primary composites as pairs. A composite is primary
@@ -297,9 +347,9 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int]) -> str:
         f"# Data, not code: Unicode {UNICODE_VERSION}.",
         f"# - FOLD: the C and S rows of CaseFolding-{UNICODE_VERSION}.txt as vendored in schema-dist",
         "#   (fixtures/owworld/), OW-18's simple case folding.",
-        f"# - DECOMP, CCC, COMPOSE: NFC's data, generated from Python {sys.version.split()[0]}'s unicodedata",
-        f"#   (unidata_version {unicodedata.unidata_version}). schema-dist publishes no NFC file yet; when it does,",
-        "#   the generator reads that file instead and this one keeps its shape.",
+        f"# - DECOMP, CCC, COMPOSE: NFC's data from UnicodeData-{UNICODE_VERSION}.txt and",
+        f"#   CompositionExclusions-{UNICODE_VERSION}.txt as vendored in schema-dist (fixtures/owworld/), checked",
+        f"#   equal to Python {sys.version.split()[0]}'s unicodedata (unidata_version {unicodedata.unidata_version}).",
         "# - WHITE_SPACE: what Python's str.strip() strips, for trimming a world id as the reference checker does.",
         "extends RefCounted",
         "",
@@ -378,7 +428,10 @@ def outputs() -> dict[Path, str]:
     }
     for slug, fields in schema["types"].items():
         out[ADDON / "models" / f"ow_{slug}.gd"] = emit_model(slug, fields, head)
-    nfc = nfc_tables_from_unicodedata()
+    nfc = nfc_tables_from_files()
+    # The oracle the tables were first built from, now a cross-check: a Python of the same Unicode must agree whole.
+    if nfc != nfc_tables_from_unicodedata():
+        sys.exit("NFC from the vendored files and from Python's unicodedata disagree; read both before trusting either.")
     folds = simple_folds()
     out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space())
     out[ROOT / "tests" / "data" / "unicode_vectors.txt"] = unicode_vectors(nfc, folds)
