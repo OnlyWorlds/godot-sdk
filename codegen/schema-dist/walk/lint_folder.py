@@ -4,8 +4,8 @@
 
 Reads `world.json` and every `elements/<type>/*.json` under the folder and
 reports, one line each: a file outside the 22 type folders, a missing or
-duplicate UUID `id`, a key that is not a field of its type (the shape Simmer's
-PROFILE found three hundred of in one world: `creature.characters`,
+duplicate UUID `id`, a key that is not a field of its type (the shape one real
+world's profile found three hundred of: `creature.characters`,
 `event.location`, `event.actor`), a value of the wrong shape for its kind, and
 a link that does not resolve inside the folder or resolves to the wrong type.
 Server-managed keys (`type`, `created_at`, `updated_at`, `change_seq`,
@@ -14,14 +14,17 @@ Server-managed keys (`type`, `created_at`, `updated_at`, `change_seq`,
 `shadow_`) pass; nothing else undeclared does. A string field may be null on
 disk (read as "", the unset string). A known-of stub (`known_of: true`, folder
 spec 4.4) passes with only the keys it keeps; one that writes an unset field
-is reported. `records/` (spec 4.5) is not elements and is not read. The last line is the count it checked, so an empty
+is reported. `records/` (spec 4.5) is not elements and is not read. A `world.json`
+whose `format_version` is newer than FORMAT_VERSION below gets one warning line,
+never a problem; an older or absent stamp passes. The last line is the count it checked, so an empty
 report is a result and not a silence. Exit 0 clean, 1 with problems, 2 when
 the folder is not a world folder.
 
 The same function gates the published example world (publish_dist.py), so the
 check a stranger runs is the check the dist itself passed. Decoding goes
 through schema_walk.py, the one decoder; this file adds no reading of the
-YAML of its own. `--schema` defaults to the `schema/` directory beside this
+YAML of its own, and imports the walk only when run as a command, so a program that imports
+`lint_folder()` and decodes the schema itself loads no YAML and gets no sys.path change. `--schema` defaults to the `schema/` directory beside this
 file's parent, which is where both keel and the dist keep it.
 """
 
@@ -34,8 +37,10 @@ import sys
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from schema_walk import decode_schema  # noqa: E402
+# The folder format's version this lint was written against: the folder spec's
+# own version line, the one source. It moves when the spec's version moves, and
+# publish_dist.py writes the dist README's version sentence from it.
+FORMAT_VERSION = "0.3.18"
 
 # Keys an element body carries that the schema does not declare: the type
 # slug and the server-managed fields (elements/serialize.py READONLY_FIELDS
@@ -44,8 +49,8 @@ BODY_EXTRA_KEYS = {"type", "created_at", "updated_at", "change_seq", "created_by
                    "changed_by", "changed_via", "changed_client"}
 # Keys the folder format itself puts in an element file (folder spec section 5,
 # the linked-folder guidance): Atlas's two sync stamps and the media id. A
-# linked folder carries them on every edited element; Kael's first run on the
-# Titus's Atlas folders flagged all 1,669 of one world's elements (2026-10-12).
+# linked folder carries them on every edited element; the first run on the
+# founder's Atlas folders flagged all 1,669 of one world's elements (2026-10-12).
 # `hidden` (folder spec 4.8, 2026-10-23): what the source hid stays hidden in the
 # folder; a converter door writes it, a push withholds the element until keel
 # takes the mark on a create. Must be a boolean (checked below).
@@ -53,7 +58,7 @@ FOLDER_KEYS = {"local_updated_at", "server_updated_at", "image_media_id", "known
                "hidden"}
 EXTENSION_PREFIXES = ("x_", "atlas_", "shadow_")
 # A known-of stub (folder spec 4.4) keeps these and leaves every unset field out
-# (rule 1); a field keel marks public (Keel #448) may also be there, set. The
+# (rule 1); a field keel marks public (presentation.json's `public` lists) may also be there, set. The
 # lint cannot tell public from not without keel's wrapper, so it flags only
 # what rule 1 forbids outright: an unset value written into a stub.
 STUB_KEEPS = {"id", "type", "name", "description", "supertype", "subtype", "image_url",
@@ -65,6 +70,7 @@ class Report:
 
     def __init__(self) -> None:
         self.problems: list[str] = []
+        self.warnings: list[str] = []  # printed, never counted: the exit code is the problems'
         self.files = 0
         self.types: set[str] = set()
 
@@ -85,6 +91,16 @@ def is_uuid(value) -> bool:
     except ValueError:
         return False
     return True
+
+
+def version_tuple(value) -> tuple[int, ...] | None:
+    """`"0.3.18"` -> (0, 3, 18); None for anything that is not dotted integers."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return tuple(int(p) for p in value.split("."))
+    except ValueError:
+        return None
 
 
 def git_tracks(path: Path) -> bool:
@@ -116,6 +132,13 @@ def lint_folder(src: Path, decoded: dict) -> Report:
             report.add("world.json: carries an `api` block and git tracks it; a linked "
                        "folder is never committed (folder spec 4.6 d), keep the key "
                        "outside the repository")
+        stamp = world.get("format_version") if isinstance(world, dict) else None
+        known = version_tuple(FORMAT_VERSION)
+        seen = version_tuple(stamp)
+        if seen is not None and seen > known:
+            report.warnings.append(
+                f"world.json: format_version {stamp} is newer than this lint knows "
+                f"({FORMAT_VERSION}): update the lint, or read the spec for what changed")
 
     base = {f["name"]: f for f in decoded["base"] if f["name"] != "world"}
     bodies: dict[str, tuple[str, dict, str]] = {}
@@ -224,11 +247,19 @@ def main(argv=None) -> int:
     if not args.schema.is_dir():
         print(f"{args.schema}: no schema directory; pass --schema DIR")
         return 2
+    # The walk is imported here, not at the top: importing this file (a package vendors it and calls
+    # lint_folder() with its own decode) then has no side effect, puts nothing on sys.path and loads
+    # no PyYAML (a top-level insert put this folder first on sys.path for the whole process, so a
+    # package that vendors this file saw `import errors` find its own file, 2026-10-25).
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from schema_walk import decode_schema  # noqa: E402
     notes: list[str] = []
     decoded = decode_schema(args.schema, note=notes.append)
     for n in notes:
         print(f"walk note: {n}")
     report = lint_folder(src, decoded)
+    for w in report.warnings:
+        print(w)
     for p in report.problems:
         print(p)
     print(report.summary)
