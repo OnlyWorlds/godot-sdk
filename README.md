@@ -12,6 +12,9 @@ var r := OWWorldArchive.read_file("moppetopia.owworld")  # every section 4.7 rul
 if r.ok:
     var w := r.to_world()
 OWWorldArchive.pack("C:/worlds/moppetopia", "C:/out/moppetopia.owworld")
+
+var link := OWAddress.parse_link("ow://character/019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71@302")   # link.reason on a refusal
+var url := OWAddress.element_address(OWAddress.HUMAN, world_id, "pin", pin.id).address
 ```
 
 ## Layout
@@ -51,5 +54,8 @@ test whose world is missing is skipped, never passed.
   number layout and escapes).
 - **Reading an archive** (DECISIONS #4): its own central-directory walk, zlib through a gzip frame for the CRC and
   size, a GDScript CRC-32 for stored entries, NFC and CaseFolding 15.1 tables for collisions.
+- **Addresses** (the address profile, serial 77): `ow://` links and the site's URL, read and written as the npm and
+  Python packages do: every case of the profile's fixture, the reader's refusals in its order, the writer's
+  `bad_form`, `segments`, `no_world` before them, a moment of `3.0` the step 3, an empty string present.
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.

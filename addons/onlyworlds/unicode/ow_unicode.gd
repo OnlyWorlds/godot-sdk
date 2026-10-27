@@ -52,6 +52,22 @@ static func strip_ws(s: String) -> String:
 		b -= 1
 	return s.substr(a, b - a)
 
+## [param s] without Unicode's White_Space at its ends, the profiles' "trimmed" (the room profile defines it once): a
+## narrower set than [method strip_ws]'s, so U+001C to U+001F stay, and so does a byte order mark.
+static func trim_white_space(s: String) -> String:
+	var a := 0
+	var b := s.length()
+	while a < b and _is_white_space(s.unicode_at(a)):
+		a += 1
+	while b > a and _is_white_space(s.unicode_at(b - 1)):
+		b -= 1
+	return s.substr(a, b - a)
+
+## Unicode's White_Space property (PropList 15.1): 25 code points.
+static func _is_white_space(c: int) -> bool:
+	return (c >= 0x09 and c <= 0x0D) or c == 0x20 or c == 0x85 or c == 0xA0 or c == 0x1680 \
+		or (c >= 0x2000 and c <= 0x200A) or c == 0x2028 or c == 0x2029 or c == 0x202F or c == 0x205F or c == 0x3000
+
 ## Whether [param bytes] are well-formed UTF-8 (no overlong form, no surrogate, nothing past U+10FFFF).
 static func is_utf8(bytes: PackedByteArray) -> bool:
 	var i := 0

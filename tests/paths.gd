@@ -4,6 +4,7 @@ extends RefCounted
 
 const FIXTURES := "res://codegen/schema-dist/fixtures/owworld"
 const EXAMPLE := "res://codegen/schema-dist/example/hyperion"
+const ADDRESS := "res://codegen/schema-dist/profiles/address.fixture.json"
 const TMP := "user://ow-test-tmp"
 
 static func sikelia() -> String:
