@@ -4,9 +4,11 @@ extends RefCounted
 ## reading a world. A lens is a Construct with supertype [code]Lens[/code]; its links are its anchors, and
 ## [code]x_lens[/code] is the recipe (how far, which types, how far back, how much).
 ##
-## [method is_lens], [method is_template], [method check_keys] (the legal values of [code]x_lens[/code]) and
-## [method lenses_in_use] (where a seat's choice lives). The npm and Python packages' [code]isLens[/code],
-## [code]isTemplate[/code] and [code]lensesInUse[/code]; the fixture beside the profile is this file's test.
+## [method is_lens], [method is_template], [method check_keys] (the legal values of [code]x_lens[/code]),
+## [method lenses_in_use] (where a seat's choice lives), [method resolve] (the one resolution every reader agrees on)
+## and [method date_of] (an element's date by the profile's table). The npm and Python packages' [code]isLens[/code],
+## [code]isTemplate[/code], [code]lensesInUse[/code], [code]resolveLens[/code] and [code]dateOf[/code], ported from
+## npm 4.96.1; the fixture beside the profile is this file's test, and [OWGraph] reads the graph section through it.
 ##
 ## Element bodies are Dictionaries as the API or a world folder gives them. Godot's JSON reads every number as a
 ## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]).

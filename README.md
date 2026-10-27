@@ -15,6 +15,11 @@ OWWorldArchive.pack("C:/worlds/moppetopia", "C:/out/moppetopia.owworld")
 
 var link := OWAddress.parse_link("ow://character/019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71@302")   # link.reason on a refusal
 var url := OWAddress.element_address(OWAddress.HUMAN, world_id, "pin", pin.id).address
+
+var world := {"elements": bodies, "now": 1200}                 # bodies as the owner is served them
+var seen := OWLens.resolve(world, lens_id, {"rung": "guest", "whole": ids}, {"as_of": 1195})
+for row in seen.rows: print(row["name"])                         # seen.cut: what was left out, by reason
+var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # nodes, edges, edges_cut
 ```
 
 ## Layout
@@ -57,5 +62,10 @@ test whose world is missing is skipped, never passed.
 - **Addresses** (the address profile, serial 77): `ow://` links and the site's URL, read and written as the npm and
   Python packages do: every case of the profile's fixture, the reader's refusals in its order, the writer's
   `bad_form`, `segments`, `no_world` before them, a moment of `3.0` the step 3, an empty string present.
+- **Lenses** (the lens profile, serial 78; its graph section, serial 81): `OWLens` reads a saved way of reading a world
+  (`is_lens`, `is_template`, `check_keys`, `lenses_in_use`, `resolve`, `date_of`) and `OWGraph` the world as nodes and
+  edges (`world_graph`, `degree_of`), as the npm and Python packages do: every case of the profile's fixture (122,
+  the graph kind's 34 included), their shared edge file, and 6,000 random readings answered alike by the Python
+  package. A JSON number with no fraction is whole (`7.0` reads as 7); past 64 bits it is not.
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.
