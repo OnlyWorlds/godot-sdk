@@ -50,6 +50,797 @@ const _SHOW := ["full", "first_line", "name"]
 const _MAIL := ["unread_full_read_titles", "all", "none"]
 const _I64_EDGE := 9223372036854775808.0   # 2^63: a float at or past it (or below -2^63) is no 64-bit whole number
 
+## The date table: each dated type's date field. The ten types not in it are timeless and never fenced. The fence,
+## [code]undated[/code], [code]window[/code], [code]from[/code] and [code]to[/code] all read it, and so does
+## [method date_of]. A constant Dictionary: read-only.
+const DATE_FIELD := {
+	"character": "birth_date", "creature": "birth_date", "institution": "founding_date", "location": "founding_date",
+	"collective": "formation_date", "law": "date", "title": "grant_date", "construct": "start_date",
+	"event": "start_date", "narrative": "start_date", "relation": "start_date", "zone": "start_date",
+}
+
+## What a known-of stub serves beside its type's public fields (never a link, never a date).
+const STUB_FIELDS := ["id", "type", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at"]
+## The fields the platform shows on a stub beside those (schema-dist presentation.json [code]types.<type>.public[/code];
+## held equal to it by the tests). A type not named here has none.
+const PUBLIC_FIELDS := {"character": ["physicality", "height", "weight", "species", "reputation"]}
+
+## The readers' four rungs.
+const RUNGS := ["owner", "contributor", "guest", "public"]
+
+const _MAIL_MICROS := 30 * 86400 * 1000000
+const _OPTION_KEYS := ["as_of", "clock"]
+
+static var _link_table := {}
+static var _rank := {}
+static var _date_time: RegEx
+
+## What [method resolve] answers. [member error] is "" unless the call itself was a mistake (a world without an
+## elements list, a rung outside the four, an option it does not know): then it names the mistake and nothing is read.
+class Reading:
+	## The kept elements' ids, in the profile's order: anchors first in the lens's link order, then what the hop reached.
+	var kept := PackedStringArray()
+	## The kept elements as [code]show[/code] makes them, in the same order; an anchor's row carries its [code]note[/code].
+	var rows := []
+	## The cut, counted by reason in the profile's order; a reason with no count is absent, and a reader that is not
+	## the owner never carries the owner's two.
+	var cut := {}
+	## Notes on ids that are not anchors of the lens read.
+	var notes_ignored := 0
+	## The mail part when the lens names a mail rule ({unread, read, rows, cut, totals}); null otherwise.
+	var mail: Variant = null
+	## The first x_lens key outside the profile's table (x_lens itself when it is not an object): nothing resolved.
+	var unreadable: Variant = null
+	var error := ""
+
+	## The reading in the fixture's shape.
+	func to_dict() -> Dictionary:
+		return {"kept": Array(kept), "rows": rows, "cut": cut, "notes_ignored": notes_ignored, "mail": mail,
+			"unreadable": unreadable}
+
+## Resolve [param lens] for one [param reader] over a world snapshot (the profile's [code]resolveLens[/code]): the kept
+## elements in the profile's order, the cut counted by reason, and, when the lens names a mail rule, the mail part.
+## Pure: it never writes, and nothing in the world moves.
+##
+## [param world] is a Dictionary: [code]elements[/code] (the bodies as the owner is served them), and optionally
+## [code]hidden[/code] (ids the hidden mark keeps, beside each element's own [code]hidden[/code]),
+## [code]members[/code] (the members list, which proves a message's sender) and the world's now ([code]now[/code], else
+## [code]time_current[/code] as a folder spells it, else [code]time_range_current[/code] as the API serves it).
+## [param lens] is a lens body or the id of a lens the reader is served whole. [param reader] is a Dictionary:
+## [code]rung[/code] (owner, contributor, guest or public), [code]character[/code] (for the mail rule), a guest's
+## [code]whole[/code] and [code]known_of[/code], and on an owner [code]as[/code] (another reader: its view, the
+## owner's two counts). [param options]: [code]as_of[/code] (the reading's date, a whole number in the world's unit;
+## absent: the world's now; none: no fence and the window cuts nothing) and [code]clock[/code] (a date-time for the
+## mail rule's thirty days; absent: the machine's time).
+static func resolve(world: Variant, lens: Variant, reader: Variant, options: Variant = null) -> Reading:
+	var out := Reading.new()
+	if options == null:
+		options = {}
+	if not (options is Dictionary):
+		return _mistake(out, "resolve: options is a Dictionary, such as {\"as_of\": 1200}")
+	for k in options:
+		if not _OPTION_KEYS.has(k):
+			return _mistake(out, "resolve: options holds as_of and clock; got %s" % k)
+	if not (world is Dictionary and world.get("elements") is Array):
+		return _mistake(out, "resolve: world is a Dictionary with an elements Array")
+	var bad := _check_reader(reader, "resolve: reader")
+	if bad != "":
+		return _mistake(out, bad)
+	var as_of_v: Variant = options.get("as_of")
+	if as_of_v != null and whole(as_of_v) == null:
+		return _mistake(out, "resolve: as_of is a whole number; got %s" % var_to_str(as_of_v))
+	var clock_v: Variant = options.get("clock")
+	if clock_v != null and time_key(clock_v) == null:
+		return _mistake(out, "resolve: clock is a date-time; got %s" % var_to_str(clock_v))
+	if not (lens is String or lens is Dictionary):
+		return _mistake(out, "resolve: lens is a lens body or its id")
+	var as_of: Variant = whole(as_of_v) if as_of_v != null else _world_now(world)
+	return _lens_reading(View.new(world, reader, as_of), lens, clock_v)[0]
+
+## The world's now: [code]now[/code], else [code]time_current[/code], else [code]time_range_current[/code], each read
+## only when it is a whole number; null when none is.
+static func _world_now(world: Dictionary) -> Variant:
+	for key in ["now", "time_current", "time_range_current"]:
+		var n: Variant = whole(world.get(key))
+		if n != null:
+			return n
+	return null
+
+static func _check_reader(reader: Variant, where: String) -> String:
+	if not (reader is Dictionary and RUNGS.has(reader.get("rung"))):
+		return "%s: a reader is a Dictionary whose rung is owner, contributor, guest or public; got %s" % [where, var_to_str(reader)]
+	if reader.get("as") != null:
+		return _check_reader(reader["as"], where + ".as")
+	return ""
+
+static func _mistake(out: Reading, message: String) -> Reading:
+	out.error = message
+	return out
+
+## A lens read over one reader's view: [the Reading, each cut id's reason before the counts drop the owner's two].
+static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
+	var reading := Reading.new()
+	var body: Variant = null
+	# A lens named by id is read from the body this reader is served: a stub serves no links and no recipe.
+	if lens is String:
+		body = r.by_id[lens] if r.view.has(lens) and not r.stubs.has(lens) else null
+	else:
+		body = lens
+	if body == null or not is_lens(body):
+		return [reading, {}]
+	var read := _read_recipe(body.get(FIELD))
+	if not read.has("recipe"):
+		reading.unreadable = read["bad"]
+		return [reading, {}]
+	if is_template(body):
+		return [reading, {}]
+	var recipe: Dictionary = read["recipe"]
+
+	var visited := {}
+	if body.get("id") is String:
+		visited[body["id"]] = true
+	var resolved := _resolve_one(body, recipe, r, visited)
+	if recipe["mail"] != "none":
+		var clock: Variant = time_key(clock_v if clock_v != null else Time.get_datetime_string_from_system(true))
+		reading.mail = _mail_part(r, recipe["mail"], recipe["budget"], clock)
+	var in_mail := {}
+	if reading.mail != null:
+		for id in reading.mail["unread"] + reading.mail["read"]:
+			in_mail[id] = true
+
+	var seen := {}
+	var union := []
+	for e in resolved["list"]:
+		if seen.has(e[0]) or visited.has(e[0]) or in_mail.has(e[0]):
+			continue
+		seen[e[0]] = true
+		union.append(e)
+	var budget: int = recipe["budget"]
+	var keep := union.slice(0, budget)
+	var cut: Dictionary = resolved["cut"]
+	for e in union.slice(budget):
+		cut[e[0]] = "budget"
+	for e in keep:
+		cut.erase(e[0])
+	for id in visited:
+		cut.erase(id)
+	for why in CUT_REASONS:
+		if OWNER_ONLY.has(why) and not r.owner:
+			continue
+		var n := 0
+		for id in cut:
+			if cut[id] == why:
+				n += 1
+		if n > 0:
+			reading.cut[why] = n
+	var anchors: Array = _anchors_of(body, r)["anchors"]
+	for k in recipe["notes"]:
+		if not anchors.has(k):
+			reading.notes_ignored += 1
+	for e in keep:
+		reading.kept.append(e[0])
+		reading.rows.append(e[1])
+	return [reading, cut]
+
+## The anchors and the umbrella's children of a lens in its link order, and whether it names any (an anchor field with
+## an entry, or x_served_trimmed naming one: such a lens is never read as a filter).
+static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
+	var anchors := []
+	var children := []
+	var seen := {}
+	for field in ANCHOR_FIELDS:
+		var v: Variant = lens.get(field)
+		if not (v is Array):
+			continue
+		for id in v:
+			if not (id is String) or id == "" or seen.has(id):
+				continue
+			seen[id] = true
+			if field == "constructs" and r.view.has(id) and is_lens(r.by_id[id]):
+				children.append(id)
+			else:
+				anchors.append(id)
+	var trimmed := false
+	var mark: Variant = lens.get("x_served_trimmed")
+	if mark is Array:
+		for f in mark:
+			if f is String and ANCHOR_FIELDS.has(f):
+				trimmed = true
+	return {"anchors": anchors, "children": children, "anchored": not seen.is_empty() or trimmed}
+
+## One lens by its own recipe, its children entered once each through the shared visited set: {list: [[id, row]...],
+## cut: id -> its first reason}.
+static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited: Dictionary) -> Dictionary:
+	var cut := {}
+	var a := _anchors_of(lens, r)
+	var anchor_set := {}
+	for id in a["anchors"]:
+		anchor_set[id] = true
+	var child_set := {}
+	for id in a["children"]:
+		child_set[id] = true
+	var list := []
+	var frontier := []
+	for id in a["anchors"]:
+		if visited.has(id) or not r.by_id.has(id):
+			continue
+		if not r.view.has(id):
+			_add_cut(cut, id, "anchor_not_visible")
+			continue
+		frontier.append(id)
+		var why: Variant = r.fence_cut(id, recipe)
+		if why != null:
+			_add_cut(cut, id, why)
+		else:
+			list.append(id)
+	var passes := func(id: String) -> bool:
+		var why: Variant = r.fence_cut(id, recipe)
+		if why == null and not r.keeps(id, recipe):
+			why = "types"
+		if why == null:
+			why = r.window_cut(id, recipe)
+		if why != null:
+			_add_cut(cut, id, why)
+		return why == null
+	if not a["anchored"]:
+		# A filter: every element of its types the reader can see; others are not selected and not counted.
+		var selected := []
+		for id in r.order:
+			if r.view.has(id) and not visited.has(id) and r.keeps(id, recipe):
+				selected.append(id)
+		list.append_array(r.sort(selected.filter(passes)))
+	elif recipe["depth"] >= 1:
+		var excluded := func(id: String) -> bool: return anchor_set.has(id) or child_set.has(id) or visited.has(id)
+		var reach := r.reach(frontier, excluded)
+		var hop: Dictionary = reach[0]
+		list.append_array(r.sort(hop.keys().filter(passes)))
+		if r.owner:
+			for id in r.unseen(frontier, reach[1], excluded):
+				_add_cut(cut, id, "not_visible")
+		if recipe["depth"] == 2:
+			var past := func(id: String) -> bool: return excluded.call(id) or hop.has(id)
+			for id in r.reach(hop.keys(), past)[0]:
+				_add_cut(cut, id, "hops_not_served")
+	var out := []
+	for id in list:
+		out.append([id, r.row(id, recipe["show"], recipe["notes"] if anchor_set.has(id) else null)])
+	for child in a["children"]:
+		if visited.has(child):
+			continue
+		visited[child] = true
+		var body: Dictionary = r.by_id[child]
+		var read := _read_recipe(body.get(FIELD))
+		if not read.has("recipe") or is_template(body):
+			continue
+		var sub := _resolve_one(body, read["recipe"], r, visited)
+		out.append_array(sub["list"])
+		for id in sub["cut"]:
+			_add_cut(cut, id, sub["cut"][id])
+	return {"list": out, "cut": cut}
+
+static func _add_cut(cut: Dictionary, id: String, why: String) -> void:
+	if not cut.has(id):
+		cut[id] = why
+
+## The mail rule, through the message profile's readers over the reader's view: the messages addressed to its Character
+## and not its own, thirty days on created_at before the clock, the newest kept up to the budget.
+static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictionary:
+	var part := {"unread": [], "read": [], "rows": [], "cut": {}, "totals": {"unread": 0, "read": 0}}
+	if r.character == null:
+		return part
+	var messages := []
+	var relations := []
+	for id in r.order:
+		if not r.view.has(id):
+			continue
+		var b := r.body(id)
+		if _is_message(b):
+			messages.append(b)
+		if r.type_of[id] == "relation":
+			relations.append(b)
+	var mark: Variant = _read_mark_of(relations, r.character, r.members)
+	var mine := _unread_for(messages, r.character, null, r.members)
+	var unread := {}
+	for m in _unread_for(messages, r.character, mark, r.members):
+		unread[m.get("id")] = true
+	var lower := clock - _MAIL_MICROS
+	var in_window := []
+	for m in mine:
+		var at: Variant = time_key(m.get("created_at"))
+		if at != null and at >= lower:
+			in_window.append(m)
+	var kept := in_window.slice(maxi(0, in_window.size() - budget))
+	if in_window.size() > kept.size():
+		part["cut"]["budget"] = in_window.size() - kept.size()
+	if mine.size() > in_window.size():
+		part["cut"]["window"] = mine.size() - in_window.size()
+	for m in kept:
+		var is_unread := unread.has(m.get("id"))
+		part["unread" if is_unread else "read"].append(m.get("id"))
+		if mode == "all" or is_unread:
+			part["rows"].append(m.duplicate(true))
+		else:
+			part["rows"].append({"id": m.get("id"), "name": m.get("name"), "narrator": m.get("narrator"),
+				"created_at": m.get("created_at")})
+	part["totals"] = {"unread": unread.size(), "read": mine.size() - unread.size()}
+	return part
+
+# -- the message profile's readers the mail rule reads (the npm SDK's message.ts, ported for the lens alone) -----------
+
+static func _matches_pair(el: Variant, type: String, supertype: String) -> bool:
+	if not (el is Dictionary and el.get("type") is String and el.get("supertype") is String):
+		return false
+	return OWUnicode.profile_fold(el["type"]) == type and OWUnicode.profile_fold(el["supertype"]) == OWUnicode.profile_fold(supertype)
+
+static func _is_message(el: Variant) -> bool:
+	return _matches_pair(el, "narrative", "Message")
+
+static func _is_note(el: Variant) -> bool:
+	return _matches_pair(el, "narrative", "Note")
+
+## Two JSON values the same: the same type and equal (a membership id is a string, or null for the owner).
+static func _same(a: Variant, b: Variant) -> bool:
+	return typeof(a) == typeof(b) and a == b
+
+## The Character a membership plays on the members list (its row by id, null the owner's), or null.
+static func _character_of(membership: Variant, members: Variant) -> Variant:
+	if not (members is Array):
+		return null
+	for row in members:
+		if row is Dictionary and row.has("id") and _same(row["id"], membership):
+			var c: Variant = row.get("character")
+			return c if c is String and c != "" else null
+	return null
+
+## The Character of the hand that wrote a body: its created_by on the members list; null with no created_by key.
+static func _hand_of(body: Dictionary, members: Variant) -> Variant:
+	return _character_of(body["created_by"], members) if body.has("created_by") else null
+
+static func _has_unseen_recipients(m: Dictionary) -> bool:
+	if _is_note(m):
+		return false
+	var mark: Variant = m.get("x_served_trimmed")
+	return mark is Array and mark.has("characters")
+
+static func _is_to_everyone(m: Dictionary) -> bool:
+	if _is_note(m) or _has_unseen_recipients(m):
+		return false
+	var list: Variant = m.get("characters")
+	return list == null or (list is Array and list.is_empty())
+
+static func _is_addressed_to(m: Variant, character: String) -> bool:
+	if not (m is Dictionary) or _is_note(m) or character == "":
+		return false
+	if _is_to_everyone(m):
+		return true
+	var list: Variant = m.get("characters")
+	return list is Array and list.has(character)
+
+## The message's sender is the Character, proved: no created_by key trusts the narrator (a folder, an export); with
+## one, the author's Character on the members list must be the narrator and the Character.
+static func _is_own_hand(m: Dictionary, character: String, members: Variant) -> bool:
+	var narrator: Variant = m.get("narrator")
+	if not m.has("created_by"):
+		return narrator is String and narrator == character
+	if not (narrator is String) or narrator == "":
+		return false
+	var hand: Variant = _hand_of(m, members)
+	return hand != null and hand == narrator and narrator == character
+
+## The reader's read mark among the Relations: a Relation with supertype Read whose actor is the reader, in its own hand
+## (created_by its Character; changed_by, when carried, equal to created_by); the newest updated_at of those that count.
+static func _read_mark_of(relations: Array, character: String, members: Variant) -> Variant:
+	var mark: Variant = null
+	var mark_key: Variant = null
+	for rel in relations:
+		if not _matches_pair(rel, "relation", "Read") or not (rel.get("actor") is String and rel["actor"] == character):
+			continue
+		var has_author: bool = rel.has("created_by")
+		if rel.has("changed_by") and (not has_author or not _same(rel["changed_by"], rel["created_by"])):
+			continue
+		if has_author and _hand_of(rel, members) != character:
+			continue
+		var key: Variant = time_key(rel.get("updated_at"))
+		if mark == null or (key != null and (mark_key == null or key > mark_key)):
+			mark = rel
+			mark_key = key
+	return mark
+
+## The messages addressed to the Character, not its own, not on its read mark, in created_at order.
+static func _unread_for(messages: Array, character: String, read_mark: Variant, members: Variant) -> Array:
+	var read := {}
+	if read_mark is Dictionary and read_mark.get("narratives") is Array:
+		for id in read_mark["narratives"]:
+			if id is String:
+				read[id] = true
+	var out := []
+	for m in messages:
+		if m is Dictionary and _is_addressed_to(m, character) and not _is_own_hand(m, character, members) \
+				and not read.has(m.get("id")):
+			out.append(m)
+	return _in_created_order(out)
+
+## By created_at; equal times keep the input's order; unreadable times last, in the input's order. Never by id.
+static func _in_created_order(items: Array) -> Array:
+	var keyed := []
+	for i in items.size():
+		keyed.append([items[i], i, time_key(items[i].get("created_at"))])
+	keyed.sort_custom(func(a, b) -> bool:
+		if a[2] != null and b[2] != null:
+			return a[2] < b[2] if a[2] != b[2] else a[1] < b[1]
+		if a[2] != null:
+			return true
+		if b[2] != null:
+			return false
+		return a[1] < b[1])
+	return keyed.map(func(e): return e[0])
+
+## A time as microseconds since 1970-01-01 UTC, or null when unreadable: the profiles' RFC 3339 rule
+## ([code]YYYY-MM-DDTHH:MM:SS[/code], an optional fraction (microseconds kept), then [code]Z[/code],
+## [code]+HH:MM[/code], [code]-HH:MM[/code] or nothing, read as UTC; [code]T[/code] and [code]Z[/code] in either case;
+## the date must exist; ASCII digits only, the whole string, nothing trimmed), as the npm and Python packages read it.
+static func time_key(value: Variant) -> Variant:
+	if not (value is String):
+		return null
+	if _date_time == null:
+		_date_time = RegEx.create_from_string("^([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\\.([0-9]+))?(?:[Zz]|([+-])([0-9]{2}):([0-9]{2}))?\\z")
+	var m := _date_time.search(value)
+	if m == null:
+		return null
+	var y := m.get_string(1).to_int()
+	var mo := m.get_string(2).to_int()
+	var d := m.get_string(3).to_int()
+	var h := m.get_string(4).to_int()
+	var mi := m.get_string(5).to_int()
+	var s := m.get_string(6).to_int()
+	var leap := y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
+	var days_in := [31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+	if mo < 1 or mo > 12 or d < 1 or d > days_in[mo - 1] or h > 23 or mi > 59 or s > 59:
+		return null
+	var offset := 0
+	if m.get_start(8) >= 0:
+		var oh := m.get_string(9).to_int()
+		var om := m.get_string(10).to_int()
+		if oh > 23 or om > 59:
+			return null
+		offset = (oh * 3600 + om * 60) * (-1 if m.get_string(8) == "-" else 1)
+	var micros := (m.get_string(7) + "000000").substr(0, 6).to_int() if m.get_start(7) >= 0 else 0
+	return (_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s - offset) * 1000000 + micros
+
+## Days from 1970-01-01 to a proleptic Gregorian date (exact integer arithmetic, years 0000-9999).
+static func _days_from_civil(y: int, m: int, d: int) -> int:
+	var yy := y - 1 if m <= 2 else y
+	var era := _floor_div(yy, 400)
+	var yoe := yy - era * 400
+	var doy := _floor_div(153 * (m + (-3 if m > 2 else 9)) + 2, 5) + d - 1
+	var doe := yoe * 365 + _floor_div(yoe, 4) - _floor_div(yoe, 100) + doy
+	return era * 146097 + doe - 719468
+
+static func _floor_div(a: int, b: int) -> int:
+	var q := a / b
+	return q - 1 if (a % b != 0) and ((a < 0) != (b < 0)) else q
+
+# -- the room profile's matcher and the schema's links ------------------------------------------------------------------
+
+## A room element: its type and supertype, trimmed and folded, one of the room profile's pairs, and a non-empty
+## [code]x_room_of[/code]. Both, always.
+static func _is_room_element(el: Dictionary) -> bool:
+	var type: Variant = el.get("type")
+	var supertype: Variant = el.get("supertype")
+	var mark: Variant = el.get("x_room_of")
+	if not (type is String and supertype is String and mark is String) or mark == "":
+		return false
+	return ROOM_PAIRS.has(OWUnicode.profile_fold(type) + "/" + OWUnicode.profile_fold(supertype))
+
+## A type's link fields in the schema's order, each [field, is_list], from the generated models (a generic link's id
+## key is a single link, its type key text).
+static func link_fields_of(type: String) -> Array:
+	if _link_table.is_empty():
+		for slug in OWTypes.SCRIPTS:
+			var fields: Dictionary = OWTypes.SCRIPTS[slug].get_script_constant_map()["FIELDS"]
+			var out := []
+			for name in fields:
+				var kind: String = fields[name][0]
+				if kind == "multi":
+					out.append([name, true])
+				elif kind == "single" or (kind == "generic" and name.ends_with("_id")):
+					out.append([name, false])
+			_link_table[slug] = out
+	return _link_table.get(type, [])
+
+static func _type_rank(type: String) -> int:
+	if _rank.is_empty():
+		var slugs := OWTypes.slugs()
+		for i in slugs.size():
+			_rank[slugs[i]] = i
+	return _rank[type]
+
+## What one reader is served of a world: every element by id, what it sees, the bodies it is served, and the hop.
+class View:
+	var by_id := {}
+	var type_of := {}
+	var order := PackedStringArray()
+	var view := {}
+	var stubs := {}
+	var room := {}
+	## The ids under the hidden mark: the world's hidden list and each element's own hidden.
+	var hidden := {}
+	## The ids written as proposed, which no reader's view holds.
+	var proposed := {}
+	## The rung whose view is read: the reader's own, or on an owner the rung of the reader it reads as.
+	var seen_rung := ""
+	var owner := false
+	var character: Variant = null
+	var members: Variant = null
+	var as_of: Variant = null
+	var _served := {}
+	var _full := {}
+	var _in_view := {}
+	var _in_full := {}
+
+	func _init(world: Dictionary, reader: Dictionary, p_as_of: Variant) -> void:
+		var listed_hidden: Variant = world.get("hidden")
+		if listed_hidden is Array:
+			for id in listed_hidden:
+				if id is String:
+					hidden[id] = true
+		for el in world["elements"]:
+			if not (el is Dictionary) or not (el.get("id") is String) or el["id"] == "" or by_id.has(el["id"]):
+				continue
+			var type: String = OWUnicode.profile_fold(el["type"]) if el.get("type") is String else ""
+			if not OWTypes.SCRIPTS.has(type):
+				continue
+			var id: String = el["id"]
+			by_id[id] = el
+			type_of[id] = type
+			order.append(id)
+			var mark: Variant = el.get("hidden")
+			if mark != null and not (mark is bool and mark == false):
+				hidden[id] = true
+			if OWLens._is_room_element(el):
+				room[id] = true
+		owner = reader["rung"] == "owner"
+		var seen: Dictionary = reader["as"] if owner and reader.get("as") != null else reader
+		seen_rung = seen["rung"]
+		var c: Variant = seen.get("character")
+		character = c if c is String and c != "" else null
+		var whole_ids := _listed(seen.get("whole"))
+		var known_of := _listed(seen.get("known_of"))
+		for id in order:
+			if by_id[id].get("x_review_proposed") != null:
+				proposed[id] = true
+				continue
+			var sees := false
+			match seen_rung:
+				"owner":
+					sees = true
+				"contributor":
+					sees = not hidden.has(id)
+				"public":
+					sees = not hidden.has(id) and not room.has(id)
+				_:
+					sees = whole_ids.has(id) or known_of.has(id)
+					if not whole_ids.has(id) and known_of.has(id):
+						stubs[id] = true
+			if sees:
+				view[id] = true
+		members = world["members"] if world.get("members") is Array else null
+		as_of = p_as_of
+		for id in order:
+			for t in full_links(id):
+				if by_id.has(t):
+					if not _in_full.has(t):
+						_in_full[t] = []
+					_in_full[t].append(id)
+			if not view.has(id):
+				continue
+			for t in links(id):
+				if not _in_view.has(t):
+					_in_view[t] = []
+				_in_view[t].append(id)
+
+	static func _listed(v: Variant) -> Dictionary:
+		var out := {}
+		if v is Array or v is PackedStringArray:
+			for i in v:
+				if i is String:
+					out[i] = true
+		return out
+
+	## The ids the element's owner-served body links to, in the schema's field order, each once.
+	func full_links(id: String) -> PackedStringArray:
+		if _full.has(id):
+			return _full[id]
+		var el: Dictionary = by_id[id]
+		var out := PackedStringArray()
+		for lf in OWLens.link_fields_of(type_of[id]):
+			var v: Variant = el.get(lf[0])
+			for t in (v if v is Array else []) if lf[1] else [v]:
+				if t is String and t != "" and not out.has(t):
+					out.append(t)
+		_full[id] = out
+		return out
+
+	## The ids the element's served body links to: its links inside the view; a stub carries none.
+	func links(id: String) -> PackedStringArray:
+		var out := PackedStringArray()
+		if stubs.has(id):
+			return out
+		for t in full_links(id):
+			if view.has(t):
+				out.append(t)
+		return out
+
+	## The body this reader is served, a copy: a stub for a known-of element, the links outside the view left out (and
+	## named in x_served_trimmed on a message or a lens).
+	func body(id: String) -> Dictionary:
+		if _served.has(id):
+			return _served[id]
+		var el: Dictionary = by_id[id]
+		var type: String = type_of[id]
+		var b := {}
+		if stubs.has(id):
+			var link_names := {}
+			for lf in OWLens.link_fields_of(type):
+				link_names[lf[0]] = true
+			var keep := {}
+			for f in OWLens.STUB_FIELDS:
+				keep[f] = true
+			for f in OWLens.PUBLIC_FIELDS.get(type, []):
+				if not link_names.has(f):
+					keep[f] = true
+			for k in el:
+				if keep.has(k):
+					b[k] = el[k].duplicate(true) if el[k] is Dictionary or el[k] is Array else el[k]
+			b["known_of"] = true
+		else:
+			b = el.duplicate(true)
+			var trimmed := []
+			for lf in OWLens.link_fields_of(type):
+				var field: String = lf[0]
+				if not b.has(field):
+					continue
+				var v: Variant = b[field]
+				if lf[1]:
+					if not (v is Array):
+						continue
+					var kept := []
+					for t in v:
+						if t is String:
+							if view.has(t):
+								kept.append(t)
+							elif not trimmed.has(field):
+								trimmed.append(field)
+					b[field] = kept
+				elif v is String and not view.has(v):
+					b[field] = null
+					trimmed.append(field)
+			if not trimmed.is_empty() and (OWLens._is_message(b) or OWLens.is_lens(b)):
+				var mark: Array = b["x_served_trimmed"].duplicate() if b.get("x_served_trimmed") is Array else []
+				for f in trimmed:
+					if not mark.has(f):
+						mark.append(f)
+				b["x_served_trimmed"] = mark
+		_served[id] = b
+		return b
+
+	## One hop from each element of [param from], both ways, and on through each Relation it lands on to that
+	## Relation's parties: [reached (an ordered set), the Relations crossed].
+	func reach(from: Array, excluded: Callable) -> Array:
+		var landed := {}
+		for f in from:
+			if stubs.has(f) or room.has(f):
+				continue
+			for t in links(f):
+				if not excluded.call(t):
+					landed[t] = true
+			for t in _in_view.get(f, []):
+				if not excluded.call(t):
+					landed[t] = true
+		var reached := landed.duplicate()
+		var edges := []
+		for r in landed:
+			if type_of[r] != "relation" or stubs.has(r) or room.has(r):
+				continue
+			edges.append(r)
+			for t in links(r):
+				if not excluded.call(t):
+					reached[t] = true
+		return [reached, edges]
+
+	## What one hop from [param from] would reach in the owner's world that this reader's view leaves out.
+	func unseen(from: Array, landed_relations: Array, excluded: Callable) -> Array:
+		var out := {}
+		for f in from:
+			if stubs.has(f) or room.has(f):
+				continue
+			for t in full_links(f):
+				_consider(t, excluded, out)
+			for t in _in_full.get(f, []):
+				_consider(t, excluded, out)
+		for r in landed_relations:
+			for t in full_links(r):
+				_consider(t, excluded, out)
+		return out.keys()
+
+	func _consider(t: String, excluded: Callable, out: Dictionary) -> void:
+		if by_id.has(t) and not view.has(t) and not excluded.call(t):
+			out[t] = true
+
+	## The fence (keel's as_of, on the element's own date) and undated.
+	func fence_cut(id: String, recipe: Dictionary) -> Variant:
+		var field: Variant = OWLens.DATE_FIELD.get(type_of[id])
+		if field == null:
+			return null
+		var d: Variant = OWLens.whole(by_id[id].get(field))
+		if d == null:
+			return "undated" if recipe["undated"] == "exclude" else null
+		return "after_as_of" if as_of != null and d > as_of else null
+
+	## window, or from and to (closed-open). A to after as_of is clipped: the fence stays the upper edge.
+	func window_cut(id: String, recipe: Dictionary) -> Variant:
+		var field: Variant = OWLens.DATE_FIELD.get(type_of[id])
+		if field == null:
+			return null
+		var d: Variant = OWLens.whole(by_id[id].get(field))
+		if d == null:
+			return null
+		if recipe["window"] != null and as_of != null and d < as_of - recipe["window"]:
+			return "window"
+		if recipe["from"] != null and d < recipe["from"]:
+			return "window"
+		if recipe["to"] != null and d >= recipe["to"]:
+			return "window"
+		return null
+
+	## Whether types keeps the element: a room element only when its pair is named, any other by its type (or any type
+	## when types is empty).
+	func keeps(id: String, recipe: Dictionary) -> bool:
+		var types: Dictionary = recipe["types"]
+		if room.has(id):
+			var el: Dictionary = by_id[id]
+			return types.has(OWUnicode.profile_fold(el["type"]) + "/" + OWUnicode.profile_fold(el["supertype"]))
+		return types.is_empty() or types.has(type_of[id])
+
+	## Rule 5's order past the anchors: the schema's type order, newest updated_at first (an unreadable time last),
+	## then by id by code point.
+	func sort(ids: Array) -> Array:
+		var keyed := []
+		for id in ids:
+			keyed.append([id, OWLens._type_rank(type_of[id]), OWLens.time_key(by_id[id].get("updated_at"))])
+		keyed.sort_custom(func(a, b) -> bool:
+			if a[1] != b[1]:
+				return a[1] < b[1]
+			if a[2] != null and b[2] != null:
+				if a[2] != b[2]:
+					return a[2] > b[2]
+			elif a[2] != null:
+				return true
+			elif b[2] != null:
+				return false
+			return a[0] < b[0])
+		return keyed.map(func(e): return e[0])
+
+	func row(id: String, show: String, notes: Variant) -> Dictionary:
+		var b := body(id)
+		var out: Dictionary
+		if show == "full":
+			out = b.duplicate(true)
+		else:
+			out = {"id": b.get("id"), "type": b.get("type"), "name": b.get("name")}
+			if show == "first_line" and b.get("description") is String:
+				var text: String = b["description"]
+				var cut := -1
+				for i in text.length():
+					var c := text.unicode_at(i)
+					if c == 0x0A or c == 0x0D:
+						cut = i
+						break
+				out["description"] = text if cut < 0 else text.substr(0, cut)
+		if notes != null and notes.has(id):
+			out["note"] = notes[id]
+		return out
+
 # -- the pair -----------------------------------------------------------------------------------------------------------
 
 ## True when [param element] is a lens: a Construct with supertype [code]Lens[/code], each word trimmed (Unicode

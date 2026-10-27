@@ -5,6 +5,10 @@ extends RefCounted
 ## graph kind is test_lens_graph.gd's. The profile's tables are held equal to the fixture's and to the generated models.
 
 const P = preload("res://tests/paths.gd")
+## The npm SDK's and the Python package's shared edge cases (npm 4.96.1's test/fixtures/lens-edges.json, byte for byte;
+## both suites hold this sha256), answers written by hand.
+const EDGES := "res://tests/data/lens-edges.json"
+const EDGES_SHA256 := "5ee70fe31868a36e1a97b516d8e65700a385fbc7212bbc87f5955e4441b038f6"
 
 var _doc: Dictionary
 
@@ -18,6 +22,12 @@ func get_cases() -> Array:
 	for c in _fixture()["cases"]:
 		if c["kind"] in ["shape", "keys", "uses"]:
 			out.append(["lens:" + c["name"], _case.bind(c)])
+		elif c["kind"] == "resolve":
+			out.append(["lens:" + c["name"], _resolves.bind(c)])
+		elif c["kind"] == "invariant":
+			out.append(["lens:" + c["name"], _holds.bind(c)])
+	for e in _edges():
+		out.append(["lens-edges:" + e["name"], _edge.bind(e)])
 	return out
 
 func _case(t, c: Dictionary) -> void:
@@ -92,4 +102,215 @@ func test_whole(t) -> void:
 	for v in [1.5, NAN, INF, -INF, 9223372036854775808.0, -9223372036854775808.0 * 2.0, 1e300, true, false, "12", null, [3], {"year": 3}]:
 		t.eq(OWLens.whole(v), null, "not whole: %s" % var_to_str(v))
 	t.eq(OWLens.whole(-9223372036854775808.0), -9223372036854775807 - 1, "-2^63 is the last 64-bit whole number")
+	t.done()
+
+# -- the replay ---------------------------------------------------------------------------------------------------------
+
+func _edges() -> Array:
+	return JSON.parse_string(FileAccess.get_file_as_string(EDGES))
+
+## A fixture reader by name: its rung, its character, a guest's lists; [code]as[/code] (a reader's name in the
+## fixture) is the owner reading as that reader.
+func _reader(world: Dictionary, name: String) -> Dictionary:
+	var r: Dictionary = world["readers"][name].duplicate(true)
+	if r.has("as"):
+		r["as"] = _reader(world, r["as"])
+	return r
+
+func _options(c: Dictionary) -> Dictionary:
+	var o := {}
+	if c.get("as_of") != null:
+		o["as_of"] = c["as_of"]
+	if c.get("clock") != null:
+		o["clock"] = c["clock"]
+	return o
+
+func _resolve(world: Dictionary, c: Dictionary, reader: Dictionary) -> OWLens.Reading:
+	return OWLens.resolve(world, c["lens"], reader, _options(c))
+
+## A fixture value with every whole float as an int, so a count of 2.0 and a reading's 2 compare equal.
+static func _ints(v: Variant) -> Variant:
+	match typeof(v):
+		TYPE_FLOAT:
+			return int(v) if OWLens.whole(v) != null else v
+		TYPE_ARRAY, TYPE_PACKED_STRING_ARRAY:
+			var out := []
+			for x in v:
+				out.append(_ints(x))
+			return out
+		TYPE_DICTIONARY:
+			var out := {}
+			for k in v:
+				out[k] = _ints(v[k])
+			return out
+	return v
+
+func _names(world: Dictionary, ids: PackedStringArray) -> String:
+	var by := {}
+	for e in world["elements"]:
+		by[e["id"]] = e.get("name")
+	var out := PackedStringArray()
+	for i in ids:
+		out.append(str(by.get(i, i)))
+	return ", ".join(out)
+
+## The reading's keys the case names, compared as the fixture spells them (mail: only its keys the case names).
+func _check(t, got: OWLens.Reading, want: Dictionary, world: Dictionary) -> void:
+	t.eq(got.error, "", "no caller's mistake")
+	var all: Dictionary = _ints(got.to_dict())
+	for k in want:
+		if k == "kept":
+			t.eq(got.kept, PackedStringArray(want["kept"]), "kept [%s], want [%s]" % [_names(world, got.kept), _names(world, PackedStringArray(want["kept"]))])
+		elif k == "mail" and want["mail"] != null and all["mail"] != null:
+			for m in want["mail"]:
+				t.eq(all["mail"].get(m), _ints(want["mail"][m]), "mail." + m)
+		else:
+			t.eq(all.get(k), _ints(want[k]), k)
+
+func _resolves(t, c: Dictionary) -> void:
+	var world: Dictionary = _fixture()["worlds"][c["world"]]
+	var got := _resolve(world, c, _reader(world, c["reader"]))
+	var want := {}
+	for k in ["kept", "cut", "rows", "notes_ignored", "mail"]:
+		if c.has(k):
+			want[k] = c[k]
+	t.eq(got.unreadable, null, "readable")
+	_check(t, got, want, world)
+	t.done()
+
+func _edge(t, e: Dictionary) -> void:
+	_check(t, _resolve(e["world"], e, e["reader"]), e["want"], e["world"])
+	t.done()
+
+func _holds(t, c: Dictionary) -> void:
+	var world: Dictionary = _fixture()["worlds"][c["world"]]
+	match c["claim"]:
+		"subset":
+			var owner := _resolve(world, c, _reader(world, "owner"))
+			var secrets := PackedStringArray(c["secrets"])
+			for e in world["elements"]:
+				if PackedStringArray(c["secrets"]).has(e["id"]):
+					secrets.append(e["name"])
+			for r in c["readers"]:
+				var reader := _reader(world, r)
+				var got := _resolve(world, c, reader)
+				for i in got.kept:
+					t.ok(owner.kept.has(i), "%s keeps %s, which the owner does not" % [r, i])
+				if world["readers"][r]["rung"] == "owner":
+					continue
+				var text := JSON.stringify(got.to_dict())
+				for s in secrets:
+					t.ok(not text.contains(s), "%s's reading names the secret %s" % [r, s])
+				t.ok(owner.cut.is_empty() or owner.cut != got.cut, "%s's counts are the owner's" % r)
+		"same_without":
+			var without := PackedStringArray(c["without"])
+			var less := world.duplicate(true)
+			less["elements"] = world["elements"].filter(func(e): return not without.has(e["id"]))
+			for r in c["readers"]:
+				var a := JSON.stringify(_resolve(world, c, _reader(world, r)).to_dict())
+				var b := JSON.stringify(_resolve(less, c, _reader(less, r)).to_dict())
+				t.eq(b, a, "%s reads the same without %s" % [r, without])
+		"unchanged":
+			var before := JSON.stringify(world, "", false, true)
+			for r in c["readers"]:
+				_resolve(world, c, _reader(world, r))
+			t.eq(JSON.stringify(world, "", false, true), before, "no reading moved the world")
+		_:
+			t.fail("a claim of unknown kind %s" % c["claim"])
+	t.done()
+
+func test_the_edge_file_is_the_packages(t) -> void:
+	t.eq(FileAccess.get_sha256(EDGES), EDGES_SHA256, "npm 4.96.1's and the Python package's bytes")
+	t.eq(_edges().size(), 11, "11 cases")
+	t.done()
+
+# -- beyond the fixture -------------------------------------------------------------------------------------------------
+
+## The links a hop reads come from the generated models: single links and lists, never a scalar; the pin's generic
+## link by its id key. The anchor fields are the Construct's link lists in the schema's order, less titles.
+func test_the_link_fields_are_the_generated_models(t) -> void:
+	var character := OWLens.link_fields_of("character")
+	t.eq(character.filter(func(l): return not l[1]).map(func(l): return l[0]), ["birthplace", "location"], "the Character's single links")
+	t.ok(character.has(["family", true]), "family is a list")
+	t.ok(OWLens.link_fields_of("location").map(func(l): return l[0]).has("primary_power"), "a Location's primary_power")
+	t.ok(not OWLens.link_fields_of("location").map(func(l): return l[0]).has("founding_date"), "a date is no link")
+	t.ok(not OWLens.link_fields_of("zone").map(func(l): return l[0]).has("shape"), "a shape is no link")
+	t.eq(OWLens.link_fields_of("pin"), [["map", false], ["element_id", false]], "the pin: map, and the generic link's id")
+	t.eq(OWLens.link_fields_of("relation")[0], ["actor", false], "the Relation's actor first")
+	t.eq(OWLens.link_fields_of("not-a-type"), [], "no type, no links")
+	var lists := OWLens.link_fields_of("construct").filter(func(l): return l[1] and l[0] != "titles").map(func(l): return l[0])
+	t.eq(lists, OWLens.ANCHOR_FIELDS, "the anchor fields are the Construct's link lists less titles")
+	t.done()
+
+## A stub's public fields are presentation.json's types.<type>.public, every type.
+func test_the_stub_fields_are_the_presentations(t) -> void:
+	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
+	var want := {}
+	for type in pres["types"]:
+		var pub: Variant = pres["types"][type].get("public")
+		if pub is Array and not pub.is_empty():
+			want[type] = pub
+	t.eq(want, OWLens.PUBLIC_FIELDS, "presentation.json's public fields")
+	t.done()
+
+func test_an_unreadable_lens_names_its_key_and_resolves_nothing(t) -> void:
+	var vale: Dictionary = _fixture()["worlds"]["vale"]
+	var lens := {"id": "L", "type": "construct", "supertype": "Lens", "characters": ["019a7f00-0000-7000-8000-000000000001"],
+		"x_lens": {"depth": 3}}
+	var got := OWLens.resolve(vale, lens, {"rung": "owner"})
+	t.eq(got.unreadable, "depth", "the key refused")
+	t.eq(got.kept, PackedStringArray(), "nothing kept")
+	t.eq(got.cut, {}, "nothing cut")
+	t.done()
+
+## A doubt (any value but null in x_review_proposed) is in no reader's view, the owner's included.
+func test_a_proposed_doubt_is_in_no_view(t) -> void:
+	var world := {"elements": [
+		{"id": "c1", "type": "character", "name": "Ada", "location": "p1"},
+		{"id": "p1", "type": "location", "name": "Doubtful Keep", "x_review_proposed": "unsure"}]}
+	var lens := {"id": "L", "type": "construct", "supertype": "Lens", "characters": ["c1"]}
+	var got := OWLens.resolve(world, lens, {"rung": "owner"})
+	t.eq(got.kept, PackedStringArray(["c1"]), "a doubt is not there to hop to")
+	t.eq(got.cut, {"not_visible": 1}, "the owner counts it")
+	t.done()
+
+func test_an_element_of_no_standard_type_is_not_in_the_world(t) -> void:
+	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}, {"id": "w1", "type": "widget"},
+		{"id": "n1", "name": "No type"}, "not a body", {"id": 3, "type": "character"}]}
+	var got := OWLens.resolve(world, {"id": "L", "type": "construct", "supertype": "Lens"}, {"rung": "owner"})
+	t.eq(got.kept, PackedStringArray(["c1"]), "a filter keeps only the standard's types")
+	t.done()
+
+func test_an_element_that_is_not_a_lens_resolves_to_nothing(t) -> void:
+	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}]}
+	var got := OWLens.resolve(world, {"id": "k1", "type": "construct", "supertype": "Charter", "characters": ["c1"],
+		"x_lens": {"depth": 9}}, {"rung": "owner"})
+	t.eq(got.unreadable, null, "its x_lens is never read")
+	t.eq(got.kept, PackedStringArray(), "nothing kept")
+	t.done()
+
+## The npm SDK 4.93.1's vector: a lens a guest knows only as a stub, named by its id, reads as nothing; whole, it reads.
+func test_a_lens_a_guest_knows_only_as_a_stub_reads_as_nothing(t) -> void:
+	var world := {"elements": [
+		{"id": "L", "type": "construct", "name": "Ada and hers", "supertype": "Lens", "characters": ["c1"], "x_lens": {"depth": 1}},
+		{"id": "c1", "type": "character", "name": "Ada", "friends": ["c2"]},
+		{"id": "c2", "type": "character", "name": "Bo"}]}
+	var stub := OWLens.resolve(world, "L", {"rung": "guest", "whole": ["c1", "c2"], "known_of": ["L"]})
+	t.eq(stub.kept, PackedStringArray(), "a stub lens keeps nothing")
+	t.eq(stub.cut, {}, "and cuts nothing")
+	t.eq(stub.unreadable, null, "a stub lens is not an unreadable one")
+	t.eq(OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L", "c1", "c2"]}).kept, PackedStringArray(["c1", "c2"]), "whole, it reads")
+	t.done()
+
+## A caller's mistake is no reading: the message names it, and nothing is resolved.
+func test_a_callers_mistake_is_named(t) -> void:
+	var world := {"elements": []}
+	var lens := {"id": "L", "type": "construct", "supertype": "Lens"}
+	t.ok(OWLens.resolve({"no": "elements"}, lens, {"rung": "owner"}).error.contains("world"), "a world without elements")
+	t.ok(OWLens.resolve(world, lens, {"rung": "king"}).error.contains("rung"), "a rung outside the four")
+	t.ok(OWLens.resolve(world, lens, {"rung": "owner", "as": {"rung": "x"}}).error.contains("rung"), "an as outside the four")
+	t.ok(OWLens.resolve(world, 3, {"rung": "owner"}).error.contains("lens"), "a lens neither a body nor an id")
+	t.ok(OWLens.resolve(world, lens, {"rung": "owner"}, {"as_of": 1.5}).error.contains("as_of"), "an as_of not whole")
+	t.ok(OWLens.resolve(world, lens, {"rung": "owner"}, {"clock": "yesterday"}).error.contains("clock"), "a clock not a time")
+	t.ok(OWLens.resolve(world, lens, {"rung": "owner"}, {"asOf": 3}).error.contains("asOf"), "an option it does not know")
 	t.done()
