@@ -63,6 +63,17 @@ static func trim_white_space(s: String) -> String:
 		b -= 1
 	return s.substr(a, b - a)
 
+## The profiles' "trimmed and without regard to case" (the room profile defines it once): [method trim_white_space],
+## then the C and S rows of CaseFolding 15.1, code point by code point. No NFC: the npm and Python packages' fold.
+static func profile_fold(s: String) -> String:
+	var t := trim_white_space(s)
+	if is_ascii(t):
+		return t.to_lower()
+	var cps := _to_cps(t)
+	for i in cps.size():
+		cps[i] = D.FOLD.get(cps[i], cps[i])
+	return _from_cps(cps)
+
 ## Unicode's White_Space property (PropList 15.1): 25 code points.
 static func _is_white_space(c: int) -> bool:
 	return (c >= 0x09 and c <= 0x0D) or c == 0x20 or c == 0x85 or c == 0xA0 or c == 0x1680 \
