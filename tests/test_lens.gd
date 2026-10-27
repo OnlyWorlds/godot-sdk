@@ -104,6 +104,58 @@ func test_whole(t) -> void:
 	t.eq(OWLens.whole(-9223372036854775808.0), -9223372036854775807 - 1, "-2^63 is the last 64-bit whole number")
 	t.done()
 
+# -- the date table and date_of (the npm SDK 4.96.0's DATE_FIELD and dateOf, the Python package 0.79.0's date_of) ----
+
+## The table is the fixture's date_table; every type of the standard is dated (12) or timeless (10); each date field is
+## an integer field of its type in the generated models; the table cannot be written to.
+func test_the_date_table_is_the_fixtures(t) -> void:
+	t.eq(_ints(_fixture()["date_table"]), OWLens.DATE_FIELD, "the fixture's date_table")
+	t.eq(OWLens.DATE_FIELD.size(), 12, "twelve dated types")
+	var timeless := 0
+	for slug in OWTypes.slugs():
+		if not OWLens.DATE_FIELD.has(slug):
+			timeless += 1
+	t.eq(timeless, 10, "the ten timeless types")
+	for type in OWLens.DATE_FIELD:
+		var fields: Dictionary = OWTypes.SCRIPTS[type].get_script_constant_map()["FIELDS"]
+		var field: String = OWLens.DATE_FIELD[type]
+		t.ok(fields.has(field) and fields[field][0] == "scalar_int", "%s.%s is an integer field" % [type, field])
+	t.ok(OWLens.DATE_FIELD.is_read_only(), "the table cannot be written to")
+	t.done()
+
+## The whole number in the type's date field, 0 and a date before 0 included, the type trimmed and folded; a number
+## with no fraction is whole (7.0, as JavaScript and the Python package read it).
+func test_date_of_reads_the_whole_number(t) -> void:
+	for type in OWLens.DATE_FIELD:
+		var field: String = OWLens.DATE_FIELD[type]
+		t.eq(OWLens.date_of({"type": type, field: 1204}), 1204, type)
+		t.eq(OWLens.date_of({"type": type, field: 0}), 0, type + " at 0")
+		t.eq(OWLens.date_of({"type": type, field: -40}), -40, type + " before 0")
+	t.eq(OWLens.date_of({"type": " Event ", "start_date": 7}), 7, "the type is trimmed and folded")
+	t.eq(OWLens.date_of({"type": "EVENT", "start_date": 7}), 7, "folded")
+	t.eq(OWLens.date_of(JSON.parse_string("{\"type\":\"event\",\"start_date\":7}")), 7, "a JSON 7, which Godot reads as 7.0")
+	t.eq(OWLens.date_of(JSON.parse_string("{\"type\":\"event\",\"start_date\":7.0}")), 7, "7.0 is whole")
+	t.eq(OWLens.date_of({"type": "event", "start_date": -40.0}), -40, "-40.0 is whole")
+	t.done()
+
+## Null for a timeless type, another type's field, a value that is not a whole number, an absent field, no type, a type
+## that is no type, a known-of stub (it serves no date), and anything that is not an element body.
+func test_date_of_is_null_for_what_is_not_a_date(t) -> void:
+	for type in OWTypes.slugs():
+		if not OWLens.DATE_FIELD.has(type):
+			t.eq(OWLens.date_of({"type": type, "start_date": 5, "birth_date": 5, "date": 5}), null, type)
+	t.eq(OWLens.date_of({"type": "event", "birth_date": 5}), null, "another type's field")
+	for v in [null, "12", 1.5, true, NAN, INF, 1e20, [3], {"year": 3}]:
+		t.eq(OWLens.date_of({"type": "event", "start_date": v}), null, var_to_str(v))
+	t.eq(OWLens.date_of({"type": "event"}), null, "absent")
+	t.eq(OWLens.date_of({"start_date": 5}), null, "no type")
+	t.eq(OWLens.date_of({"type": 3, "start_date": 5}), null, "a type that is not text")
+	t.eq(OWLens.date_of({"type": "constructor", "constructor": 5}), null, "a word that is no type")
+	t.eq(OWLens.date_of({"type": "event", "known_of": true, "name": "A stub"}), null, "a stub serves no date")
+	for v in [null, "event", 3, [{"type": "event", "start_date": 1}]]:
+		t.eq(OWLens.date_of(v), null, var_to_str(v))
+	t.done()
+
 # -- the replay ---------------------------------------------------------------------------------------------------------
 
 func _edges() -> Array:

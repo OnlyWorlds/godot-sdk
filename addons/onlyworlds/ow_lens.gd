@@ -862,6 +862,18 @@ static func is_template(element: Variant) -> bool:
 	var subtype = element.get("subtype")
 	return subtype is String and OWUnicode.profile_fold(subtype) == OWUnicode.profile_fold(TEMPLATE_SUBTYPE)
 
+## An element's date as the lens profile reads it: the whole number ([method whole]) in its type's date field
+## ([constant DATE_FIELD]), in the world's own time unit, as an int. Null for a timeless type, a body with no known
+## [code]type[/code] (trimmed and folded), a date field that is absent, null or not a whole number, and anything that is
+## not an element body. It reads the body it is given: a known-of stub serves no date, so it reads null. A timeline or
+## a horizon can date elements by this exactly as the reader's fence does (the npm SDK's [code]dateOf[/code], the
+## Python package's [code]date_of[/code]).
+static func date_of(element: Variant) -> Variant:
+	if not (element is Dictionary) or not (element.get("type") is String):
+		return null
+	var field: Variant = DATE_FIELD.get(OWUnicode.profile_fold(element["type"]))
+	return null if field == null else whole(element.get(field))
+
 # -- the recipe ---------------------------------------------------------------------------------------------------------
 
 ## Null when [param x_lens] is legal, else the first key refused in the profile's table order ([code]depth[/code],
