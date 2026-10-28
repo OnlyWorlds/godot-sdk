@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json, the pinned copy
-## at dist.83, its sha256 checked against the manifest): every case, the 17 charter readings (charterOf and
+## at dist.84, its sha256 checked against the manifest): every case, the 18 charter readings (charterOf and
 ## domainsOf) and the 5 element cases (isCharterElement), and the profile's tables held equal to the fixture's.
 
 const CHARTER := "res://codegen/schema-dist/profiles/charter.fixture.json"
@@ -49,8 +49,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 22, "22 cases")
-	t.eq(counts, {"charter": 17, "element": 5}, "by kind")
+	t.eq(_fixture()["cases"].size(), 23, "23 cases")
+	t.eq(counts, {"charter": 18, "element": 5}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
