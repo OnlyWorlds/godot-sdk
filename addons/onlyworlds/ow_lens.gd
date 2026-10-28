@@ -196,27 +196,9 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 	if body.get("id") is String:
 		visited[body["id"]] = true
 	var resolved := _resolve_one(body, recipe, r, visited, wall)
-	if recipe["mail"] != "none":
-		reading.mail = _mail_part(r, recipe["mail"], recipe["budget"], wall)
-	var in_mail := {}
-	if reading.mail != null:
-		for id in reading.mail["unread"] + reading.mail["read"]:
-			in_mail[id] = true
-
-	var seen := {}
-	var union := []
-	for e in resolved["list"]:
-		if seen.has(e[0]) or visited.has(e[0]) or in_mail.has(e[0]):
-			continue
-		seen[e[0]] = true
-		union.append(e)
-	var budget: int = recipe["budget"]
-	var keep := union.slice(0, budget)
+	reading.mail = resolved["mail"]
+	var keep: Array = resolved["list"]
 	var cut: Dictionary = resolved["cut"]
-	for e in union.slice(budget):
-		cut[e[0]] = "budget"
-	for e in keep:
-		cut.erase(e[0])
 	for id in visited:
 		cut.erase(id)
 	for why in CUT_REASONS:
@@ -234,9 +216,11 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 	for k in recipe["notes"]:
 		if not anchors.has(k) and r.view.has(k):
 			reading.notes_ignored += 1
-	for e in keep:
-		reading.kept.append(e[0])
-		reading.rows.append(e[1])
+	# The rows are built here only, by this lens's recipe: a row kept through a child shows by the umbrella's show, and
+	# carries a note only when it is the umbrella's own anchor.
+	for id in keep:
+		reading.kept.append(id)
+		reading.rows.append(r.row(id, recipe["show"], recipe["notes"] if anchors.has(id) else null))
 	return [reading, cut]
 
 ## The anchors and the umbrella's children of a lens in its link order, and whether it names any (an anchor field with
@@ -270,10 +254,13 @@ static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 				trimmed = true
 	return {"anchors": anchors, "children": children, "unseen": unseen, "anchored": not seen.is_empty() or trimmed}
 
-## One lens by its own recipe, its children entered once each through the shared visited set: {list: [[id, row]...],
-## cut: id -> its first reason}. An anchor is kept and followed whatever types, window and changed_within say (a
-## reading aid too; a room element is kept and not followed); what a hop or a filter reaches is cut by the fence, then
-## types, then the window, then changed_within, against [param wall], the reading's wall clock.
+## One lens by its own recipe, whole, its children entered once each through the shared visited set and each resolved
+## the same way: {list: the kept ids, cut: id -> its first reason, mail: its mail part or null}. Its own anchors and
+## hops come first, then each child's kept list; its mail rule takes its messages out of that union and its budget caps
+## it, the rest counted budget (keel's reading: a child keeps at most its own budget, and its mail part is not served).
+## An anchor is kept and followed whatever types, window and changed_within say (a reading aid too; a room element is
+## kept and not followed); what a hop or a filter reaches is cut by the fence, then types, then the window, then
+## changed_within, against [param wall], the reading's wall clock.
 static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited: Dictionary, wall: int) -> Dictionary:
 	var cut := {}
 	var a := _anchors_of(lens, r)
@@ -332,9 +319,6 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 			for id in r.reach(hop.keys(), past, stops)[0]:
 				if not (r.room.has(id) or r.aid.has(id)) or r.keeps(id, recipe):
 					_add_cut(cut, id, "hops_not_served")
-	var out := []
-	for id in list:
-		out.append([id, r.row(id, recipe["show"], recipe["notes"] if anchor_set.has(id) else null)])
 	for child in a["children"]:
 		if visited.has(child):
 			continue
@@ -344,10 +328,30 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 		if not read.has("recipe") or is_template(body):
 			continue
 		var sub := _resolve_one(body, read["recipe"], r, visited, wall)
-		out.append_array(sub["list"])
+		list.append_array(sub["list"])
 		for id in sub["cut"]:
 			_add_cut(cut, id, sub["cut"][id])
-	return {"list": out, "cut": cut}
+	# This lens's own mail rule and budget, over its union: a child's kept list arrives already capped by its own.
+	var mail: Variant = null
+	var in_mail := {}
+	if recipe["mail"] != "none":
+		mail = _mail_part(r, recipe["mail"], recipe["budget"], wall)
+		for id in mail["unread"] + mail["read"]:
+			in_mail[id] = true
+	var seen := {}
+	var union := []
+	for id in list:
+		if seen.has(id) or visited.has(id) or in_mail.has(id):
+			continue
+		seen[id] = true
+		union.append(id)
+	var budget: int = recipe["budget"]
+	var keep := union.slice(0, budget)
+	for id in union.slice(budget):
+		cut[id] = "budget"
+	for id in keep:
+		cut.erase(id)
+	return {"list": keep, "cut": cut, "mail": mail}
 
 static func _add_cut(cut: Dictionary, id: String, why: String) -> void:
 	if not cut.has(id):
