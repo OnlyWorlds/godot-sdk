@@ -14,6 +14,8 @@ Standard library only. What it reads and writes:
   -> addons/onlyworlds/ow_world_info.gd           world.json's fields (schema.json `world`)
   -> addons/onlyworlds/ow_types.gd                the registry: type slug -> model script
   -> addons/onlyworlds/ow_schema_pin.gd           the pin, for the runtime's own check
+  -> addons/onlyworlds/ow_presentation.gd         each type's default family and icon (presentation.json `types`);
+                                                  codegen/ is not exported with a game, so the runtime reads this
   -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), as GDScript constants
   -> tests/data/unicode_vectors.txt               what Python says NFC and the fold give, for the tests
 
@@ -237,6 +239,43 @@ def emit_pin(pin: dict, version: dict) -> str:
     ])
 
 
+def emit_presentation(presentation: dict, head: str) -> str:
+    out = header(head) + [
+        "class_name OWPresentation",
+        "extends RefCounted",
+        "## Each type's default family and icon: schema-dist presentation.json's [code]types[/code], the first-party",
+        "## defaults (a tool may override them: [method use]). Colour is the tool's, so it is not here.",
+        "",
+        "## Type slug -> {family, icon}, in the sidecar's order.",
+        "const TYPES := {",
+    ]
+    for slug, t in presentation["types"].items():
+        out.append(f'\t"{slug}": {{"family": "{t["family"]}", "icon": "{t["icon"]}"}},')
+    out += [
+        "}",
+        "",
+        "static var _table: Dictionary = TYPES",
+        "",
+        "## The family of [param type] (the lens profile's graph node key).",
+        "static func family_of(type: String) -> String:",
+        '\treturn _table[type]["family"]',
+        "",
+        "## The icon of [param type] (a Material Symbols name).",
+        "static func icon_of(type: String) -> String:",
+        '\treturn _table[type]["icon"]',
+        "",
+        "## Read [param table] (the shape of [constant TYPES]) in place of the defaults, for a tool that overrides them.",
+        "static func use(table: Dictionary) -> void:",
+        "\t_table = table",
+        "",
+        "## Back to the defaults.",
+        "static func reset() -> void:",
+        "\t_table = TYPES",
+        "",
+    ]
+    return "\n".join(out)
+
+
 # -- Unicode --------------------------------------------------------------------------------------------------------
 
 def simple_folds() -> dict[int, int]:
@@ -426,6 +465,8 @@ def outputs() -> dict[Path, str]:
         ADDON / "ow_types.gd": emit_registry(schema, head),
         ADDON / "ow_schema_pin.gd": emit_pin(pin, version),
     }
+    presentation = json.loads((DIST / "presentation.json").read_text(encoding="utf-8"))
+    out[ADDON / "ow_presentation.gd"] = emit_presentation(presentation, head)
     for slug, fields in schema["types"].items():
         out[ADDON / "models" / f"ow_{slug}.gd"] = emit_model(slug, fields, head)
     nfc = nfc_tables_from_files()

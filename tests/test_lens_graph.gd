@@ -63,9 +63,34 @@ func test_the_graph_tables_are_the_fixtures(t) -> void:
 	for why in f["owner_only_edges_cut_reasons"]:
 		t.ok(OWGraph.OWNER_ONLY_REASONS.has(why), "%s is the owner's alone" % why)
 	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
+	t.eq(pres["types"].size(), 22, "every type in the sidecar")
+	var world := {"elements": []}
 	for type in OWTypes.slugs():
-		t.eq([OWGraph.FAMILIES[type], OWGraph.ICONS[type]], [pres["types"][type]["family"], pres["types"][type]["icon"]], type)
-	t.eq(OWGraph.FAMILIES.size(), 22, "every type a family")
+		world["elements"].append({"id": "n_" + type, "type": type, "name": type})
+	var nodes: Array = OWGraph.world_graph(world, {"rung": "owner"}, {"map_space": true}).nodes
+	t.eq(nodes.size(), 22, "a node for every type")
+	for n in nodes:
+		var type: String = n["type"]
+		t.eq([n["family"], n["icon"]], [pres["types"][type]["family"], pres["types"][type]["icon"]], type)
+	t.done()
+
+## The node's family and icon follow the presentation: with one type's family changed in memory the node follows, and
+## back on the defaults it returns.
+func test_the_node_follows_the_presentation(t) -> void:
+	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}, {"id": "l1", "type": "location", "name": "Keep"}]}
+	var before: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
+	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
+	var table: Dictionary = pres["types"].duplicate(true)
+	table["character"]["family"] = "temporal"
+	table["character"]["icon"] = "star"
+	OWPresentation.use(table)
+	var after: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
+	OWPresentation.reset()
+	var back: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
+	t.eq(before[0]["family"], pres["types"]["character"]["family"], "the default family")
+	t.eq([after[0]["family"], after[0]["icon"]], ["temporal", "star"], "the changed type follows")
+	t.eq([after[1]["family"], after[1]["icon"]], [before[1]["family"], before[1]["icon"]], "another type is untouched")
+	t.eq(back, before, "back on the defaults")
 	t.done()
 
 ## The npm SDK 4.95.0's degreeOf: a mirror pair counts 2 at each end, a link to itself once, a lone node 0, every node

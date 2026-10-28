@@ -21,23 +21,8 @@ const REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of"
 	"hops_not_served", "room", "hidden", "proposed", "map_space", "reading_aid", "outside_lens"]
 ## The reasons a reader that is not the owner never carries, not even as zero.
 const OWNER_ONLY_REASONS := ["anchor_not_visible", "not_visible", "hidden", "proposed"]
-## The type's family and icon: schema-dist presentation.json's first-party defaults (held equal to it by the tests).
-## Colour stays the tool's.
-const FAMILIES := {
-	"ability": "abstract", "collective": "agents", "character": "agents", "construct": "world", "creature": "agents",
-	"event": "temporal", "family": "agents", "institution": "agents", "language": "abstract", "law": "abstract",
-	"location": "world", "map": "world", "marker": "world", "narrative": "temporal", "object": "world",
-	"phenomenon": "temporal", "pin": "world", "relation": "temporal", "species": "agents", "title": "abstract",
-	"trait": "abstract", "zone": "world",
-}
-const ICONS := {
-	"ability": "auto_fix_normal", "collective": "groups_3", "character": "person", "construct": "api",
-	"creature": "bug_report", "event": "saved_search", "family": "supervisor_account", "institution": "account_balance",
-	"language": "edit_road", "law": "gpp_bad", "location": "castle", "map": "map", "marker": "polyline",
-	"narrative": "menu_book", "object": "webhook", "phenomenon": "thunderstorm", "pin": "push_pin", "relation": "link",
-	"species": "crib", "title": "military_tech", "trait": "flaky", "zone": "pentagon",
-}
 
+## A node's family and icon are [OWPresentation]'s (schema-dist presentation.json); colour stays the tool's.
 const _OPTION_KEYS := ["lens", "as_of", "clock", "rooms", "hidden", "proposed", "map_space"]
 
 ## What [method world_graph] answers. [member refused] names a flag asked from the wrong rung (nothing read);
@@ -172,7 +157,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		var el: Dictionary = r.by_id[id]
 		var type: String = r.type_of[id]
 		var node := {"id": id, "type": type, "name": el["name"] if el.get("name") is String else null,
-			"family": FAMILIES[type], "icon": ICONS[type]}
+			"family": OWPresentation.family_of(type), "icon": OWPresentation.icon_of(type)}
 		var marks := []
 		for k in kinds.call(id):
 			if k != "map_space" and k != "reading_aid":
