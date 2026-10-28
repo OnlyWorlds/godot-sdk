@@ -225,10 +225,13 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 	return [reading, cut]
 
 ## The anchors and the umbrella's children of a lens in its link order, and whether it names any (an anchor field with
-## an entry, or x_served_trimmed naming one: such a lens is never read as a filter).
+## an entry, or x_served_trimmed naming one: such a lens is never read as a filter). A child is a lens in
+## [code]constructs[/code] the reader is served whole; one it knows only as a stub serves no recipe and no links, so it
+## is an anchor the reader cannot see ([code]unseen[/code]), never entered.
 static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 	var anchors := []
 	var children := []
+	var unseen := {}
 	var seen := {}
 	for field in ANCHOR_FIELDS:
 		var v: Variant = lens.get(field)
@@ -239,16 +242,18 @@ static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 				continue
 			seen[id] = true
 			if field == "constructs" and r.view.has(id) and is_lens(r.by_id[id]):
-				children.append(id)
-			else:
-				anchors.append(id)
+				if not r.stubs.has(id):
+					children.append(id)
+					continue
+				unseen[id] = true
+			anchors.append(id)
 	var trimmed := false
 	var mark: Variant = lens.get("x_served_trimmed")
 	if mark is Array:
 		for f in mark:
 			if f is String and ANCHOR_FIELDS.has(f):
 				trimmed = true
-	return {"anchors": anchors, "children": children, "anchored": not seen.is_empty() or trimmed}
+	return {"anchors": anchors, "children": children, "unseen": unseen, "anchored": not seen.is_empty() or trimmed}
 
 ## One lens by its own recipe, its children entered once each through the shared visited set: {list: [[id, row]...],
 ## cut: id -> its first reason}.
@@ -266,7 +271,7 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 	for id in a["anchors"]:
 		if visited.has(id) or not r.by_id.has(id):
 			continue
-		if not r.view.has(id):
+		if not r.view.has(id) or a["unseen"].has(id):
 			_add_cut(cut, id, "anchor_not_visible")
 			continue
 		frontier.append(id)
