@@ -341,7 +341,8 @@ static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictio
 		if not r.view.has(id):
 			continue
 		var b := r.body(id)
-		if _is_message(b):
+		# Whole bodies only: a known-of stub serves no characters, so its recipients are unknown, never everyone.
+		if _is_message(b) and not r.stubs.has(id):
 			messages.append(b)
 		if r.type_of[id] == "relation":
 			relations.append(b)
