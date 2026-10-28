@@ -360,7 +360,8 @@ func test_an_unreadable_lens_names_its_key_and_resolves_nothing(t) -> void:
 	t.eq(got.cut, {}, "nothing cut")
 	t.done()
 
-## A doubt (any value but null in x_review_proposed) is in no reader's view, the owner's included.
+## A doubt (any value but null in x_review_proposed) is in no reader's view, the owner's included. The owner's row is
+## still the body as stored (keel serves the owner with no viewer, so nothing is redacted): its link to the doubt stays.
 func test_a_proposed_doubt_is_in_no_view(t) -> void:
 	var world := {"elements": [
 		{"id": "c1", "type": "character", "name": "Ada", "location": "p1"},
@@ -369,6 +370,7 @@ func test_a_proposed_doubt_is_in_no_view(t) -> void:
 	var got := OWLens.resolve(world, lens, {"rung": "owner"})
 	t.eq(got.kept, PackedStringArray(["c1"]), "a doubt is not there to hop to")
 	t.eq(got.cut, {"not_visible": 1}, "the owner counts it")
+	t.eq(got.rows, [world["elements"][0]], "the owner's row keeps its link to the doubt")
 	t.done()
 
 func test_an_element_of_no_standard_type_is_not_in_the_world(t) -> void:

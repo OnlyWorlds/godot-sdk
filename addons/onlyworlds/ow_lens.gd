@@ -82,10 +82,17 @@ const PUBLIC_FIELDS := {"character": ["physicality", "height", "weight", "specie
 ## The readers' four rungs.
 const RUNGS := ["owner", "contributor", "guest", "public"]
 
+## The served mark: the fields a body served to a reader below the owner lost an id from, where that changes what it
+## means (keel elements/serialize.py). Names only, never an id or a count; never on the public rung, never written.
+const SERVED_TRIMMED := "x_served_trimmed"
+## A Message's addressing, the fields its mark may name (keel's SERVED_TRIMMED_FIELDS); a lens names its anchor fields.
+const MESSAGE_TRIMMED := ["characters", "narrator"]
+
 const _MAIL_MICROS := 30 * 86400 * 1000000
 const _OPTION_KEYS := ["as_of", "clock"]
 
 static var _link_table := {}
+static var _target_table := {}
 static var _rank := {}
 static var _date_time: RegEx
 
@@ -614,14 +621,23 @@ static func link_fields_of(type: String) -> Array:
 		for slug in OWTypes.SCRIPTS:
 			var fields: Dictionary = OWTypes.SCRIPTS[slug].get_script_constant_map()["FIELDS"]
 			var out := []
+			var targets := {}
 			for name in fields:
 				var kind: String = fields[name][0]
 				if kind == "multi":
 					out.append([name, true])
 				elif kind == "single" or (kind == "generic" and name.ends_with("_id")):
 					out.append([name, false])
+				if kind == "multi" or kind == "single":
+					targets[name] = fields[name][1]
 			_link_table[slug] = out
+			_target_table[slug] = targets
 	return _link_table.get(type, [])
+
+## A link field's target type (the slug its ids must be of), or "" for a generic link's id key, whose type key names it.
+static func link_target_of(type: String, field: String) -> String:
+	link_fields_of(type)
+	return _target_table.get(type, {}).get(field, "")
 
 static func _type_rank(type: String) -> int:
 	if _rank.is_empty():
@@ -751,8 +767,8 @@ class View:
 				out.append(t)
 		return out
 
-	## The body this reader is served, a copy: a stub for a known-of element, the links outside the view left out (and
-	## named in x_served_trimmed on a message or a lens).
+	## The body this reader is served, a copy: a stub for a known-of element; the owner reading as itself, the body as
+	## stored; any other reader, the body as keel serves it ([method _trim]).
 	func body(id: String) -> Dictionary:
 		if _served.has(id):
 			return _served[id]
@@ -775,34 +791,95 @@ class View:
 			b["known_of"] = true
 		else:
 			b = el.duplicate(true)
-			var trimmed := []
-			for lf in OWLens.link_fields_of(type):
-				var field: String = lf[0]
-				if not b.has(field):
-					continue
-				var v: Variant = b[field]
-				if lf[1]:
-					if not (v is Array):
-						continue
-					var kept := []
-					for t in v:
-						if t is String:
-							if view.has(t):
-								kept.append(t)
-							elif not trimmed.has(field):
-								trimmed.append(field)
-					b[field] = kept
-				elif v is String and not view.has(v):
-					b[field] = null
-					trimmed.append(field)
-			if not trimmed.is_empty() and (OWLens._is_message(b) or OWLens.is_lens(b)):
-				var mark: Array = b["x_served_trimmed"].duplicate() if b.get("x_served_trimmed") is Array else []
-				for f in trimmed:
-					if not mark.has(f):
-						mark.append(f)
-				b["x_served_trimmed"] = mark
+			# The owner reading as itself is served as keel serves a reader with no viewer: nothing redacted, a link to a
+			# proposed element kept too.
+			if seen_rung != "owner":
+				_trim(b, type)
 		_served[id] = b
 		return b
+
+	## Keel's reading of a body for a reader below the owner (elements/visibility.py [code]redact[/code],
+	## elements/serialize.py), in place: a link to an id outside the view, or to an element not of the field's target
+	## type (keel checks each id against its target type's table), is left out, a single link null and a list keeping
+	## its order; a Pin's generic pair whose target is unseen or not of its [code]element_type[/code] reads "" and null;
+	## a lens's [code]x_lens.notes[/code] keeps the notes on its served anchors and on other ids the reader sees, so its
+	## keys never name what the reader cannot see. Never on the public rung, [constant OWLens.SERVED_TRIMMED] names what
+	## the trim changed the meaning of: a Message's [constant OWLens.MESSAGE_TRIMMED], a lens's anchor fields and, when
+	## an anchor's note went with it, [code]notes[/code]. The hop never reads this: it follows the stored link.
+	func _trim(b: Dictionary, type: String) -> void:
+		var lens := OWLens.is_lens(b)
+		var before := _anchor_ids(b) if lens else {}
+		var changed := {}
+		for lf in OWLens.link_fields_of(type):
+			var field: String = lf[0]
+			if not b.has(field):
+				continue
+			var v: Variant = b[field]
+			var target := OWLens.link_target_of(type, field)
+			if target == "":
+				# The generic pair: emptied whole, so an unseen target leaves no type word behind.
+				var type_key := field.trim_suffix("_id") + "_type"
+				var of: Variant = b.get(type_key)
+				if v is String and v != "" and not (of is String and _served_as(v, OWUnicode.profile_fold(of))):
+					if b.has(type_key):
+						b[type_key] = ""
+					b[field] = null
+					changed[field] = true
+			elif lf[1]:
+				if not (v is Array):
+					continue
+				var kept := []
+				for t in v:
+					if t is String:
+						if _served_as(t, target):
+							kept.append(t)
+						else:
+							changed[field] = true
+				b[field] = kept
+			elif v is String and v != "" and not _served_as(v, target):
+				b[field] = null
+				changed[field] = true
+		var named: Array = OWLens.ANCHOR_FIELDS if lens else (OWLens.MESSAGE_TRIMMED if OWLens._is_message(b) else [])
+		var mark := []
+		for f in named:
+			if changed.has(f):
+				mark.append(f)
+		var x: Variant = b.get(OWLens.FIELD)
+		if lens and x is Dictionary and x.get("notes") is Dictionary:
+			var served := _anchor_ids(b)
+			var notes: Dictionary = x["notes"]
+			var kept := {}
+			var gone := false
+			for k in notes:
+				if served.has(k) or (not before.has(k) and view.has(k)):
+					kept[k] = notes[k]
+				elif before.has(k):
+					gone = true
+			if kept.size() != notes.size():
+				x["notes"] = kept
+				if gone:
+					mark.append("notes")
+		if not mark.is_empty() and seen_rung != "public":
+			var merged: Array = b[OWLens.SERVED_TRIMMED].duplicate() if b.get(OWLens.SERVED_TRIMMED) is Array else []
+			for f in mark:
+				if not merged.has(f):
+					merged.append(f)
+			b[OWLens.SERVED_TRIMMED] = merged
+
+	## A link to [param t] stays in a served body: the reader sees it and it is of the field's [param target] type.
+	func _served_as(t: String, target: String) -> bool:
+		return view.has(t) and type_of[t] == target
+
+	## The ids a lens body's anchor fields hold, as a set.
+	static func _anchor_ids(b: Dictionary) -> Dictionary:
+		var out := {}
+		for f in OWLens.ANCHOR_FIELDS:
+			var v: Variant = b.get(f)
+			if v is Array:
+				for i in v:
+					if i is String:
+						out[i] = true
+		return out
 
 	## One hop from each element of [param from], both ways, and on through each Relation it lands on to that
 	## Relation's parties: [reached (an ordered set), the Relations crossed]. Nothing hops out of a stub or a room
