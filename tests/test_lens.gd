@@ -1,7 +1,7 @@
 extends RefCounted
 ## OWLens on the lens profile's conformance fixture (schema-dist profiles/lens.fixture.json, the pinned copy at
-## dist.82, its sha256 checked against the manifest): the pair and the template, the legal values of x_lens, where a
-## seat's choice lives, every resolution over the fixture's five worlds and their readers, and the invariants. The
+## dist.83, its sha256 checked against the manifest): the pair and the template, the legal values of x_lens, where a
+## seat's choice lives, every resolution over the fixture's seven worlds and their readers, and the invariants. The
 ## graph kind is test_lens_graph.gd's. The profile's tables are held equal to the fixture's and to the generated models.
 
 const P = preload("res://tests/paths.gd")
@@ -42,6 +42,13 @@ func _in_room(t, c: Dictionary) -> void:
 	t.done()
 
 func _case(t, c: Dictionary) -> void:
+	# A text_only case holds only for a reader that sees a number's text (7.0 beside 7). Godot's JSON parses both as one
+	# float (test_x_lens_numbers_as_godot_can_see_them), so the case's 7.0 arrives here as the 7 the reader reads whole;
+	# the fixture's notes let such a reader skip it. Run, the integral-float case would pass only because 7 is past
+	# depth's range, which is no proof of the float rule.
+	if c.get("text_only", false):
+		t.skip("text_only: Godot's JSON gives one number type, so 7.0 cannot be told from 7 (%s)" % c.get("why", ""))
+		return
 	match c["kind"]:
 		"shape":
 			t.eq(OWLens.is_lens(c["element"]), c["is_lens"], "is_lens")
@@ -62,8 +69,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 132, "132 cases")
-	t.eq(counts, {"shape": 6, "keys": 23, "resolve": 58, "invariant": 4, "uses": 4, "graph": 37}, "by kind")
+	t.eq(_fixture()["cases"].size(), 147, "147 cases")
+	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 71, "invariant": 4, "uses": 4, "graph": 37}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
@@ -94,7 +101,7 @@ func test_the_room_pairs_are_the_room_profiles(t) -> void:
 		words.append(OWUnicode.profile_fold(p["type"]) + "/" + OWUnicode.profile_fold(p["supertype"]))
 	t.eq(words, OWLens.ROOM_PAIRS, "the room fixture's pairs")
 	t.eq(room["mark"]["field"], OWLens.ROOM_MARK, "the room fixture's mark")
-	t.eq(room["cases"].size(), 28, "28 room cases")
+	t.eq(room["cases"].size(), 32, "32 room cases")
 	t.done()
 
 ## The profiles' fold is trim then simple case folding, never NFC: a decomposed e and acute stays two code points.
