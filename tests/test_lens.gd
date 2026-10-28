@@ -28,7 +28,18 @@ func get_cases() -> Array:
 			out.append(["lens:" + c["name"], _holds.bind(c)])
 	for e in _edges():
 		out.append(["lens-edges:" + e["name"], _edge.bind(e)])
+	for c in _room()["cases"]:
+		out.append(["room:" + c["name"], _in_room.bind(c)])
 	return out
+
+## The room profile's own fixture (profiles/room.fixture.json): each case's element is a room element exactly when
+## in_room says, the pair AND the mark.
+func _room() -> Dictionary:
+	return JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/profiles/room.fixture.json"))
+
+func _in_room(t, c: Dictionary) -> void:
+	t.eq(OWLens._is_room_element(c["element"]), c["in_room"], "in_room")
+	t.done()
 
 func _case(t, c: Dictionary) -> void:
 	match c["kind"]:
@@ -82,6 +93,8 @@ func test_the_room_pairs_are_the_room_profiles(t) -> void:
 	for p in room.get("pairs", []):
 		words.append(OWUnicode.profile_fold(p["type"]) + "/" + OWUnicode.profile_fold(p["supertype"]))
 	t.eq(words, OWLens.ROOM_PAIRS, "the room fixture's pairs")
+	t.eq(room["mark"]["field"], OWLens.ROOM_MARK, "the room fixture's mark")
+	t.eq(room["cases"].size(), 28, "28 room cases")
 	t.done()
 
 ## The profiles' fold is trim then simple case folding, never NFC: a decomposed e and acute stays two code points.
