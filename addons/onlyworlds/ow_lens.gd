@@ -660,6 +660,10 @@ class View:
 	var hidden := {}
 	## The ids written as proposed, which no reader's view holds.
 	var proposed := {}
+	## The ids keel serves this reader (elements/visibility.py [code]scoped[/code]): the view, and on every rung but the
+	## public one the proposed ids that rung sees too. A served body's links and a lens's notes keep these; the hop reads
+	## the view alone.
+	var scoped := {}
 	## The rung whose view is read: the reader's own, or on an owner the rung of the reader it reads as.
 	var seen_rung := ""
 	var owner := false
@@ -703,9 +707,6 @@ class View:
 		var whole_ids := _listed(seen.get("whole"))
 		var known_of := _listed(seen.get("known_of"))
 		for id in order:
-			if by_id[id].get("x_review_proposed") != null:
-				proposed[id] = true
-				continue
 			var sees := false
 			match seen_rung:
 				"owner":
@@ -718,8 +719,14 @@ class View:
 					sees = whole_ids.has(id) or known_of.has(id)
 					if not whole_ids.has(id) and known_of.has(id):
 						stubs[id] = true
-			if sees:
+			if by_id[id].get("x_review_proposed") != null:
+				proposed[id] = true
+				# Keel leaves a proposed element out of the public rung's scope only; the hop never lands on one.
+				if sees and seen_rung != "public":
+					scoped[id] = true
+			elif sees:
 				view[id] = true
+				scoped[id] = true
 		members = world["members"] if world.get("members") is Array else null
 		as_of = p_as_of
 		for id in order:
@@ -768,7 +775,8 @@ class View:
 		return out
 
 	## The body this reader is served, a copy: a stub for a known-of element; the owner reading as itself, the body as
-	## stored; any other reader, the body as keel serves it ([method _trim]).
+	## stored; any other reader, the body as keel serves it ([method _trim]). A stored [constant OWLens.SERVED_TRIMMED]
+	## is never served (keel's serialize pops it before any trim): only the mark this serving makes reaches a reader.
 	func body(id: String) -> Dictionary:
 		if _served.has(id):
 			return _served[id]
@@ -791,6 +799,7 @@ class View:
 			b["known_of"] = true
 		else:
 			b = el.duplicate(true)
+			b.erase(OWLens.SERVED_TRIMMED)
 			# The owner reading as itself is served as keel serves a reader with no viewer: nothing redacted, a link to a
 			# proposed element kept too.
 			if seen_rung != "owner":
@@ -799,11 +808,11 @@ class View:
 		return b
 
 	## Keel's reading of a body for a reader below the owner (elements/visibility.py [code]redact[/code],
-	## elements/serialize.py), in place: a link to an id outside the view, or to an element not of the field's target
-	## type (keel checks each id against its target type's table), is left out, a single link null and a list keeping
-	## its order; a Pin's generic pair whose target is unseen or not of its [code]element_type[/code] reads "" and null;
-	## a lens's [code]x_lens.notes[/code] keeps the notes on its served anchors and on other ids the reader sees, so its
-	## keys never name what the reader cannot see. Never on the public rung, [constant OWLens.SERVED_TRIMMED] names what
+	## elements/serialize.py), in place: a link to an id outside [member scoped], or to an element not of the field's
+	## target type (keel checks each id against its target type's table), is left out, a single link null and a list
+	## keeping its order; a Pin's generic pair whose target is unseen or not of its [code]element_type[/code] reads ""
+	## and null; a lens's [code]x_lens.notes[/code] keeps the notes on its served anchors and on other ids keel serves
+	## it, so its keys never name what the reader cannot see. Never on the public rung, [constant OWLens.SERVED_TRIMMED] names what
 	## the trim changed the meaning of: a Message's [constant OWLens.MESSAGE_TRIMMED], a lens's anchor fields and, when
 	## an anchor's note went with it, [code]notes[/code]. The hop never reads this: it follows the stored link.
 	func _trim(b: Dictionary, type: String) -> void:
@@ -851,7 +860,7 @@ class View:
 			var kept := {}
 			var gone := false
 			for k in notes:
-				if served.has(k) or (not before.has(k) and view.has(k)):
+				if served.has(k) or (not before.has(k) and scoped.has(k)):
 					kept[k] = notes[k]
 				elif before.has(k):
 					gone = true
@@ -860,15 +869,11 @@ class View:
 				if gone:
 					mark.append("notes")
 		if not mark.is_empty() and seen_rung != "public":
-			var merged: Array = b[OWLens.SERVED_TRIMMED].duplicate() if b.get(OWLens.SERVED_TRIMMED) is Array else []
-			for f in mark:
-				if not merged.has(f):
-					merged.append(f)
-			b[OWLens.SERVED_TRIMMED] = merged
+			b[OWLens.SERVED_TRIMMED] = mark
 
-	## A link to [param t] stays in a served body: the reader sees it and it is of the field's [param target] type.
+	## A link to [param t] stays in a served body: keel serves the reader it and it is of the field's [param target] type.
 	func _served_as(t: String, target: String) -> bool:
-		return view.has(t) and type_of[t] == target
+		return scoped.has(t) and type_of[t] == target
 
 	## The ids a lens body's anchor fields hold, as a set.
 	static func _anchor_ids(b: Dictionary) -> Dictionary:

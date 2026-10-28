@@ -10,11 +10,11 @@ const P = preload("res://tests/paths.gd")
 const EDGES := "res://tests/data/lens-edges.json"
 const EDGES_SHA256 := "4cb440cde85da877e2b5ba7129dd34be90a1e0bb109eefb56f0cae040a19b080"
 ## The two packages' shared row cases: a row is the body as keel serves that reader (keel elements/serialize.py and
-## elements/visibility.py redact). The Python package's tests/fixtures/row-trim-cases.json at its commit 0fadf58, byte
+## elements/visibility.py redact). The Python package's tests/fixtures/row-trim-cases.json at its commit 28b8ed5, byte
 ## for byte (the npm SDK's test/fixtures/row-trim-cases.json is the same file; both suites hold this sha256), answers
 ## written by hand.
 const ROW_TRIM := "res://tests/data/row-trim-cases.json"
-const ROW_TRIM_SHA256 := "a03998723cc2c717831785374e84fd6ac7e503f98d92a3218be5ec733c0168da"
+const ROW_TRIM_SHA256 := "8365cf7c1364e8d04f2143824ba4cb19f275935d3a602178fb2ed497bf6fe140"
 
 var _doc: Dictionary
 
@@ -317,8 +317,8 @@ func _row_trim(t, c: Dictionary) -> void:
 	t.done()
 
 func test_the_row_trim_file_is_the_packages(t) -> void:
-	t.eq(FileAccess.get_sha256(ROW_TRIM), ROW_TRIM_SHA256, "the Python package's 0fadf58 bytes, the npm SDK's too")
-	t.eq(_row_trims().size(), 20, "20 cases")
+	t.eq(FileAccess.get_sha256(ROW_TRIM), ROW_TRIM_SHA256, "the Python package's 28b8ed5 bytes, the npm SDK's too")
+	t.eq(_row_trims().size(), 28, "28 cases")
 	t.done()
 
 # -- beyond the fixture -------------------------------------------------------------------------------------------------
