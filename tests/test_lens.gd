@@ -5,10 +5,10 @@ extends RefCounted
 ## graph kind is test_lens_graph.gd's. The profile's tables are held equal to the fixture's and to the generated models.
 
 const P = preload("res://tests/paths.gd")
-## The npm SDK's and the Python package's shared edge cases (npm 4.97.1's test/fixtures/lens-edges.json, byte for byte;
+## The npm SDK's and the Python package's shared edge cases (npm 4.98.0's test/fixtures/lens-edges.json, byte for byte;
 ## both suites hold this sha256), answers written by hand.
 const EDGES := "res://tests/data/lens-edges.json"
-const EDGES_SHA256 := "adb4e2badfcadaa52eb3b740479aec649ee283ab84edb45f2c9f648af1242b04"
+const EDGES_SHA256 := "4cb440cde85da877e2b5ba7129dd34be90a1e0bb109eefb56f0cae040a19b080"
 
 var _doc: Dictionary
 
@@ -274,8 +274,8 @@ func _holds(t, c: Dictionary) -> void:
 	t.done()
 
 func test_the_edge_file_is_the_packages(t) -> void:
-	t.eq(FileAccess.get_sha256(EDGES), EDGES_SHA256, "npm 4.97.1's and the Python package 0.79.3's bytes")
-	t.eq(_edges().size(), 14, "14 cases")
+	t.eq(FileAccess.get_sha256(EDGES), EDGES_SHA256, "npm 4.98.0's and the Python package 0.80.0's bytes")
+	t.eq(_edges().size(), 15, "15 cases")
 	t.done()
 
 # -- beyond the fixture -------------------------------------------------------------------------------------------------

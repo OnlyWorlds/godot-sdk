@@ -96,7 +96,7 @@ class Reading:
 	## The cut, counted by reason in the profile's order; a reason with no count is absent, and a reader that is not
 	## the owner never carries the owner's two.
 	var cut := {}
-	## Notes on ids that are not anchors of the lens read.
+	## Notes on ids that are not anchors of the lens read, counted only where the reader sees the id.
 	var notes_ignored := 0
 	## The mail part when the lens names a mail rule ({unread, read, rows, cut, totals}); null otherwise.
 	var mail: Variant = null
@@ -225,9 +225,11 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 				n += 1
 		if n > 0:
 			reading.cut[why] = n
+	# A note on an id that is not an anchor is counted only where the reader sees that id: a note keyed to an element
+	# it cannot see, or to no element, is no note of its, and counting it would tell a guest it exists.
 	var anchors: Array = _anchors_of(body, r)["anchors"]
 	for k in recipe["notes"]:
-		if not anchors.has(k):
+		if not anchors.has(k) and r.view.has(k):
 			reading.notes_ignored += 1
 	for e in keep:
 		reading.kept.append(e[0])
