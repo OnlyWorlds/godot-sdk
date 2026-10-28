@@ -9,6 +9,12 @@ const P = preload("res://tests/paths.gd")
 ## both suites hold this sha256), answers written by hand.
 const EDGES := "res://tests/data/lens-edges.json"
 const EDGES_SHA256 := "4cb440cde85da877e2b5ba7129dd34be90a1e0bb109eefb56f0cae040a19b080"
+## The two packages' shared row cases: a row is the body as keel serves that reader (keel elements/serialize.py and
+## elements/visibility.py redact). The Python package's tests/fixtures/row-trim-cases.json at its commit 0fadf58, byte
+## for byte (the npm SDK's test/fixtures/row-trim-cases.json is the same file; both suites hold this sha256), answers
+## written by hand.
+const ROW_TRIM := "res://tests/data/row-trim-cases.json"
+const ROW_TRIM_SHA256 := "a03998723cc2c717831785374e84fd6ac7e503f98d92a3218be5ec733c0168da"
 
 var _doc: Dictionary
 
@@ -28,6 +34,8 @@ func get_cases() -> Array:
 			out.append(["lens:" + c["name"], _holds.bind(c)])
 	for e in _edges():
 		out.append(["lens-edges:" + e["name"], _edge.bind(e)])
+	for c in _row_trims():
+		out.append(["row-trim:" + c["name"], _row_trim.bind(c)])
 	for c in _room()["cases"]:
 		out.append(["room:" + c["name"], _in_room.bind(c)])
 	return out
@@ -296,6 +304,21 @@ func _holds(t, c: Dictionary) -> void:
 func test_the_edge_file_is_the_packages(t) -> void:
 	t.eq(FileAccess.get_sha256(EDGES), EDGES_SHA256, "npm 4.98.0's and the Python package 0.80.0's bytes")
 	t.eq(_edges().size(), 15, "15 cases")
+	t.done()
+
+func _row_trims() -> Array:
+	return JSON.parse_string(FileAccess.get_file_as_string(ROW_TRIM))
+
+## One row case: the rows alone, as the reader is served them, compared whole.
+func _row_trim(t, c: Dictionary) -> void:
+	var got := OWLens.resolve(c["world"], c["lens"], c["reader"])
+	t.eq(got.error, "", "no caller's mistake")
+	t.eq(_ints(got.rows), _ints(c["want_rows"]), "rows")
+	t.done()
+
+func test_the_row_trim_file_is_the_packages(t) -> void:
+	t.eq(FileAccess.get_sha256(ROW_TRIM), ROW_TRIM_SHA256, "the Python package's 0fadf58 bytes, the npm SDK's too")
+	t.eq(_row_trims().size(), 20, "20 cases")
 	t.done()
 
 # -- beyond the fixture -------------------------------------------------------------------------------------------------
