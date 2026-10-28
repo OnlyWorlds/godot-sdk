@@ -1,14 +1,16 @@
 class_name OWLens
 extends RefCounted
-## The lens profile (schema-dist [code]profiles/lens.md[/code], serial 78, its graph section serial 81): a saved way of
+## The lens profile (schema-dist [code]profiles/lens.md[/code], serial 82, its graph section serial 81): a saved way of
 ## reading a world. A lens is a Construct with supertype [code]Lens[/code]; its links are its anchors, and
-## [code]x_lens[/code] is the recipe (how far, which types, how far back, how much).
+## [code]x_lens[/code] is the recipe (how far, which types, how far back, how recently changed, how much).
 ##
 ## [method is_lens], [method is_template], [method check_keys] (the legal values of [code]x_lens[/code]),
-## [method lenses_in_use] (where a seat's choice lives), [method resolve] (the one resolution every reader agrees on)
-## and [method date_of] (an element's date by the profile's table). The npm and Python packages' [code]isLens[/code],
-## [code]isTemplate[/code], [code]lensesInUse[/code], [code]resolveLens[/code] and [code]dateOf[/code], ported from
-## npm 4.96.1; the fixture beside the profile is this file's test, and [OWGraph] reads the graph section through it.
+## [method lenses_in_use] (where a seat's choice lives), [method resolve] (the one resolution every reader agrees on),
+## [method date_of] (an element's date by the profile's table) and [method is_charter_element] (the room profile's
+## reading aids). The npm and Python packages' [code]isLens[/code], [code]isTemplate[/code], [code]lensesInUse[/code],
+## [code]resolveLens[/code], [code]dateOf[/code] and [code]isCharterElement[/code], ported from npm 4.98.0, with keel's
+## reader where it reads otherwise; the fixture beside the profile is this file's test, and [OWGraph] reads the graph
+## section through it.
 ##
 ## Element bodies are Dictionaries as the API or a world folder gives them. Godot's JSON reads every number as a
 ## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]).
@@ -32,10 +34,17 @@ const ANCHOR_FIELDS := ["characters", "objects", "locations", "species", "creatu
 ## may name beside the 22 slugs (the room profile's fixture order).
 const ROOM_PAIRS := ["narrative/message", "narrative/board", "relation/work item", "construct/spec", "relation/heart",
 	"relation/take", "relation/vote", "event/sitting", "character/member"]
+## The room profile's mark: a room element carries it beside its pair.
+const ROOM_MARK := "x_room_of"
+## The reading aids' pairs (the room profile: the world's charter, its guide, its domains), written as
+## [code]types[/code] names them, beside the room pairs.
+const READING_AID_PAIRS := ["law/charter", "construct/guide", "construct/domain"]
+## The reading aid's mark: the id of the world the aid belongs to.
+const READING_AID_MARK := "x_charter_of"
 
 ## Why an element was left out: the profile's one closed list, in its order.
-const CUT_REASONS := ["budget", "types", "window", "undated", "after_as_of", "anchor_not_visible", "not_visible",
-	"hops_not_served"]
+const CUT_REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of", "anchor_not_visible",
+	"not_visible", "hops_not_served"]
 ## The two counts only the owner is told (reading as itself, or as another reader).
 const OWNER_ONLY := ["anchor_not_visible", "not_visible"]
 
@@ -112,8 +121,8 @@ class Reading:
 ## [code]rung[/code] (owner, contributor, guest or public), [code]character[/code] (for the mail rule), a guest's
 ## [code]whole[/code] and [code]known_of[/code], and on an owner [code]as[/code] (another reader: its view, the
 ## owner's two counts). [param options]: [code]as_of[/code] (the reading's date, a whole number in the world's unit;
-## absent: the world's now; none: no fence and the window cuts nothing) and [code]clock[/code] (a date-time for the
-## mail rule's thirty days; absent: the machine's time).
+## absent: the world's now; none: no fence and the window cuts nothing) and [code]clock[/code] (the reading's wall
+## clock, a date-time, for the mail rule's thirty days and [code]changed_within[/code]; absent: the machine's time).
 static func resolve(world: Variant, lens: Variant, reader: Variant, options: Variant = null) -> Reading:
 	var out := Reading.new()
 	if options == null:
@@ -178,13 +187,14 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 		return [reading, {}]
 	var recipe: Dictionary = read["recipe"]
 
+	# The reading's wall clock, read once: the mail rule's thirty days and changed_within both measure from it.
+	var wall: int = time_key(clock_v if clock_v != null else Time.get_datetime_string_from_system(true))
 	var visited := {}
 	if body.get("id") is String:
 		visited[body["id"]] = true
-	var resolved := _resolve_one(body, recipe, r, visited)
+	var resolved := _resolve_one(body, recipe, r, visited, wall)
 	if recipe["mail"] != "none":
-		var clock: Variant = time_key(clock_v if clock_v != null else Time.get_datetime_string_from_system(true))
-		reading.mail = _mail_part(r, recipe["mail"], recipe["budget"], clock)
+		reading.mail = _mail_part(r, recipe["mail"], recipe["budget"], wall)
 	var in_mail := {}
 	if reading.mail != null:
 		for id in reading.mail["unread"] + reading.mail["read"]:
@@ -256,8 +266,10 @@ static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 	return {"anchors": anchors, "children": children, "unseen": unseen, "anchored": not seen.is_empty() or trimmed}
 
 ## One lens by its own recipe, its children entered once each through the shared visited set: {list: [[id, row]...],
-## cut: id -> its first reason}.
-static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited: Dictionary) -> Dictionary:
+## cut: id -> its first reason}. An anchor is kept and followed whatever types, window and changed_within say (a
+## reading aid too; a room element is kept and not followed); what a hop or a filter reaches is cut by the fence, then
+## types, then the window, then changed_within, against [param wall], the reading's wall clock.
+static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited: Dictionary, wall: int) -> Dictionary:
 	var cut := {}
 	var a := _anchors_of(lens, r)
 	var anchor_set := {}
@@ -286,6 +298,8 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 			why = "types"
 		if why == null:
 			why = r.window_cut(id, recipe)
+		if why == null:
+			why = r.stale_cut(id, recipe, wall)
 		if why != null:
 			_add_cut(cut, id, why)
 		return why == null
@@ -306,7 +320,8 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 				_add_cut(cut, id, "not_visible")
 		if recipe["depth"] == 2:
 			var past := func(id: String) -> bool: return excluded.call(id) or hop.has(id)
-			for id in r.reach(hop.keys(), past)[0]:
+			var stops := func(id: String) -> bool: return r.stops_at(id, recipe)
+			for id in r.reach(hop.keys(), past, stops)[0]:
 				_add_cut(cut, id, "hops_not_served")
 	var out := []
 	for id in list:
@@ -319,7 +334,7 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 		var read := _read_recipe(body.get(FIELD))
 		if not read.has("recipe") or is_template(body):
 			continue
-		var sub := _resolve_one(body, read["recipe"], r, visited)
+		var sub := _resolve_one(body, read["recipe"], r, visited, wall)
 		out.append_array(sub["list"])
 		for id in sub["cut"]:
 			_add_cut(cut, id, sub["cut"][id])
@@ -515,6 +530,16 @@ static func time_key(value: Variant) -> Variant:
 	var micros := (m.get_string(7) + "000000").substr(0, 6).to_int() if m.get_start(7) >= 0 else 0
 	return (_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s - offset) * 1000000 + micros
 
+## When an element last changed, as changed_within reads it: the newer of a folder element's server_updated_at and
+## local_updated_at where either reads as a time, else its updated_at; null when none reads as one.
+static func _changed_at(el: Dictionary) -> Variant:
+	var at: Variant = null
+	for key in ["server_updated_at", "local_updated_at"]:
+		var k: Variant = time_key(el.get(key))
+		if k != null and (at == null or k > at):
+			at = k
+	return at if at != null else time_key(el.get("updated_at"))
+
 ## Days from 1970-01-01 to a proleptic Gregorian date (exact integer arithmetic, years 0000-9999).
 static func _days_from_civil(y: int, m: int, d: int) -> int:
 	var yy := y - 1 if m <= 2 else y
@@ -535,10 +560,38 @@ static func _floor_div(a: int, b: int) -> int:
 static func _is_room_element(el: Dictionary) -> bool:
 	var type: Variant = el.get("type")
 	var supertype: Variant = el.get("supertype")
-	var mark: Variant = el.get("x_room_of")
+	var mark: Variant = el.get(ROOM_MARK)
 	if not (type is String and supertype is String and mark is String) or mark == "":
 		return false
 	return ROOM_PAIRS.has(OWUnicode.profile_fold(type) + "/" + OWUnicode.profile_fold(supertype))
+
+## The reading aid's pair word ([code]law/charter[/code], [code]construct/guide[/code] or
+## [code]construct/domain[/code], folded) when [param element] is one, else "" (the lens and graph readers read it).
+static func _reading_aid_key(element: Variant) -> String:
+	if not (element is Dictionary and element.get("type") is String and element.get("supertype") is String):
+		return ""
+	var key := OWUnicode.profile_fold(element["type"]) + "/" + OWUnicode.profile_fold(element["supertype"])
+	return key if READING_AID_PAIRS.has(key) and _has_mark(element, READING_AID_MARK) else ""
+
+## A mark counts by presence: any value but null, and a string only when something is left after trimming Unicode's
+## White_Space. The value is never compared.
+static func _has_mark(el: Dictionary, field: String) -> bool:
+	if not el.has(field) or el[field] == null:
+		return false
+	var v: Variant = el[field]
+	return not (v is String) or OWUnicode.trim_white_space(v) != ""
+
+## True when [param element] is a reading aid (schema-dist [code]profiles/room.md[/code], [code]profiles/lens.md[/code]
+## rule 4): the world's charter ([code]law[/code], supertype [code]Charter[/code]), its guide ([code]construct[/code],
+## supertype [code]Guide[/code]) or one of its domains ([code]construct[/code], supertype [code]Domain[/code]), the type
+## and supertype each trimmed and folded, the whole word, AND the mark [code]x_charter_of[/code] (the id of the world the
+## aid belongs to). The mark counts when present and not null; a string mark only when something is left after
+## trimming. Both, always: the pair without the mark is lore (a kingdom's Charter in a novel's world is a Law like any
+## other). A reading aid is not a room element. A lore view leaves it out by default; in a lens, one a hop reaches is
+## kept only when [code]types[/code] names its pair, and one the lens names as an anchor is kept and followed. The npm
+## SDK's [code]isCharterElement[/code], the Python package's [code]is_charter_element[/code].
+static func is_charter_element(element: Variant) -> bool:
+	return _reading_aid_key(element) != ""
 
 ## A type's link fields in the schema's order, each [field, is_list], from the generated models (a generic link's id
 ## key is a single link, its type key text).
@@ -571,6 +624,8 @@ class View:
 	var view := {}
 	var stubs := {}
 	var room := {}
+	## The reading aids (the charter, its guide, its domains: the pair and the mark), each id to its pair word.
+	var aid := {}
 	## The ids under the hidden mark: the world's hidden list and each element's own hidden.
 	var hidden := {}
 	## The ids written as proposed, which no reader's view holds.
@@ -607,6 +662,9 @@ class View:
 				hidden[id] = true
 			if OWLens._is_room_element(el):
 				room[id] = true
+			var aid_key := OWLens._reading_aid_key(el)
+			if aid_key != "":
+				aid[id] = aid_key
 		owner = reader["rung"] == "owner"
 		var seen: Dictionary = reader["as"] if owner and reader.get("as") != null else reader
 		seen_rung = seen["rung"]
@@ -733,11 +791,12 @@ class View:
 		return b
 
 	## One hop from each element of [param from], both ways, and on through each Relation it lands on to that
-	## Relation's parties: [reached (an ordered set), the Relations crossed].
-	func reach(from: Array, excluded: Callable) -> Array:
+	## Relation's parties: [reached (an ordered set), the Relations crossed]. Nothing hops out of a stub or a room
+	## element, nor out of an element [param stops] names.
+	func reach(from: Array, excluded: Callable, stops: Callable = Callable()) -> Array:
 		var landed := {}
 		for f in from:
-			if stubs.has(f) or room.has(f):
+			if stubs.has(f) or room.has(f) or (stops.is_valid() and stops.call(f)):
 				continue
 			for t in links(f):
 				if not excluded.call(t):
@@ -801,14 +860,31 @@ class View:
 			return "window"
 		return null
 
-	## Whether types keeps the element: a room element only when its pair is named, any other by its type (or any type
-	## when types is empty).
+	## changed_within: changed longer ago than that many days before the reading's wall clock. The time read is the
+	## element's updated_at, or for a folder element (one carrying server_updated_at or local_updated_at) the newer of
+	## those two; an element with no readable time is never cut.
+	func stale_cut(id: String, recipe: Dictionary, wall: int) -> Variant:
+		if recipe["changed_within"] == null:
+			return null
+		var at: Variant = OWLens._changed_at(by_id[id])
+		if at == null:
+			return null
+		return "stale" if at < wall - recipe["changed_within"] * 86400 * 1000000 else null
+
+	## Whether types keeps the element: a room element or a reading aid only when its pair is named, any other by its
+	## type (or any type when types is empty).
 	func keeps(id: String, recipe: Dictionary) -> bool:
 		var types: Dictionary = recipe["types"]
 		if room.has(id):
 			var el: Dictionary = by_id[id]
 			return types.has(OWUnicode.profile_fold(el["type"]) + "/" + OWUnicode.profile_fold(el["supertype"]))
+		if aid.has(id):
+			return types.has(aid[id])
 		return types.is_empty() or types.has(type_of[id])
+
+	## Rule 4: a reading aid a hop reached is not hopped out of unless types names its pair.
+	func stops_at(id: String, recipe: Dictionary) -> bool:
+		return aid.has(id) and not recipe["types"].has(aid[id])
 
 	## Rule 5's order past the anchors: the schema's type order, newest updated_at first (an unreadable time last),
 	## then by id by code point.
@@ -886,7 +962,8 @@ static func date_of(element: Variant) -> Variant:
 
 ## Null when [param x_lens] is legal, else the first key refused in the profile's table order ([code]depth[/code],
 ## [code]types[/code], [code]window[/code], [code]from[/code], [code]to[/code], [code]undated[/code],
-## [code]show[/code], [code]budget[/code], [code]mail[/code], [code]notes[/code]), or [code]x_lens[/code] itself when
+## [code]changed_within[/code], [code]show[/code], [code]budget[/code], [code]mail[/code], [code]notes[/code]), or
+## [code]x_lens[/code] itself when
 ## the value is not an object. Absent and null are legal, a key whose value is null is absent, a key the profile does
 ## not name is ignored, and an empty string is present (never absent) and outside every table.
 static func check_keys(x_lens: Variant) -> Variant:
@@ -938,7 +1015,7 @@ static func _read_recipe(raw: Variant) -> Dictionary:
 			if not (word is String):
 				return {"bad": "types"}
 			var w := OWUnicode.profile_fold(word)
-			if not (ROOM_PAIRS.has(w) if w.contains("/") else OWTypes.SCRIPTS.has(w)):
+			if not (ROOM_PAIRS.has(w) or READING_AID_PAIRS.has(w) if w.contains("/") else OWTypes.SCRIPTS.has(w)):
 				return {"bad": "types"}
 			types[w] = true
 	var window_v: Variant = x.get("window")
@@ -956,6 +1033,10 @@ static func _read_recipe(raw: Variant) -> Dictionary:
 	var undated_v: Variant = x.get("undated")
 	if undated_v != null and not _is_one_of(undated_v, _UNDATED):
 		return {"bad": "undated"}
+	var changed_v: Variant = x.get("changed_within")
+	var changed_within: Variant = null if changed_v == null else whole(changed_v)
+	if changed_v != null and (changed_within == null or changed_within < 1):
+		return {"bad": "changed_within"}
 	var show_v: Variant = x.get("show")
 	if show_v != null and not _is_one_of(show_v, _SHOW):
 		return {"bad": "show"}
@@ -976,6 +1057,7 @@ static func _read_recipe(raw: Variant) -> Dictionary:
 	return {"recipe": {
 		"depth": depth, "types": types, "window": window, "from": from, "to": to,
 		"undated": DEFAULT_UNDATED if undated_v == null else undated_v,
+		"changed_within": changed_within,
 		"show": DEFAULT_SHOW if show_v == null else show_v,
 		"budget": budget,
 		"mail": DEFAULT_MAIL if mail_v == null else mail_v,

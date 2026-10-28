@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWLens on the lens profile's conformance fixture (schema-dist profiles/lens.fixture.json, the pinned copy at
-## dist.81, its sha256 checked against the manifest): the pair and the template, the legal values of x_lens, where a
+## dist.82, its sha256 checked against the manifest): the pair and the template, the legal values of x_lens, where a
 ## seat's choice lives, every resolution over the fixture's five worlds and their readers, and the invariants. The
 ## graph kind is test_lens_graph.gd's. The profile's tables are held equal to the fixture's and to the generated models.
 
@@ -51,8 +51,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 122, "122 cases")
-	t.eq(counts, {"shape": 6, "keys": 23, "resolve": 51, "invariant": 4, "uses": 4, "graph": 34}, "by kind")
+	t.eq(_fixture()["cases"].size(), 132, "132 cases")
+	t.eq(counts, {"shape": 6, "keys": 23, "resolve": 58, "invariant": 4, "uses": 4, "graph": 37}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
@@ -65,6 +65,8 @@ func test_the_tables_are_the_fixtures(t) -> void:
 	t.eq(f["anchor_fields"], OWLens.ANCHOR_FIELDS, "the anchor fields")
 	t.eq(PackedStringArray(f["type_order"]), OWTypes.slugs(), "the budget's type order is the schema's")
 	t.eq(f["room_pairs"], OWLens.ROOM_PAIRS, "the room pairs")
+	t.eq(f["reading_aid_pairs"], OWLens.READING_AID_PAIRS, "the reading aids' pairs")
+	t.eq(f["reading_aid_mark"]["field"], OWLens.READING_AID_MARK, "the reading aid's mark")
 	t.eq(f["cut_reasons"], OWLens.CUT_REASONS, "the cut reasons")
 	t.eq(f["owner_only_reasons"], OWLens.OWNER_ONLY, "the owner's two")
 	var d: Dictionary = f["defaults"]
@@ -365,4 +367,127 @@ func test_a_callers_mistake_is_named(t) -> void:
 	t.ok(OWLens.resolve(world, lens, {"rung": "owner"}, {"as_of": 1.5}).error.contains("as_of"), "an as_of not whole")
 	t.ok(OWLens.resolve(world, lens, {"rung": "owner"}, {"clock": "yesterday"}).error.contains("clock"), "a clock not a time")
 	t.ok(OWLens.resolve(world, lens, {"rung": "owner"}, {"asOf": 3}).error.contains("asOf"), "an option it does not know")
+	t.done()
+
+# -- the reading aids and changed_within (the npm SDK 4.98.0's vectors; the Python package 0.80.0 holds the same) ------
+
+const OWNER := {"rung": "owner"}
+const CLOCK := "2026-10-27T12:00:00Z"
+
+func _aids() -> Dictionary:
+	return {"elements": [
+		{"id": "desk", "type": "institution", "name": "The Desk", "constructs": ["domain", "guide"]},
+		{"id": "rules", "type": "law", "name": "House Rules", "supertype": "Charter", "author": "desk", "x_charter_of": "w1"},
+		{"id": "charter", "type": "law", "name": "Harbour Charter", "supertype": " charter ", "author": "desk"},
+		{"id": "domain", "type": "construct", "name": "Reporting", "supertype": "Domain", "x_charter_of": "w1"},
+		{"id": "guide", "type": "construct", "name": "How we work", "supertype": "GUIDE", "x_charter_of": "w1", "objects": ["ledger"]},
+		{"id": "ledger", "type": "object", "name": "Ledger"}]}
+
+func _lens_on(anchors: Dictionary, x_lens: Variant = null) -> Dictionary:
+	var lens := {"id": "L", "type": "construct", "name": "L", "supertype": "Lens"}
+	lens.merge(anchors)
+	if x_lens != null:
+		lens["x_lens"] = x_lens
+	return lens
+
+## Each pair word is a legal types word in any case and padding, and an element of the pair is an aid only with the mark.
+func test_the_reading_aid_pairs_are_types_words_and_need_the_mark(t) -> void:
+	for pair in OWLens.READING_AID_PAIRS:
+		var lens := _lens_on({}, {"types": [" " + pair.to_upper() + " "]})
+		t.eq(OWLens.resolve({"elements": []}, lens, OWNER).unreadable, null, pair)
+		var words: PackedStringArray = pair.split("/")
+		var el := {"id": "x", "type": words[0], "name": pair, "supertype": words[1].to_upper()}
+		t.eq(OWLens.is_charter_element(el), false, "%s without the mark" % pair)
+		var marked := el.duplicate()
+		marked[OWLens.READING_AID_MARK] = "w1"
+		t.eq(OWLens.is_charter_element(marked), true, "%s with the mark" % pair)
+	t.done()
+
+func test_is_charter_element_is_the_pair_and_the_mark(t) -> void:
+	var els: Array = _aids()["elements"]
+	t.eq(OWLens.is_charter_element(els[1]), true, "a marked Charter")
+	t.eq(OWLens.is_charter_element(els[2]), false, "the pair without the mark: lore")
+	t.eq(OWLens.is_charter_element(els[3]), true, "a marked Domain")
+	t.eq(OWLens.is_charter_element(els[4]), true, "GUIDE, folded")
+	t.eq(OWLens.is_charter_element({"type": "law", "supertype": "Charters", "x_charter_of": "w1"}), false, "the whole word")
+	t.eq(OWLens.is_charter_element({"type": "object", "supertype": "Charter", "x_charter_of": "w1"}), false, "not the pair")
+	t.eq(OWLens.is_charter_element({"type": "law", "supertype": "Charter", "x_charter_of": ""}), false, "an empty mark")
+	t.eq(OWLens.is_charter_element({"type": "law", "supertype": "Charter", "x_charter_of": " 　"}), false, "a blank mark")
+	t.eq(OWLens.is_charter_element({"type": "law", "supertype": "Charter", "x_charter_of": null}), false, "a null mark")
+	t.eq(OWLens.is_charter_element({"type": "law", "supertype": "Charter", "x_charter_of": 7}), true, "a number is a mark")
+	t.eq(OWLens.is_charter_element({"type": "law", "supertype": "Charter", "x_room_of": "w1"}), false, "the room's mark is not this one")
+	t.eq(OWLens.is_charter_element(null), false, "null")
+	t.done()
+
+func test_an_unmarked_charter_is_lore(t) -> void:
+	var plain := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}), OWNER)
+	t.eq(plain.kept, PackedStringArray(["desk", "charter"]), "a hop keeps it like any Law")
+	t.eq(plain.cut, {"types": 3}, "the three aids cut")
+	var laws := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}, {"types": ["law"]}), OWNER)
+	t.eq(laws.kept, PackedStringArray(["desk", "charter"]), "types law keeps it")
+	t.eq(laws.cut, {"types": 3}, "and cuts the aids")
+	t.done()
+
+func test_a_marked_domain_a_hop_reaches_is_cut_unless_its_pair_is_named(t) -> void:
+	var none := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}, {"types": ["construct"]}), OWNER)
+	t.eq(none.kept, PackedStringArray(["desk"]), "construct keeps no aid")
+	t.eq(none.cut, {"types": 4}, "the three aids, and the lore Charter, a Law")
+	var named := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}, {"types": [" Construct/Domain "]}), OWNER)
+	t.eq(named.kept, PackedStringArray(["desk", "domain"]), "the pair named keeps the Domain")
+	t.eq(named.cut, {"types": 3}, "the rest cut")
+	# A hop does not continue out of an aid whose pair is not named: the Ledger, behind the Guide, is never reached.
+	var deep := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}, {"depth": 2}), OWNER)
+	t.eq(deep.cut, {"types": 3}, "no second hop out of an unnamed aid")
+	var through := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}, {"depth": 2, "types": ["construct/guide", "institution"]}), OWNER)
+	t.eq(through.cut, {"types": 3, "hops_not_served": 1}, "a named Guide is hopped out of")
+	# In an unlensed graph the aids are out, whatever flag is asked; a lens naming the pair keeps them as nodes.
+	var g := OWGraph.world_graph(_aids(), OWNER, {"rooms": true, "hidden": true, "proposed": true, "map_space": true})
+	t.eq(g.nodes.map(func(n): return n["id"]), ["charter", "desk", "ledger"], "the graph's nodes")
+	t.eq(g.cut, {"reading_aid": 3}, "the graph's cut")
+	t.eq(g.edges_cut, {"reading_aid": 2}, "the Desk's links to the Domain and the Guide")
+	t.eq(g.edges, [{"source": "charter", "field": "author", "target": "desk", "index": 0}], "the one edge")
+	var lensed := OWGraph.world_graph(_aids(), OWNER, {"lens": _lens_on({"institutions": ["desk"]}, {"types": ["construct/domain", "institution"]})})
+	t.eq(lensed.nodes.map(func(n): return [n["id"], n.get("marks")]), [["desk", null], ["domain", null]], "a lens naming the pair")
+	t.done()
+
+func test_an_anchor_that_is_a_marked_guide_is_kept_and_followed(t) -> void:
+	var r := OWLens.resolve(_aids(), _lens_on({"constructs": ["guide"]}, {"types": ["object", "institution"]}), OWNER)
+	t.eq(r.kept, PackedStringArray(["guide", "desk", "ledger"]), "whatever types says")
+	t.eq(r.cut, {}, "nothing cut")
+	var pub := OWLens.resolve(_aids(), _lens_on({"constructs": ["guide"]}), {"rung": "public"})
+	t.eq(pub.kept, PackedStringArray(["guide", "desk", "ledger"]), "an aid is no room element: a public reader sees it")
+	t.done()
+
+func test_changed_within_keeps_the_exact_edge_and_never_cuts_an_anchor(t) -> void:
+	var world := {"elements": [
+		{"id": "a", "type": "institution", "name": "Anchor", "updated_at": "2020-01-01T00:00:00Z", "objects": ["edge", "past", "none", "bad"]},
+		{"id": "edge", "type": "object", "name": "Seven days", "updated_at": "2026-10-20T12:00:00Z"},
+		{"id": "past", "type": "object", "name": "Seven days and a second", "updated_at": "2026-10-20T11:59:59Z"},
+		{"id": "none", "type": "object", "name": "No time"},
+		{"id": "bad", "type": "object", "name": "Unreadable", "updated_at": "yesterday"}]}
+	var lens := _lens_on({"institutions": ["a"]}, {"changed_within": 7})
+	var r := OWLens.resolve(world, lens, OWNER, {"clock": CLOCK})
+	t.eq(r.kept, PackedStringArray(["a", "edge", "bad", "none"]), "no readable time: never cut, sorted last")
+	t.eq(r.cut, {"stale": 1}, "a second older is stale")
+	world["elements"][2]["updated_at"] = "2026-10-20T13:00:00+01:00"
+	t.eq(OWLens.resolve(world, lens, OWNER, {"clock": CLOCK}).cut, {}, "an offset is read: the same instant as the edge")
+	var f := OWLens.resolve(world, _lens_on({}, {"types": ["object"], "changed_within": 1}), OWNER, {"clock": CLOCK})
+	t.eq([f.kept, f.cut], [PackedStringArray(["bad", "none"]), {"stale": 2}], "a filter is cut too")
+	for bad in [0, -1, 1.5, "7", true, [7]]:
+		t.eq(OWLens.resolve(world, _lens_on({"institutions": ["a"]}, {"changed_within": bad}), OWNER).unreadable, "changed_within", var_to_str(bad))
+	t.eq(OWLens.resolve(world, _lens_on({"institutions": ["a"]}, {"changed_within": null}), OWNER, {"clock": CLOCK}).unreadable, null, "null is absent")
+	t.done()
+
+func test_changed_within_reads_a_folder_element_by_the_newer_sync_stamp(t) -> void:
+	var lens := _lens_on({"institutions": ["a"]}, {"changed_within": 7})
+	var kept := func(stamps: Dictionary) -> bool:
+		var o := {"id": "o", "type": "object", "name": "Folder copy"}
+		o.merge(stamps)
+		var world := {"elements": [{"id": "a", "type": "institution", "name": "Anchor", "objects": ["o"]}, o]}
+		return OWLens.resolve(world, lens, OWNER, {"clock": CLOCK}).kept.has("o")
+	t.eq(kept.call({"server_updated_at": "2026-09-01T00:00:00Z", "local_updated_at": "2026-10-26T00:00:00Z"}), true, "local newer")
+	t.eq(kept.call({"server_updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "2026-09-01T00:00:00Z"}), true, "server newer")
+	t.eq(kept.call({"server_updated_at": "2026-09-01T00:00:00Z", "local_updated_at": "2026-09-02T00:00:00Z"}), false, "both old")
+	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "2026-09-02T00:00:00Z"}), false, "a folder stamp wins over updated_at")
+	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "soon"}), true, "an unreadable stamp is none")
 	t.done()

@@ -1,6 +1,6 @@
 extends RefCounted
-## OWGraph on the lens fixture's graph kind (schema-dist profiles/lens.fixture.json at dist.81, the pinned copy): each
-## of the 34 cases carries its own small world, reader and options, and the want (nodes in order with their marks,
+## OWGraph on the lens fixture's graph kind (schema-dist profiles/lens.fixture.json at dist.82, the pinned copy): each
+## of the 37 cases carries its own small world, reader and options, and the want (nodes in order with their marks,
 ## edges in order, edges_cut, the lens's cut and unreadable, or refused naming a flag). Then the profile's graph tables
 ## held to the fixture and the presentation defaults, and degree_of.
 
@@ -59,7 +59,7 @@ func test_the_graph_tables_are_the_fixtures(t) -> void:
 	reasons.sort()
 	var ours: Array = OWGraph.REASONS.duplicate()
 	ours.sort()
-	t.eq(ours, reasons, "the same thirteen reasons (counted in the packages' order)")
+	t.eq(ours, reasons, "the same fifteen reasons (counted in the packages' order)")
 	for why in f["owner_only_edges_cut_reasons"]:
 		t.ok(OWGraph.OWNER_ONLY_REASONS.has(why), "%s is the owner's alone" % why)
 	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))

@@ -1,9 +1,9 @@
 class_name OWGraph
 extends RefCounted
-## The lens profile's graph section (schema-dist [code]profiles/lens.md[/code], serial 81): a reading of a world as
+## The lens profile's graph section (schema-dist [code]profiles/lens.md[/code], serial 82): a reading of a world as
 ## nodes and edges. The elements a reader sees are the nodes, the links between them the edges. It adds nothing to the
 ## world and stores nothing. Who sees what is [OWLens]'s own reading, never a second copy; with a lens the nodes are
-## exactly what the lens kept. The npm SDK's [code]worldGraph[/code] and [code]degreeOf[/code] (4.96.1) and the Python
+## exactly what the lens kept. The npm SDK's [code]worldGraph[/code] and [code]degreeOf[/code] (4.98.0) and the Python
 ## package's [code]world_graph[/code], ported; the fixture's graph kind is this file's test.
 
 ## The extension fields a published profile declares a link, each a list of ids: the lens profile's and the spine's.
@@ -15,9 +15,9 @@ const OWNER_ONLY_FLAGS := ["hidden", "proposed"]
 ## Map space: out by default for size, not for standing (a node it brings back carries no mark).
 const MAP_SPACE := ["map", "pin", "marker", "zone"]
 ## Every reason an element is not a node or an edge was cut, in the order the npm and Python packages count them:
-## the lens's eight, then the graph's own.
-const REASONS := ["budget", "types", "window", "undated", "after_as_of", "anchor_not_visible", "not_visible",
-	"hops_not_served", "room", "hidden", "proposed", "map_space", "outside_lens"]
+## the lens's nine, then the graph's own.
+const REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of", "anchor_not_visible", "not_visible",
+	"hops_not_served", "room", "hidden", "proposed", "map_space", "reading_aid", "outside_lens"]
 ## The reasons a reader that is not the owner never carries, not even as zero.
 const OWNER_ONLY_REASONS := ["anchor_not_visible", "not_visible", "hidden", "proposed"]
 ## The type's family and icon: schema-dist presentation.json's first-party defaults (held equal to it by the tests).
@@ -69,7 +69,8 @@ class Graph:
 ## body or id: the nodes are exactly what it kept, its cut rides along, and no flag adds to them), [code]as_of[/code]
 ## and [code]clock[/code] (the lens's reading), and the flags [code]rooms[/code], [code]hidden[/code],
 ## [code]proposed[/code], [code]map_space[/code] (booleans, false by default). Without a lens, room, hidden, proposed
-## and map-space elements are out unless their flag brings them back, marked. [code]hidden[/code] or
+## and map-space elements are out unless their flag brings them back, marked, and so are the reading aids
+## ([method OWLens.is_charter_element]), counted [code]reading_aid[/code], which no flag brings back. [code]hidden[/code] or
 ## [code]proposed[/code] from any rung but the owner's, or any flag from a public reader, is refused by name before
 ## anything is read (the first in the order hidden, proposed, rooms, map_space).
 static func world_graph(world: Variant, reader: Variant, options: Variant = null) -> Graph:
@@ -125,12 +126,15 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			out.append("proposed")
 		if MAP_SPACE.has(r.type_of[id]):
 			out.append("map_space")
+		if r.aid.has(id):
+			out.append("reading_aid")
 		return out
 	# What the reader could see as a node: its view, and for the owner what is written as proposed too.
 	var candidate := func(id: String) -> bool: return r.view.has(id) or (seen_owner and r.proposed.has(id))
 	var out_by := func(id: String) -> Variant:
 		for k in kinds.call(id):
-			if not flags[k]:
+			# A reading aid has no flag: only a lens that names its pair keeps one.
+			if k == "reading_aid" or not flags[k]:
 				return _reason_of_kind(k)
 		return null
 
@@ -170,7 +174,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			"family": FAMILIES[type], "icon": ICONS[type]}
 		var marks := []
 		for k in kinds.call(id):
-			if k != "map_space":
+			if k != "map_space" and k != "reading_aid":
 				marks.append(_reason_of_kind(k))
 		if not marks.is_empty():
 			node["marks"] = marks
