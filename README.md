@@ -66,13 +66,19 @@ test whose world is missing is skipped, never passed.
 - **Addresses** (the address profile, serial 77): `ow://` links and the site's URL, read and written as the npm and
   Python packages do: every case of the profile's fixture, the reader's refusals in its order, the writer's
   `bad_form`, `segments`, `no_world` before them, a moment of `3.0` the step 3, an empty string present.
-- **Lenses** (the lens profile, serial 82, with its graph section): `OWLens` reads a saved way of reading a world
+- **Lenses** (the lens profile, serial 83, with its graph section): `OWLens` reads a saved way of reading a world
   (`is_lens`, `is_template`, `check_keys`, `lenses_in_use`, `resolve`, `date_of`, `is_charter_element` for the
   reading aids) and `OWGraph` the world as nodes and edges (`world_graph`, `degree_of`, `out_degree_of`), as the npm
-  and Python packages do: every case of the profile's fixture (132, the graph kind's 37 included), the room profile's
-  28, and their shared edge file (15). Where the platform's own reader reads otherwise, this reads as it does: nothing
+  and Python packages do: every case of the profile's fixture (147, the graph kind's 37 included), the room profile's
+  32, and their shared edge file (15). Where the platform's own reader reads otherwise, this reads as it does: nothing
   hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
-  would cut, and a mark (`x_room_of`, `x_charter_of`) counts by presence. A JSON number with no fraction is whole
-  (`7.0` reads as 7), in `x_lens` too, since Godot's JSON cannot tell 7 from 7.0; past 64 bits it is not.
+  would cut, a mark (`x_room_of`, `x_charter_of`) counts by presence, and an umbrella's union drops an element only by
+  id. A JSON number with no fraction is whole (`7.0` reads as 7), in `x_lens` too, since Godot's JSON cannot tell 7
+  from 7.0; past 64 bits it is not. The one case that needs the text (`text_only`) is skipped, as the fixture allows.
+- **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
+  door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
+  `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
+  each with its sentence and hubs, the Charter's skill Objects as keel's `charter_skill` finds them. Every case of the
+  profile's fixture (22).
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.
