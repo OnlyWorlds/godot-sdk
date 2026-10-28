@@ -3,8 +3,9 @@ extends RefCounted
 ## The lens profile's graph section (schema-dist [code]profiles/lens.md[/code], serial 82): a reading of a world as
 ## nodes and edges. The elements a reader sees are the nodes, the links between them the edges. It adds nothing to the
 ## world and stores nothing. Who sees what is [OWLens]'s own reading, never a second copy; with a lens the nodes are
-## exactly what the lens kept. The npm SDK's [code]worldGraph[/code] and [code]degreeOf[/code] (4.98.0) and the Python
-## package's [code]world_graph[/code], ported; the fixture's graph kind is this file's test.
+## exactly what the lens kept. The npm SDK's [code]worldGraph[/code], [code]degreeOf[/code] and
+## [code]outDegreeOf[/code] (4.98.0) and the Python package's [code]world_graph[/code], ported; the fixture's graph kind
+## is this file's test.
 
 ## The extension fields a published profile declares a link, each a list of ids: the lens profile's and the spine's.
 const DECLARED_LINKS := ["x_lens_leads_to", "x_spine_depends_on"]
@@ -235,6 +236,23 @@ static func degree_of(graph: Graph) -> Dictionary:
 			count[e["source"]] += 1
 		if e["target"] != e["source"] and count.has(e["target"]):
 			count[e["target"]] += 1
+	return count
+
+## Each node's out-degree in a graph [method world_graph] answered: the number of distinct nodes its own link fields
+## point at. A target listed in two fields counts once, a link to itself does not count, and a mirror pair (A lists B,
+## B lists A) counts 1 at each end, since each counts its own list. Every node is a key, 0 included, in the graph's node
+## order. Like [method degree_of], the count is the reader's. How far an element reaches out, apart from how often it
+## is named.
+static func out_degree_of(graph: Graph) -> Dictionary:
+	var targets := {}
+	for n in graph.nodes:
+		targets[n["id"]] = {}
+	for e in graph.edges:
+		if e["target"] != e["source"] and targets.has(e["source"]):
+			targets[e["source"]][e["target"]] = true
+	var count := {}
+	for id in targets:
+		count[id] = targets[id].size()
 	return count
 
 ## The flag's word as a reason and a mark: rooms brings back what is out as room.

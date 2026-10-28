@@ -2,7 +2,7 @@ extends RefCounted
 ## OWGraph on the lens fixture's graph kind (schema-dist profiles/lens.fixture.json at dist.82, the pinned copy): each
 ## of the 37 cases carries its own small world, reader and options, and the want (nodes in order with their marks,
 ## edges in order, edges_cut, the lens's cut and unreadable, or refused naming a flag). Then the profile's graph tables
-## held to the fixture and the presentation defaults, and degree_of.
+## held to the fixture and the presentation defaults, degree_of and out_degree_of.
 
 const P = preload("res://tests/paths.gd")
 
@@ -84,6 +84,43 @@ func test_degree_of(t) -> void:
 	var with_hidden := OWGraph.degree_of(OWGraph.world_graph(world, {"rung": "owner"}, {"hidden": true}))
 	t.eq(with_hidden["c3"], 1, "brought back, the hidden one's link counts")
 	t.eq(with_hidden["h1"], 2, "and so does the link to it")
+	t.done()
+
+## The npm SDK 4.98.0's outDegreeOf: distinct targets of a node's own links, two fields to one target once, a link to
+## itself none, a mirror pair 1 at each end, every node a key in the graph's node order.
+func test_out_degree_of(t) -> void:
+	var world := {"elements": [
+		{"id": "c1", "type": "character", "name": "Ada", "friends": ["c2", "c1"], "rivals": ["c2"]},
+		{"id": "c2", "type": "character", "name": "Bo", "friends": ["c1"]},
+		{"id": "r1", "type": "relation", "name": "Pact", "characters": ["c1", "c2", "c3"]},
+		{"id": "c3", "type": "character", "name": "Cy"},
+		{"id": "o1", "type": "object", "name": "Lamp"},
+		{"id": "constructor", "type": "object", "name": "An id like an inherited key"},
+		{"id": "__proto__", "type": "character", "name": "Another", "objects": ["constructor"]}]}
+	var g := OWGraph.world_graph(world, {"rung": "owner"})
+	var d := OWGraph.out_degree_of(g)
+	t.eq(d.keys(), g.nodes.map(func(n): return n["id"]), "in the node order")
+	t.eq(d, {"__proto__": 1, "c1": 1, "c2": 1, "c3": 0, "constructor": 0, "o1": 0, "r1": 3}, "the out-degrees")
+	t.done()
+
+## out_degree_of on every fixture graph with nodes equals a direct count of distinct targets.
+func test_out_degree_of_every_fixture_graph(t) -> void:
+	var cases := 0
+	for c in _fixture()["cases"]:
+		if c["kind"] != "graph" or not c["want"].has("nodes"):
+			continue
+		cases += 1
+		var g := OWGraph.Graph.new()
+		g.nodes = c["want"]["nodes"]
+		g.edges = c["want"]["edges"]
+		var d := OWGraph.out_degree_of(g)
+		for n in g.nodes:
+			var direct := {}
+			for e in g.edges:
+				if e["source"] == n["id"] and e["target"] != n["id"]:
+					direct[e["target"]] = true
+			t.eq(d[n["id"]], direct.size(), "%s: %s" % [c["name"], n["id"]])
+	t.ok(cases > 0, "a fixture graph case was read")
 	t.done()
 
 ## A caller's mistake is named and nothing is read; a refused flag is named before anything is read.
