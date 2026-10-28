@@ -581,3 +581,17 @@ func test_a_mark_counts_by_presence(t) -> void:
 	t.eq(OWLens.resolve(world, _lens_on({}), {"rung": "public"}).kept, PackedStringArray(["b"]), "the public reader sees only the lore")
 	t.eq(OWGraph.world_graph(world, OWNER).cut, {"room": 2}, "an unlensed graph leaves two room elements out")
 	t.done()
+
+## A float in an x_lens key is refused, the key named, while an element's date reads 7.0 as 7. Godot's JSON reads a 7
+## and a 7.0 alike (both a float), so this reader cannot see a JSON 7.0 in x_lens: there an integral number is whole,
+## as in a date, and what it can see is refused (a fraction, NaN, infinity, a number past 64 bits). The TypeScript SDK
+## reads JSON the same way.
+func test_x_lens_numbers_as_godot_can_see_them(t) -> void:
+	t.eq(typeof(JSON.parse_string("[7.0]")[0]), typeof(JSON.parse_string("[7]")[0]), "Godot's JSON: 7 and 7.0 are one type")
+	t.eq(OWLens.check_keys(JSON.parse_string("{\"depth\": 2.0, \"changed_within\": 7.0}")), null, "a JSON 2.0 reads as 2")
+	for key in ["depth", "window", "from", "budget", "changed_within"]:
+		for v in [1.5, NAN, INF, 1e300]:
+			t.eq(OWLens.check_keys({key: v}), key, "%s %s is refused" % [key, var_to_str(v)])
+	t.eq(OWLens.check_keys({"from": 1, "to": 2.5}), "to", "to 2.5 is refused")
+	t.eq(OWLens.date_of({"type": "event", "start_date": 7.0}), 7, "an element's date reads 7.0 as 7")
+	t.done()

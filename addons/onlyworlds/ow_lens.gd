@@ -13,7 +13,10 @@ extends RefCounted
 ## section through it.
 ##
 ## Element bodies are Dictionaries as the API or a world folder gives them. Godot's JSON reads every number as a
-## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]).
+## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]). The
+## profile refuses a float in an [code]x_lens[/code] key (a JSON [code]7.0[/code]) while a date reads 7.0 as 7; Godot's
+## JSON cannot tell 7 from 7.0, so here [code]x_lens[/code] reads an integral number as whole too, and refuses what it
+## can see: a fraction, NaN, infinity, a number past 64 bits.
 
 ## The pair a lens is, each word trimmed and folded as the room profile reads its pairs.
 const PAIR_TYPE := "construct"
