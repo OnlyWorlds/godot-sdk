@@ -38,13 +38,17 @@ var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # no
 
 ```sh
 python codegen/generate.py --check                               # the pin holds, the generated files are current
-godot --headless --path . --import                               # once per clone: registers the class_name scripts
+godot --headless --path . --import                               # per clone, and after any pull that adds a class_name
 godot --headless --path . --script res://tests/run.gd            # exits 0 only when every test passes
 python tools/check_writer.py out.owworld                         # run_py.py's reader and check_writer on a file
 godot --path . --write-movie frames/map.png --quit-after 4 res://demo/moppetopia_map.tscn
 godot --headless --path . --export-release "Windows Desktop" build/windows/ow-godot-demo.exe   # needs 4.7.2's templates
 build/windows/ow-godot-demo.exe -- --world=<folder | file.owworld> --capture=frame.png
 ```
+
+A stale class cache shows as `Could not find type "OW…"` parse errors, and a test file that fails to parse drops
+out of the total instead of counting as failed: a run whose total is short of the last one is that, so import and
+run again.
 
 The exported demo (Windows x86_64, 2026-10-24) reads Moppetopia from a folder and from an `.owworld`, and both
 frames are byte-identical to the editor's.
