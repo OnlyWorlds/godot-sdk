@@ -288,8 +288,10 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 		if not r.view.has(id) or a["unseen"].has(id):
 			_add_cut(cut, id, "anchor_not_visible")
 			continue
-		frontier.append(id)
 		var why: Variant = r.fence_cut(id, recipe)
+		# Nothing past the reading's date leads anywhere: an anchor cut after_as_of is not hopped out of.
+		if not r.after_as_of(id):
+			frontier.append(id)
 		if why != null:
 			_add_cut(cut, id, why)
 		else:
@@ -322,7 +324,7 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 				_add_cut(cut, id, "not_visible")
 		if recipe["depth"] == 2:
 			var past := func(id: String) -> bool: return excluded.call(id) or hop.has(id)
-			var stops := func(id: String) -> bool: return r.stops_at(id, recipe)
+			var stops := func(id: String) -> bool: return r.stops_at(id, recipe) or r.after_as_of(id)
 			for id in r.reach(hop.keys(), past, stops)[0]:
 				_add_cut(cut, id, "hops_not_served")
 	var out := []
@@ -845,6 +847,12 @@ class View:
 		if d == null:
 			return "undated" if recipe["undated"] == "exclude" else null
 		return "after_as_of" if as_of != null and d > as_of else null
+
+	## Whether the element is dated after the reading's as_of: the fence cuts it, and nothing hops out of it (keel's
+	## reader builds its frontier without it).
+	func after_as_of(id: String) -> bool:
+		var why: Variant = fence_cut(id, {"undated": OWLens.DEFAULT_UNDATED})
+		return why is String and why == "after_as_of"
 
 	## window, or from and to (closed-open). A to after as_of is clipped: the fence stays the upper edge.
 	func window_cut(id: String, recipe: Dictionary) -> Variant:

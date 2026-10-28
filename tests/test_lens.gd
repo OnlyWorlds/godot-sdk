@@ -491,3 +491,31 @@ func test_changed_within_reads_a_folder_element_by_the_newer_sync_stamp(t) -> vo
 	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "2026-09-02T00:00:00Z"}), false, "a folder stamp wins over updated_at")
 	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "soon"}), true, "an unreadable stamp is none")
 	t.done()
+
+# -- keel's reader, where the packages read otherwise (ruled keel's way; serial 83's fixture is to carry them) ---------
+
+## Nothing past the reading's date leads anywhere: no hop goes out of an element cut after_as_of, an anchor or one a hop
+## reached, and the owner's not_visible count does not look past it either (keel builds its frontier without it).
+func test_no_hop_goes_out_of_an_element_cut_after_as_of(t) -> void:
+	var world := {"elements": [
+		{"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "x_lens": {}, "events": ["e"]},
+		{"id": "e", "type": "event", "name": "e", "start_date": 1300, "characters": ["c"]},
+		{"id": "c", "type": "character", "name": "c"}]}
+	var r := OWLens.resolve(world, "L", OWNER, {"as_of": 1200})
+	t.eq(r.kept, PackedStringArray(), "the anchor after as_of links c, and c is not reached")
+	t.eq(r.cut, {"after_as_of": 1}, "only the anchor is cut")
+	world = {"elements": [
+		{"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "x_lens": {"depth": 2}, "characters": ["a"]},
+		{"id": "a", "type": "character", "name": "a"},
+		{"id": "e", "type": "event", "name": "e", "start_date": 1300, "characters": ["a", "c"]},
+		{"id": "c", "type": "character", "name": "c"}]}
+	r = OWLens.resolve(world, "L", OWNER, {"as_of": 1200})
+	t.eq(r.kept, PackedStringArray(["a"]), "a reached element after as_of is cut")
+	t.eq(r.cut, {"after_as_of": 1}, "and not hopped out of: c is not a second hop")
+	world = {"elements": [
+		{"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "x_lens": {}, "events": ["e"]},
+		{"id": "e", "type": "event", "name": "e", "start_date": 1300, "characters": ["h"]},
+		{"id": "h", "type": "character", "name": "h", "hidden": true}]}
+	r = OWLens.resolve(world, "L", {"rung": "owner", "as": {"rung": "contributor"}}, {"as_of": 1200})
+	t.eq(r.cut, {"after_as_of": 1}, "the owner reading as a contributor: no not_visible behind the fenced anchor")
+	t.done()
