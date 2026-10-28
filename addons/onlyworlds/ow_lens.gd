@@ -1,6 +1,6 @@
 class_name OWLens
 extends RefCounted
-## The lens profile (schema-dist [code]profiles/lens.md[/code], serial 82, its graph section serial 81): a saved way of
+## The lens profile (schema-dist [code]profiles/lens.md[/code], serial 83, its graph section serial 81): a saved way of
 ## reading a world. A lens is a Construct with supertype [code]Lens[/code]; its links are its anchors, and
 ## [code]x_lens[/code] is the recipe (how far, which types, how far back, how recently changed, how much).
 ##
@@ -338,10 +338,12 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 		mail = _mail_part(r, recipe["mail"], recipe["budget"], wall)
 		for id in mail["unread"] + mail["read"]:
 			in_mail[id] = true
+	# The union drops an element only by id (keel's reading): a lens a child's hop kept before it was entered as a
+	# later child stays kept. Nothing visited can reach the list otherwise, since every hop and anchor skips it.
 	var seen := {}
 	var union := []
 	for id in list:
-		if seen.has(id) or visited.has(id) or in_mail.has(id):
+		if seen.has(id) or in_mail.has(id):
 			continue
 		seen[id] = true
 		union.append(id)
