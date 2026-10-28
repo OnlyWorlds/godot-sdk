@@ -595,3 +595,63 @@ func test_x_lens_numbers_as_godot_can_see_them(t) -> void:
 	t.eq(OWLens.check_keys({"from": 1, "to": 2.5}), "to", "to 2.5 is refused")
 	t.eq(OWLens.date_of({"type": "event", "start_date": 7.0}), 7, "an element's date reads 7.0 as 7")
 	t.done()
+
+# -- the umbrella's children, each by its own recipe (keel's reading) --------------------------------------------------
+
+## An umbrella U over one child K: U's x_lens and K's x_lens and anchors as given, three Characters to point at.
+func _umbrella(u: Dictionary, k: Dictionary) -> Dictionary:
+	var umbrella := {"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "constructs": ["K"]}
+	umbrella.merge(u)
+	var child := {"id": "K", "type": "construct", "name": "K", "supertype": "Lens"}
+	child.merge(k)
+	return {"elements": [umbrella, child,
+		{"id": "a", "type": "character", "name": "Ada", "description": "First line.\nSecond line."},
+		{"id": "b", "type": "character", "name": "Brin"},
+		{"id": "c", "type": "character", "name": "Cass"}]}
+
+## A child keeps at most its own budget, the rest counted budget, before the union; the umbrella's budget caps on top.
+func test_an_umbrella_child_keeps_at_most_its_own_budget(t) -> void:
+	var k := {"characters": ["a", "b", "c"], "x_lens": {"depth": 0, "budget": 2}}
+	var r := OWLens.resolve(_umbrella({"x_lens": {"depth": 0}}, k), "U", OWNER)
+	t.eq(r.kept, PackedStringArray(["a", "b"]), "the child's capped set")
+	t.eq(r.cut, {"budget": 1}, "Cass, past the child's budget")
+	# The child's budget counts what the umbrella already holds: K keeps Ada and Brin, and Ada is the umbrella's own.
+	var own := OWLens.resolve(_umbrella({"characters": ["a"], "x_lens": {"depth": 0}}, k), "U", OWNER)
+	t.eq(own.kept, PackedStringArray(["a", "b"]), "Ada once, then Brin")
+	t.eq(own.cut, {"budget": 1}, "Cass still cut by the child")
+	var both := OWLens.resolve(_umbrella({"x_lens": {"depth": 0, "budget": 1}}, k), "U", OWNER)
+	t.eq(both.kept, PackedStringArray(["a"]), "the umbrella's budget on top")
+	t.eq(both.cut, {"budget": 2}, "Brin by the umbrella, Cass by the child")
+	t.done()
+
+## show is the umbrella's alone: a row kept through a child is built by the umbrella's recipe.
+func test_an_umbrella_child_row_shows_by_the_umbrellas_recipe(t) -> void:
+	var world := _umbrella({"x_lens": {"depth": 0, "show": "full"}}, {"characters": ["a"], "x_lens": {"depth": 0, "show": "name"}})
+	t.eq(OWLens.resolve(world, "U", OWNER).rows, [world["elements"][2]], "full under a full umbrella")
+	world = _umbrella({"x_lens": {"depth": 0, "show": "name"}}, {"characters": ["a"], "x_lens": {"depth": 0, "show": "full"}})
+	t.eq(OWLens.resolve(world, "U", OWNER).rows, [{"id": "a", "type": "character", "name": "Ada"}], "name under a name umbrella")
+	t.done()
+
+## A child's note is the child's recipe too: a row kept through a child carries none (the umbrella builds the rows).
+func test_an_umbrella_child_note_does_not_ride(t) -> void:
+	var world := _umbrella({"x_lens": {"depth": 0}}, {"characters": ["a"], "x_lens": {"depth": 0, "notes": {"a": "Why Ada."}}})
+	var r := OWLens.resolve(world, "U", OWNER)
+	t.eq(r.rows, [world["elements"][2]], "no note on Ada's row")
+	t.eq(r.notes_ignored, 0, "the child's note is not the umbrella's to count")
+	t.done()
+
+## A child's own mail rule takes its mail out of the child's kept before the union, though the umbrella names no mail
+## rule: the messages go nowhere (the child's mail part is not served), and nothing is counted.
+func test_an_umbrella_child_mail_rule_takes_its_messages_out(t) -> void:
+	var world: Dictionary = _fixture()["worlds"]["post"].duplicate(true)
+	world["elements"].append({"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "constructs": ["M"], "x_lens": {"depth": 0}})
+	world["elements"].append({"id": "M", "type": "construct", "name": "M", "supertype": "Lens",
+		"x_lens": {"types": ["narrative"], "mail": "unread_full_read_titles"}})
+	var r := OWLens.resolve(world, "U", world["readers"]["seat"], {"clock": CLOCK})
+	# M alone: the filter selects the five Narratives the seat sees; its mail part takes the three of the last thirty
+	# days addressed to Ada, leaving her own reply and the summer letter.
+	t.eq(r.kept, PackedStringArray(["019a7f00-0000-7000-8000-000000000037", "019a7f00-0000-7000-8000-000000000036"]),
+		"kept [%s]" % _names(world, r.kept))
+	t.eq(r.mail, null, "the umbrella names no mail rule")
+	t.eq(r.cut, {}, "nothing counted")
+	t.done()
