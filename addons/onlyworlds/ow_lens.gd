@@ -325,8 +325,10 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 		if recipe["depth"] == 2:
 			var past := func(id: String) -> bool: return excluded.call(id) or hop.has(id)
 			var stops := func(id: String) -> bool: return r.stops_at(id, recipe) or r.after_as_of(id)
+			# A room element or a reading aid that types would not keep is no hop the lens would serve: never counted.
 			for id in r.reach(hop.keys(), past, stops)[0]:
-				_add_cut(cut, id, "hops_not_served")
+				if not (r.room.has(id) or r.aid.has(id)) or r.keeps(id, recipe):
+					_add_cut(cut, id, "hops_not_served")
 	var out := []
 	for id in list:
 		out.append([id, r.row(id, recipe["show"], recipe["notes"] if anchor_set.has(id) else null)])

@@ -519,3 +519,24 @@ func test_no_hop_goes_out_of_an_element_cut_after_as_of(t) -> void:
 	r = OWLens.resolve(world, "L", {"rung": "owner", "as": {"rung": "contributor"}}, {"as_of": 1200})
 	t.eq(r.cut, {"after_as_of": 1}, "the owner reading as a contributor: no not_visible behind the fenced anchor")
 	t.done()
+
+## hops_not_served never counts a room element or a reading aid that types would not keep; a lens that names the pair
+## counts it.
+func test_hops_not_served_counts_a_room_element_or_aid_only_when_types_would_keep_it(t) -> void:
+	var world := {"elements": [
+		{"id": "A", "type": "institution", "name": "The Desk", "allies": ["B"]},
+		{"id": "B", "type": "institution", "name": "The Bindery"},
+		{"id": "ch", "type": "law", "name": "House Rules", "supertype": "Charter", "author": "B", "x_charter_of": "w1"},
+		{"id": "m", "type": "narrative", "name": "Memo", "supertype": "Message", "institutions": ["B"], "x_room_of": "w1"}]}
+	var lens := _lens_on({"institutions": ["A"]}, {"depth": 2})
+	var r := OWLens.resolve(world, lens, OWNER)
+	t.eq(r.kept, PackedStringArray(["A", "B"]), "kept")
+	t.eq(r.cut, {}, "the charter and the message at the second hop, which types would not keep, are not counted")
+	lens = _lens_on({"institutions": ["A"]}, {"depth": 2, "types": ["institution", "law/charter"]})
+	t.eq(OWLens.resolve(world, lens, OWNER).cut, {"hops_not_served": 1}, "a lens that names the aid's pair counts it")
+	lens = _lens_on({"institutions": ["A"]}, {"depth": 2, "types": ["institution", "narrative/message"]})
+	t.eq(OWLens.resolve(world, lens, OWNER).cut, {"hops_not_served": 1}, "a lens that names the room pair counts it")
+	lens = _lens_on({"institutions": ["A"]}, {"depth": 2, "types": ["institution"]})
+	world["elements"].append({"id": "o", "type": "event", "name": "Audit", "institutions": ["B"]})
+	t.eq(OWLens.resolve(world, lens, OWNER).cut, {"hops_not_served": 1}, "lore of a type types would cut is still counted")
+	t.done()
