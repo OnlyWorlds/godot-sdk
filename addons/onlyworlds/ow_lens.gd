@@ -561,13 +561,12 @@ static func _floor_div(a: int, b: int) -> int:
 
 # -- the room profile's matcher and the schema's links ------------------------------------------------------------------
 
-## A room element: its type and supertype, trimmed and folded, one of the room profile's pairs, and a non-empty
-## [code]x_room_of[/code]. Both, always.
+## A room element: its type and supertype, trimmed and folded, one of the room profile's pairs, and the mark
+## [code]x_room_of[/code], counted by presence as the reading aid's is ([method _has_mark]). Both, always.
 static func _is_room_element(el: Dictionary) -> bool:
 	var type: Variant = el.get("type")
 	var supertype: Variant = el.get("supertype")
-	var mark: Variant = el.get(ROOM_MARK)
-	if not (type is String and supertype is String and mark is String) or mark == "":
+	if not (type is String and supertype is String) or not _has_mark(el, ROOM_MARK):
 		return false
 	return ROOM_PAIRS.has(OWUnicode.profile_fold(type) + "/" + OWUnicode.profile_fold(supertype))
 
