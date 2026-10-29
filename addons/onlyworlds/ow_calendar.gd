@@ -11,7 +11,8 @@ extends RefCounted
 ##
 ## Godot's JSON reads every number as a float. A whole number here is an int, or a float with no fraction; where the
 ## profile asks for a whole number it is JavaScript's [code]Number.isSafeInteger[/code] (at most 2^53 - 1 in size),
-## and [code]after_month[/code] is [code]Number.isInteger[/code] (any whole number). JSON cannot tell 1 from 1.0 and
+## and [code]after_month[/code] is [code]Number.isInteger[/code] (a whole number, from 0 to the year's month count).
+## JSON cannot tell 1 from 1.0 and
 ## neither can JavaScript, so 1.0 is 1 everywhere, the version included. A boolean is never a number, and only
 ## [code]false[/code] is false ([code]restart[/code], [code]in_week[/code]). The reader turns the value's numbers into
 ## ints once, so the arithmetic is integer arithmetic: exact where JavaScript's doubles are, and past 2^53 (a step
@@ -28,7 +29,6 @@ const DEFAULT_FORMAT_INTERCALARY := "{intercalary}, {year} {era}"
 const KNOWN_TOKENS := ["day", "month", "weekday", "year", "era", "step", "intercalary"]
 
 const _MAX_SAFE := 9007199254740991            # 2^53 - 1: Number.MAX_SAFE_INTEGER
-const _I62 := 4611686018427387904.0            # an after_month past it matches no month, and is kept as -1
 const _MAX_YEAR_CORRECTION := 10000            # npm's cap on the year seed's correction laps, per direction
 ## JavaScript's white space (\s and String.prototype.trim): WhiteSpace and LineTerminator.
 const _JS_WS := "\\t\\n\\x{0B}\\f\\r \\x{A0}\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}"
@@ -62,7 +62,7 @@ class Era:
 ## One intercalary entry as read: a day in no month.
 class Intercalary:
 	var name := ""
-	## 0 before month 1, k after month k; one past the months (or below 0) sits in no month, kept as -1 when huge.
+	## 0 before month 1, k after month k; never below 0 or past the year's months (the value is then no calendar).
 	var after_month := 0
 	## The leap rule's period, or 0 when the day falls every year.
 	var every_years := 0
@@ -104,7 +104,7 @@ class Breakdown:
 	## The era's year (restart arithmetic applied), or [member abs_year] with no era or a label era.
 	var year := 0
 	var era: Era = null
-	## 1-based, or null (an intercalary day, no months, a day placed nowhere).
+	## 1-based, or null (an intercalary day, no months).
 	var month: Variant = null
 	var month_name: Variant = null
 	var day: Variant = null
@@ -205,7 +205,7 @@ static func read_config(value: Variant) -> Calendar:
 		if not (inter is Array):
 			return null
 		for e in inter:
-			var ic := _read_intercalary(e, cal.version)
+			var ic := _read_intercalary(e, cal.version, cal.month_names.size())
 			if ic == null:
 				return null
 			cal.intercalary.append(ic)
@@ -236,8 +236,13 @@ static func _read_era(e: Variant, i: int) -> Era:
 	era.index = i
 	return era
 
-static func _read_intercalary(e: Variant, version: int) -> Intercalary:
+## [param month_count] is 0 without months: an after_month that names a month the year does not have (past the last,
+## below the first, above 0 with no months) gives the day no position, and the value is no calendar.
+static func _read_intercalary(e: Variant, version: int, month_count: int) -> Intercalary:
 	if not (e is Dictionary) or not (e.get("name") is String) or not _is_integer(e.get("after_month")):
+		return null
+	var after: float = float(e["after_month"])
+	if after < 0 or after > month_count:
 		return null
 	var every: Variant = e.get("every_years")
 	if every != null and not _is_positive_int(every):
@@ -245,8 +250,7 @@ static func _read_intercalary(e: Variant, version: int) -> Intercalary:
 	var ic := Intercalary.new()
 	ic.raw = e
 	ic.name = e["name"]
-	var after: float = float(e["after_month"])
-	ic.after_month = int(after) if absf(after) < _I62 else -1
+	ic.after_month = int(after)
 	ic.every_years = int(every) if every != null else 0
 	ic.in_week = not (e.get("in_week") is bool and e["in_week"] == false)
 	if version != 2:
@@ -438,8 +442,8 @@ static func display_year(cal: Calendar, step: int, era: Era) -> int:
 
 ## Where [param offset] steps into year [param y] falls, by walking the months and the intercalary days placed between
 ## them (never listing the year's days): [code][kind, a, b, skipped][/code], kind "month" (a the month, b the day),
-## "intercalary" (a the entry) or "" (no slot: a day placed nowhere, or no months), and skipped the days before it
-## that the free week does not count.
+## "intercalary" (a the entry) or "" (no slot: an offset past the year's last day, which no caller passes), and skipped
+## the days before it that the free week does not count.
 static func _slot(cal: Calendar, y: int, offset: int) -> Array:
 	var pos := 0
 	var skipped := 0
