@@ -69,7 +69,7 @@ test whose world is missing is skipped, never passed.
 - **Lenses** (the lens profile, serial 83, with its graph section): `OWLens` reads a saved way of reading a world
   (`is_lens`, `is_template`, `check_keys`, `lenses_in_use`, `resolve`, `date_of`, `is_charter_element` for the
   reading aids) and `OWGraph` the world as nodes and edges (`world_graph`, `degree_of`, `out_degree_of`), as the npm
-  and Python packages do: every case of the profile's fixture (147, the graph kind's 37 included), the room profile's
+  and Python packages do: every case of the profile's fixture (152, the graph kind's 38 included), the room profile's
   32, their shared edge file (15) and their shared row cases (20: a row is the body as keel serves that reader, a link
   only to an element it sees of the field's type, a lens's notes never keyed to what it cannot see, the owner's as
   stored). Where the platform's own reader reads otherwise, this reads as it does: nothing
