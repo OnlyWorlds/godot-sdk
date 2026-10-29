@@ -87,5 +87,13 @@ test whose world is missing is skipped, never passed.
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
   each with its sentence and hubs, the Charter's skill Objects as keel's `charter_skill` finds them. Every case of the
   profile's fixture (22).
+- **Messages** (the message profile, serial 79): `OWMessage` reads a message between a world's members and the
+  Note beside it, as the npm and Python packages do: `is_message`, `is_note`, `recipients_of`, `is_addressed_to`,
+  `is_to_everyone` and `has_unseen_recipients` (keel's `x_served_trimmed`, `keyless` for a body read with no
+  credential), `is_sent_by` (the claim), `sender_status` (verified, mismatch, unverifiable or unseen, by the members
+  list), `edited_by`, `read_mark_of` (the reader's own-hand Read mark, the newest by `updated_at`), `unread_for`,
+  `thread_of` and `note_of` (a Character's line). Every case of the profile's fixture (85). A Note's line is proposed
+  only by an object mark, as the profile's text and the packages read it (a doubt leaves it shown, unlike
+  `OWLens.is_proposed`, the rule of a reader that hands a world on). `OWLens`'s mail rule reads through it.
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.
