@@ -93,6 +93,25 @@ func test_the_node_follows_the_presentation(t) -> void:
 	t.eq(back, before, "back on the defaults")
 	t.done()
 
+## The review profile's rule 1 (serial 87): an empty review mark ("", White_Space only, [] or {}) is settled, so its
+## element is a node like any other, unmarked, and no flag is needed for it; a doubt is out as proposed.
+func test_an_empty_review_mark_is_no_proposed_node(t) -> void:
+	var marks := {"e_obj": {}, "e_list": [], "e_str": "", "e_ws": " \t　", "d_str": "unsure", "d_list": ["x"],
+		"d_mark": {"by": "m1"}}
+	var world := {"elements": []}
+	for id in marks:
+		world["elements"].append({"id": id, "type": "location", "name": id, "x_review_proposed": marks[id]})
+	var plain := OWGraph.world_graph(world, {"rung": "owner"})
+	t.eq(plain.nodes.map(func(n): return n["id"]), ["e_list", "e_obj", "e_str", "e_ws"], "the empty marks are nodes")
+	t.eq(plain.nodes.filter(func(n): return n.has("marks")), [], "and carry no mark")
+	t.eq(plain.cut, {"proposed": 3}, "only the doubts and the mark are out as proposed")
+	var asked := OWGraph.world_graph(world, {"rung": "owner"}, {"proposed": true})
+	var marked := asked.nodes.filter(func(n): return n.has("marks")).map(func(n): return n["id"])
+	t.eq(marked, ["d_list", "d_mark", "d_str"], "the flag brings back three, marked")
+	var public := OWGraph.world_graph(world, {"rung": "public"})
+	t.eq(public.nodes.size(), 4, "a public reader sees the four settled")
+	t.done()
+
 ## The npm SDK 4.95.0's degreeOf: a mirror pair counts 2 at each end, a link to itself once, a lone node 0, every node
 ## a key in the graph's node order, and only edges between nodes (what the reading left out is never counted).
 func test_degree_of(t) -> void:

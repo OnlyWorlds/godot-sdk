@@ -360,8 +360,9 @@ func test_an_unreadable_lens_names_its_key_and_resolves_nothing(t) -> void:
 	t.eq(got.cut, {}, "nothing cut")
 	t.done()
 
-## A doubt (any value but null in x_review_proposed) is in no reader's view, the owner's included. The owner's row is
-## still the body as stored (keel serves the owner with no viewer, so nothing is redacted): its link to the doubt stays.
+## A doubt (any value present in x_review_proposed, not only a mark) is in no reader's view, the owner's included.
+## The owner's row is still the body as stored (keel serves the owner with no viewer, so nothing is redacted): its link
+## to the doubt stays.
 func test_a_proposed_doubt_is_in_no_view(t) -> void:
 	var world := {"elements": [
 		{"id": "c1", "type": "character", "name": "Ada", "location": "p1"},
@@ -371,6 +372,25 @@ func test_a_proposed_doubt_is_in_no_view(t) -> void:
 	t.eq(got.kept, PackedStringArray(["c1"]), "a doubt is not there to hop to")
 	t.eq(got.cut, {"not_visible": 1}, "the owner counts it")
 	t.eq(got.rows, [world["elements"][0]], "the owner's row keeps its link to the doubt")
+	t.done()
+
+## The review profile's rule 1 (serial 87): the mark is read by presence, and an empty one ("", White_Space only, [] or
+## {}) is settled, never a doubt; keel's proposals/marked.py `empty` and `doubt_or_mark`. U+FEFF is not White_Space, so
+## a string of it is a doubt; so are a number, false and a list with an entry.
+func test_an_empty_review_mark_is_settled(t) -> void:
+	var marks := {"e_obj": {}, "e_list": [], "e_str": "", "e_ws": " \t　\u0085", "d_str": "unsure",
+		"d_bom": "﻿", "d_zero": 0, "d_false": false, "d_list": ["x"], "d_mark": {"by": "m1"}}
+	var friends := []
+	var els := []
+	for id in marks:
+		friends.append(id)
+		els.append({"id": id, "type": "character", "name": id, "x_review_proposed": marks[id]})
+	els.push_front({"id": "c1", "type": "character", "name": "Ada", "friends": friends})
+	var lens := {"id": "L", "type": "construct", "supertype": "Lens", "characters": ["c1"], "x_lens": {"depth": 1}}
+	for rung in ["owner", "contributor"]:
+		var got := OWLens.resolve({"elements": els}, lens, {"rung": rung})
+		t.eq(got.kept, PackedStringArray(["c1", "e_list", "e_obj", "e_str", "e_ws"]), rung + ": an empty mark is in view")
+		t.eq(got.cut, {"not_visible": 6} if rung == "owner" else {}, rung + ": the doubts are not, counted for the owner")
 	t.done()
 
 func test_an_element_of_no_standard_type_is_not_in_the_world(t) -> void:
