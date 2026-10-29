@@ -146,7 +146,8 @@ static func read_config(value: Variant) -> Calendar:
 	var version: Variant = cfg.get("version")
 	if not _is_number(version) or (version != 1 and version != 2):
 		return null
-	if not (cfg.get("grain") is String):
+	# The profile's grain is a string, and an empty string is no grain.
+	if not (cfg.get("grain") is String) or cfg["grain"] == "":
 		return null
 	var cal := Calendar.new()
 	cal.raw = cfg

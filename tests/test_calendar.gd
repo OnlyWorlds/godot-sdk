@@ -135,6 +135,12 @@ func test_after_month_is_any_whole_number(t) -> void:
 			t.eq(OWCalendar.format_step(cal, 21), "1 Frost, 2 AG", "after_month %s: the year is 21 steps" % var_to_str(v))
 	t.done()
 
+## The profile's grain is a string, and an empty string is no grain (ruled ahead of the fixture's own case).
+func test_an_empty_grain_is_no_grain(t) -> void:
+	t.eq(OWCalendar.read_value(_with(FROST, ["grain"], "")), null, "grain ''")
+	t.ok(OWCalendar.read_value(_with(FROST, ["grain"], "day")) != null, "grain 'day'")
+	t.done()
+
 ## A boolean is not a number, and only false is false: Godot compares across the two, so the reader checks the type.
 func test_a_boolean_is_not_a_number(t) -> void:
 	t.eq(OWCalendar.read_value(_with(FROST, ["version"], true)), null, "version true")
