@@ -11,7 +11,7 @@ extends RefCounted
 ##
 ## Godot's JSON reads every number as a float. A whole number here is an int, or a float with no fraction; where the
 ## profile asks for a whole number it is JavaScript's [code]Number.isSafeInteger[/code] (at most 2^53 - 1 in size),
-## and [code]after_month[/code] is [code]Number.isInteger[/code] (a whole number, from 0 to the year's month count).
+## and [code]after_month[/code] is [code]Number.isInteger[/code] (a whole number, from 0 to the year's month count; with no months, no intercalary day reads).
 ## JSON cannot tell 1 from 1.0 and
 ## neither can JavaScript, so 1.0 is 1 everywhere, the version included. A boolean is never a number, and only
 ## [code]false[/code] is false ([code]restart[/code], [code]in_week[/code]). The reader turns the value's numbers into
@@ -237,12 +237,13 @@ static func _read_era(e: Variant, i: int) -> Era:
 	return era
 
 ## [param month_count] is 0 without months: an after_month that names a month the year does not have (past the last,
-## below the first, above 0 with no months) gives the day no position, and the value is no calendar.
+## below the first), or any intercalary day on a calendar with no months (there is no place between months, 0
+## included), gives the day no position, and the value is no calendar.
 static func _read_intercalary(e: Variant, version: int, month_count: int) -> Intercalary:
 	if not (e is Dictionary) or not (e.get("name") is String) or not _is_integer(e.get("after_month")):
 		return null
 	var after: float = float(e["after_month"])
-	if after < 0 or after > month_count:
+	if month_count == 0 or after < 0 or after > month_count:
 		return null
 	var every: Variant = e.get("every_years")
 	if every != null and not _is_positive_int(every):

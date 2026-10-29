@@ -140,8 +140,10 @@ func test_after_month_names_a_month_the_year_has(t) -> void:
 	t.ok(gap.call(both, 2) != null, "and their last month reads")
 	var no_months := _with(FROST, ["bundles"], {"year": {"steps": 10}})
 	t.eq(gap.call(no_months, 1), null, "no months: after_month 1")
-	t.ok(gap.call(no_months, 0) != null, "no months: after_month 0")
+	# No months: an intercalary day has no place between months, so even after_month 0 refuses (ruled ahead of its case).
+	t.eq(gap.call(no_months, 0), null, "no months: after_month 0")
 	t.eq(gap.call(_with(FROST, ["bundles", "months"], false), 1), null, "months false is no months")
+	t.eq(gap.call(_with(FROST, ["bundles", "months"], false), 0), null, "months false: after_month 0")
 	t.done()
 
 ## The profile's grain is a string, and an empty string is no grain (ruled ahead of the fixture's own case).
