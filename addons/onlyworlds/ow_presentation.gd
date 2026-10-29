@@ -4,6 +4,9 @@ extends RefCounted
 ## Each type's default family and icon: schema-dist presentation.json's [code]types[/code], the first-party
 ## defaults (a tool may override them: [method use]). Colour is the tool's, so it is not here.
 
+## The colour words in their order (presentation.json [code]colors.order[/code]): a family is one of these.
+const ORDER := ["blue", "green", "pink", "amber"]
+
 ## Type slug -> {family, icon}, in the sidecar's order.
 const TYPES := {
 	"ability": {"family": "amber", "icon": "auto_fix_normal"},
@@ -41,9 +44,29 @@ static func icon_of(type: String) -> String:
 	return _table[type]["icon"]
 
 ## Read [param table] (the shape of [constant TYPES]) in place of the defaults, for a tool that overrides them.
-static func use(table: Dictionary) -> void:
+## A table whose family for some type is not one of [constant ORDER] is refused whole, naming the word, and the
+## table in use stays: returns that refusal (also pushed as an error), or "" when the table is taken.
+static func use(table: Dictionary) -> String:
+	var bad := refusal_of(table)
+	if bad != "":
+		push_error("OnlyWorlds: " + bad)
+		return bad
 	_table = table
+	return ""
 
 ## Back to the defaults.
 static func reset() -> void:
 	_table = TYPES
+
+## Why [param table] cannot be read: the first type in the standard's order with no entry, or whose family is
+## not one of [constant ORDER], named with its word; "" when every type's family is one of them. Without a
+## table, the one in use (a table changed in place after [method use] took it).
+static func refusal_of(table: Variant = null) -> String:
+	var t: Dictionary = _table if table == null else table
+	for type in OWTypes.slugs():
+		var entry: Variant = t.get(type)
+		if not (entry is Dictionary):
+			return "presentation: %s has no entry" % type
+		if not ORDER.has(entry.get("family")):
+			return "presentation: %s's family %s is not one of %s" % [type, JSON.stringify(entry.get("family")), ", ".join(ORDER)]
+	return ""

@@ -74,23 +74,50 @@ func test_the_graph_tables_are_the_fixtures(t) -> void:
 		t.eq([n["family"], n["icon"]], [pres["types"][type]["family"], pres["types"][type]["icon"]], type)
 	t.done()
 
-## The node's family and icon follow the presentation: with one type's family changed in memory the node follows, and
-## back on the defaults it returns.
+## The node's family and icon follow the presentation: with one type's family changed in memory to another of the four
+## words the node follows, and back on the defaults it returns.
 func test_the_node_follows_the_presentation(t) -> void:
 	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}, {"id": "l1", "type": "location", "name": "Keep"}]}
 	var before: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
 	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
 	var table: Dictionary = pres["types"].duplicate(true)
-	table["character"]["family"] = "temporal"
+	table["character"]["family"] = "amber"
 	table["character"]["icon"] = "star"
 	OWPresentation.use(table)
 	var after: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
 	OWPresentation.reset()
 	var back: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
 	t.eq(before[0]["family"], pres["types"]["character"]["family"], "the default family")
-	t.eq([after[0]["family"], after[0]["icon"]], ["temporal", "star"], "the changed type follows")
+	t.eq([after[0]["family"], after[0]["icon"]], ["amber", "star"], "the changed type follows")
 	t.eq([after[1]["family"], after[1]["icon"]], [before[1]["family"], before[1]["icon"]], "another type is untouched")
 	t.eq(back, before, "back on the defaults")
+	t.done()
+
+## The lens profile's nodes and presentation.json's _meta.groups (serial 87): a word not in colors.order fails loudly,
+## naming the word, and never draws a default. A table that brings one is refused whole, the table before it kept; a
+## table changed in place after it was taken makes the graph a caller's mistake that names the word, with no node.
+func test_a_family_word_not_in_the_order_fails_loudly(t) -> void:
+	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}]}
+	var before: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
+	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
+	var table: Dictionary = pres["types"].duplicate(true)
+	t.eq(OWPresentation.ORDER, pres["colors"]["order"], "the four words are colors.order's, in order")
+	table["character"]["family"] = "temporal"
+	var said := OWPresentation.use(table)
+	t.ok(said.contains("character") and said.contains("\"temporal\""), "use names the type and the word: " + said)
+	var after := OWGraph.world_graph(world, {"rung": "owner"})
+	t.eq(after.nodes, before, "the table with an unknown word is not taken")
+	var partial := {"character": pres["types"]["character"]}
+	t.ok(OWPresentation.use(partial) != "", "a table short of a type is refused too")
+	t.eq(OWPresentation.use(pres["types"].duplicate(true)), "", "the dist's own table is taken")
+	var good: Dictionary = pres["types"].duplicate(true)
+	OWPresentation.use(good)
+	good["character"]["family"] = "temporal"
+	var changed := OWGraph.world_graph(world, {"rung": "owner"})
+	OWPresentation.reset()
+	t.eq(changed.nodes, [], "no node is drawn")
+	t.ok(changed.error.contains("\"temporal\""), "the graph's mistake names the word: " + changed.error)
+	t.eq(OWGraph.world_graph(world, {"rung": "owner"}).nodes, before, "back on the defaults")
 	t.done()
 
 ## The review profile's rule 1 (serial 87): an empty review mark ("", White_Space only, [] or {}) is settled, so its

@@ -76,7 +76,10 @@ test whose world is missing is skipped, never passed.
   hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
   would cut, a mark (`x_room_of`, `x_charter_of`) counts by presence, and an umbrella's union drops an element only by
   id. The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
-  White_Space only, `[]`, `{}`) is settled, never a doubt (the review profile's rule 1, serial 87). A JSON number
+  White_Space only, `[]`, `{}`) is settled, never a doubt (the review profile's rule 1, serial 87). A node's family
+  is one of `colors.order`'s four words (`OWPresentation.ORDER`); a word not among them fails loudly, naming it:
+  `OWPresentation.use` refuses the table and keeps the one in use, `world_graph` answers it as a caller's mistake
+  with no node, and `codegen/generate.py` refuses a sidecar that carries one (serial 87). A JSON number
   with no fraction is whole (`7.0` reads as 7), in `x_lens` too, since Godot's JSON cannot tell 7 from 7.0; past 64
   bits it is not. The one case that needs the text (`text_only`) is skipped, as the fixture allows.
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
