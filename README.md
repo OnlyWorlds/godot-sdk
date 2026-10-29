@@ -20,6 +20,9 @@ var world := {"elements": bodies, "now": 1200}                 # bodies as the o
 var seen := OWLens.resolve(world, lens_id, {"rung": "guest", "whole": ids}, {"as_of": 1195})
 for row in seen.rows: print(row["name"])                         # seen.cut: what was left out, by reason
 var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # nodes, edges, edges_cut
+
+var cal := OWCalendar.read_value(element.get(OWCalendar.FIELD))   # null: not a calendar, show bare numbers
+print(OWCalendar.format_step(cal, 1200))                           # the step in the world's words, or "1200"
 ```
 
 ## Layout
@@ -95,5 +98,15 @@ test whose world is missing is skipped, never passed.
   `thread_of` and `note_of` (a Character's line). Every case of the profile's fixture (85). A Note's line is proposed
   only by an object mark, as the profile's text and the packages read it (a doubt leaves it shown, unlike
   `OWLens.is_proposed`, the rule of a reader that hands a world on). `OWLens`'s mail rule reads through it.
+- **Calendars** (the calendar profile, `atlas_calendar`, version 1 and 2): `OWCalendar.read_value` reads the field
+  (an object, or the same as strict JSON text: Godot's parser takes a trailing comma, a leading zero, `5.` and a raw
+  control character, so the text is checked against JSON's grammar first) and refuses what the profile refuses;
+  `breakdown_step` and `format_step` read a step as npm's `breakdownStep` and `formatStep` do (Euclidean floor, the
+  leap rule with `except` and `offset`, eras with an open end skipping down eras, free and nested weeks, the template's
+  close-up on JavaScript's white space); `world_calendars` finds them by the field. Every case of the profile's fixture
+  (64: 30 calendars, 198 steps, 34 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
+  never a number; a month's days are found by arithmetic, never listed. Not ported: `parseDate`, the axis labels
+  (`formatYearLabel`, `formatMidLabel`), `formatDuration`, `monthStartSteps`, `validateCalendarConfig`,
+  `resolveCalendar`.
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.
