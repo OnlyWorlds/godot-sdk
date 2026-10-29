@@ -104,7 +104,7 @@ test whose world is missing is skipped, never passed.
   `breakdown_step` and `format_step` read a step as npm's `breakdownStep` and `formatStep` do (Euclidean floor, the
   leap rule with `except` and `offset`, eras with an open end skipping down eras, free and nested weeks, the template's
   close-up on JavaScript's white space); `world_calendars` finds them by the field. Every case of the profile's fixture
-  (75: 34 calendars, 209 steps, 41 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
+  (76: 34 calendars, 209 steps, 42 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
   never a number; a month's days are found by arithmetic, never listed. Not ported: `parseDate`, the axis labels
   (`formatYearLabel`, `formatMidLabel`), `formatDuration`, `monthStartSteps`, `validateCalendarConfig`,
   `resolveCalendar`.
