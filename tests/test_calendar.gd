@@ -141,6 +141,14 @@ func test_an_empty_grain_is_no_grain(t) -> void:
 	t.ok(OWCalendar.read_value(_with(FROST, ["grain"], "day")) != null, "grain 'day'")
 	t.done()
 
+## Something must be left after trimming the room profile's White_Space set, as for the marks.
+func test_a_grain_of_white_space_is_no_grain(t) -> void:
+	t.eq(OWCalendar.read_value(_with(FROST, ["grain"], " \t\n")), null, "ASCII white space")
+	t.eq(OWCalendar.read_value(_with(FROST, ["grain"], " 　 ")), null, "Unicode White_Space")
+	t.ok(OWCalendar.read_value(_with(FROST, ["grain"], " day ")) != null, "a padded grain")
+	t.ok(OWCalendar.read_value(_with(FROST, ["grain"], "​")) != null, "U+200B is not White_Space")
+	t.done()
+
 ## A boolean is not a number, and only false is false: Godot compares across the two, so the reader checks the type.
 func test_a_boolean_is_not_a_number(t) -> void:
 	t.eq(OWCalendar.read_value(_with(FROST, ["version"], true)), null, "version true")

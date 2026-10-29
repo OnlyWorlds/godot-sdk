@@ -146,8 +146,8 @@ static func read_config(value: Variant) -> Calendar:
 	var version: Variant = cfg.get("version")
 	if not _is_number(version) or (version != 1 and version != 2):
 		return null
-	# The profile's grain is a string, and an empty string is no grain.
-	if not (cfg.get("grain") is String) or cfg["grain"] == "":
+	# The profile's grain is a string with something left after trimming the room profile's White_Space set.
+	if not (cfg.get("grain") is String) or OWUnicode.trim_white_space(cfg["grain"]) == "":
 		return null
 	var cal := Calendar.new()
 	cal.raw = cfg
