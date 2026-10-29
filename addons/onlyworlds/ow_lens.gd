@@ -368,7 +368,7 @@ static func _add_cut(cut: Dictionary, id: String, why: String) -> void:
 	if not cut.has(id):
 		cut[id] = why
 
-## The mail rule, through the message profile's readers over the reader's view: the messages addressed to its Character
+## The mail rule, through the message profile's readers ([OWMessage]) over the reader's view: the messages addressed to its Character
 ## and not its own, thirty days on created_at before the clock, the newest kept up to the budget.
 static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictionary:
 	var part := {"unread": [], "read": [], "rows": [], "cut": {}, "totals": {"unread": 0, "read": 0}}
@@ -381,14 +381,14 @@ static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictio
 			continue
 		var b := r.body(id)
 		# Whole bodies only: a known-of stub serves no characters, so its recipients are unknown, never everyone.
-		if _is_message(b) and not r.stubs.has(id):
+		if OWMessage.is_message(b) and not r.stubs.has(id):
 			messages.append(b)
 		if r.type_of[id] == "relation":
 			relations.append(b)
-	var mark: Variant = _read_mark_of(relations, r.character, r.members)
-	var mine := _unread_for(messages, r.character, null, r.members)
+	var mark: Variant = OWMessage.read_mark_of(relations, r.character, r.members)
+	var mine := OWMessage.unread_for(messages, r.character, null, r.members)
 	var unread := {}
-	for m in _unread_for(messages, r.character, mark, r.members):
+	for m in OWMessage.unread_for(messages, r.character, mark, r.members):
 		unread[m.get("id")] = true
 	var lower := clock - _MAIL_MICROS
 	var in_window := []
@@ -412,115 +412,7 @@ static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictio
 	part["totals"] = {"unread": unread.size(), "read": mine.size() - unread.size()}
 	return part
 
-# -- the message profile's readers the mail rule reads (the npm SDK's message.ts, ported for the lens alone) -----------
-
-static func _matches_pair(el: Variant, type: String, supertype: String) -> bool:
-	if not (el is Dictionary and el.get("type") is String and el.get("supertype") is String):
-		return false
-	return OWUnicode.profile_fold(el["type"]) == type and OWUnicode.profile_fold(el["supertype"]) == OWUnicode.profile_fold(supertype)
-
-static func _is_message(el: Variant) -> bool:
-	return _matches_pair(el, "narrative", "Message")
-
-static func _is_note(el: Variant) -> bool:
-	return _matches_pair(el, "narrative", "Note")
-
-## Two JSON values the same: the same type and equal (a membership id is a string, or null for the owner).
-static func _same(a: Variant, b: Variant) -> bool:
-	return typeof(a) == typeof(b) and a == b
-
-## The Character a membership plays on the members list (its row by id, null the owner's), or null.
-static func _character_of(membership: Variant, members: Variant) -> Variant:
-	if not (members is Array):
-		return null
-	for row in members:
-		if row is Dictionary and row.has("id") and _same(row["id"], membership):
-			var c: Variant = row.get("character")
-			return c if c is String and c != "" else null
-	return null
-
-## The Character of the hand that wrote a body: its created_by on the members list; null with no created_by key.
-static func _hand_of(body: Dictionary, members: Variant) -> Variant:
-	return _character_of(body["created_by"], members) if body.has("created_by") else null
-
-static func _has_unseen_recipients(m: Dictionary) -> bool:
-	if _is_note(m):
-		return false
-	var mark: Variant = m.get("x_served_trimmed")
-	return mark is Array and mark.has("characters")
-
-static func _is_to_everyone(m: Dictionary) -> bool:
-	if _is_note(m) or _has_unseen_recipients(m):
-		return false
-	var list: Variant = m.get("characters")
-	return list == null or (list is Array and list.is_empty())
-
-static func _is_addressed_to(m: Variant, character: String) -> bool:
-	if not (m is Dictionary) or _is_note(m) or character == "":
-		return false
-	if _is_to_everyone(m):
-		return true
-	var list: Variant = m.get("characters")
-	return list is Array and list.has(character)
-
-## The message's sender is the Character, proved: no created_by key trusts the narrator (a folder, an export); with
-## one, the author's Character on the members list must be the narrator and the Character.
-static func _is_own_hand(m: Dictionary, character: String, members: Variant) -> bool:
-	var narrator: Variant = m.get("narrator")
-	if not m.has("created_by"):
-		return narrator is String and narrator == character
-	if not (narrator is String) or narrator == "":
-		return false
-	var hand: Variant = _hand_of(m, members)
-	return hand != null and hand == narrator and narrator == character
-
-## The reader's read mark among the Relations: a Relation with supertype Read whose actor is the reader, in its own hand
-## (created_by its Character; changed_by, when carried, equal to created_by); the newest updated_at of those that count.
-static func _read_mark_of(relations: Array, character: String, members: Variant) -> Variant:
-	var mark: Variant = null
-	var mark_key: Variant = null
-	for rel in relations:
-		if not _matches_pair(rel, "relation", "Read") or not (rel.get("actor") is String and rel["actor"] == character):
-			continue
-		var has_author: bool = rel.has("created_by")
-		if rel.has("changed_by") and (not has_author or not _same(rel["changed_by"], rel["created_by"])):
-			continue
-		if has_author and _hand_of(rel, members) != character:
-			continue
-		var key: Variant = time_key(rel.get("updated_at"))
-		if mark == null or (key != null and (mark_key == null or key > mark_key)):
-			mark = rel
-			mark_key = key
-	return mark
-
-## The messages addressed to the Character, not its own, not on its read mark, in created_at order.
-static func _unread_for(messages: Array, character: String, read_mark: Variant, members: Variant) -> Array:
-	var read := {}
-	if read_mark is Dictionary and read_mark.get("narratives") is Array:
-		for id in read_mark["narratives"]:
-			if id is String:
-				read[id] = true
-	var out := []
-	for m in messages:
-		if m is Dictionary and _is_addressed_to(m, character) and not _is_own_hand(m, character, members) \
-				and not read.has(m.get("id")):
-			out.append(m)
-	return _in_created_order(out)
-
-## By created_at; equal times keep the input's order; unreadable times last, in the input's order. Never by id.
-static func _in_created_order(items: Array) -> Array:
-	var keyed := []
-	for i in items.size():
-		keyed.append([items[i], i, time_key(items[i].get("created_at"))])
-	keyed.sort_custom(func(a, b) -> bool:
-		if a[2] != null and b[2] != null:
-			return a[2] < b[2] if a[2] != b[2] else a[1] < b[1]
-		if a[2] != null:
-			return true
-		if b[2] != null:
-			return false
-		return a[1] < b[1])
-	return keyed.map(func(e): return e[0])
+# -- the profiles' one time rule (the message reader orders by it too) --------------------------------------------------
 
 ## A time as microseconds since 1970-01-01 UTC, or null when unreadable: the profiles' RFC 3339 rule
 ## ([code]YYYY-MM-DDTHH:MM:SS[/code], an optional fraction (microseconds kept), then [code]Z[/code],
@@ -861,7 +753,7 @@ class View:
 			elif v is String and v != "" and not _served_as(v, target):
 				b[field] = null
 				changed[field] = true
-		var named: Array = OWLens.ANCHOR_FIELDS if lens else (OWLens.MESSAGE_TRIMMED if OWLens._is_message(b) else [])
+		var named: Array = OWLens.ANCHOR_FIELDS if lens else (OWLens.MESSAGE_TRIMMED if OWMessage.is_message(b) else [])
 		var mark := []
 		for f in named:
 			if changed.has(f):
