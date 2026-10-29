@@ -23,6 +23,10 @@ var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # no
 
 var cal := OWCalendar.read_value(element.get(OWCalendar.FIELD))   # null: not a calendar, show bare numbers
 print(OWCalendar.format_step(cal, 1200))                           # the step in the world's words, or "1200"
+
+var where := {"world": world_id, "type": "pin", "id": pin.id}         # or a Reading that names its world
+var menu := OWOpeners.openers_for(OWTools.ALL, "element", where, {"audience": "member", "browser": false})
+for row in menu.rows: print(row["name"], " ", row["href"], " ", row["state"])   # state: null or "Opens in your browser"
 ```
 
 ## Layout
@@ -33,6 +37,7 @@ print(OWCalendar.format_step(cal, 1200))                           # the step in
 | `addons/onlyworlds/models/` | one `class_name OW<Type>` per element type, **generated**; `ow_element.gd`, `ow_world_info.gd`, `ow_types.gd`, `ow_schema_pin.gd` and `unicode/ow_unicode_data.gd` are generated too |
 | `codegen/generate.py` | the emitter (Python standard library); `--check` is the drift guard |
 | `codegen/PIN`, `codegen/schema-dist/` | the pinned schema-dist (tag and manifest sha256), vendored verbatim; never edit it |
+| `codegen/generate_tools.py`, `codegen/tools-pin.json`, `codegen/tools/` | the OnlyWorlds tools list at its own pin (commit and sha256, the npm and Python packages' pin), vendored byte for byte, and its emitter into the **generated** `addons/onlyworlds/ow_tools.gd`; `--check` is its drift guard, `test_generate_tools.py` holds it red on a one-byte change |
 | `tests/` | the headless suite; `tests/data/unicode_vectors.txt` is generated |
 | `tools/` | `pack.gd`, `extract.gd` (shell tools), `check_writer.py` (the reference checker's verdict on a file), `probe_numbers.gd` |
 | `demo/moppetopia_map.tscn` | a world in a scene: the root Map's image with its Pins |
@@ -41,6 +46,7 @@ print(OWCalendar.format_step(cal, 1200))                           # the step in
 
 ```sh
 python codegen/generate.py --check                               # the pin holds, the generated files are current
+python codegen/generate_tools.py --check                         # the tools list's pin holds, ow_tools.gd is current
 godot --headless --path . --import                               # per clone, and after any pull that adds a class_name
 godot --headless --path . --script res://tests/run.gd            # exits 0 only when every test passes
 python tools/check_writer.py out.owworld                         # run_py.py's reader and check_writer on a file
@@ -108,5 +114,14 @@ test whose world is missing is skipped, never passed.
   never a number; a month's days are found by arithmetic, never listed. Not ported: `parseDate`, the axis labels
   (`formatYearLabel`, `formatMidLabel`), `formatDuration`, `monthStartSteps`, `validateCalendarConfig`,
   `resolveCalendar`.
+- **Open with** (the tools list's README, "Open with"): `OWOpeners.openers_for(tools, kind, address, surface)` gives
+  the rows of an Open with menu for a world or one element, as the npm SDK's `openersFor` and the Python package's
+  `openers_for` do: the site's page first, then each listed tool with a door for that kind in the list's order, each
+  `{id, name, href, state}` with its word in sentence case or null. `OWTools.ALL` is the OnlyWorlds tools list as
+  of this release (a tool listed after it is offered from the next). The surface says what the game knows and
+  nothing is guessed: `audience` (`member` or `public`), `signed_in` (null when unknown: no word), `browser` (false
+  in a game: an account tool says "Opens in your browser"), `phone`, `tool` (your client name: "You are here"). A
+  refused address answers `reason` as the address profile names it; any other mistake answers `reason` "" and a
+  `message` naming the key. Every case of the packages' shared fixture (41).
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.
