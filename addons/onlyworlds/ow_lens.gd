@@ -44,6 +44,8 @@ const ROOM_MARK := "x_room_of"
 const READING_AID_PAIRS := ["law/charter", "construct/guide", "construct/domain"]
 ## The reading aid's mark: the id of the world the aid belongs to.
 const READING_AID_MARK := "x_charter_of"
+## The review profile's mark: an element that carries it ([method is_proposed]) is in no reader's view.
+const PROPOSED_MARK := "x_review_proposed"
 
 ## Why an element was left out: the profile's one closed list, in its order.
 const CUT_REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of", "anchor_not_visible",
@@ -602,6 +604,17 @@ static func _has_mark(el: Dictionary, field: String) -> bool:
 	var v: Variant = el[field]
 	return not (v is String) or OWUnicode.trim_white_space(v) != ""
 
+## True when [param element] is proposed as a reader reads it (schema-dist [code]profiles/review.md[/code] rule 1,
+## serial 87): its [code]x_review_proposed[/code] is present as a mark counts by presence, and for this mark an empty
+## Array or Dictionary is absent too, so an empty mark ([code]""[/code], White_Space only, [code][][/code],
+## [code]{}[/code]) is settled, never a doubt. Any other value counts, a doubt (a string, a number, a list) with a mark,
+## and is never compared. keel's [code]doubt_or_mark[/code], the npm SDK's [code]handsOnAsProposed[/code].
+static func is_proposed(element: Variant) -> bool:
+	if not (element is Dictionary) or not _has_mark(element, PROPOSED_MARK):
+		return false
+	var v: Variant = element[PROPOSED_MARK]
+	return not ((v is Array or v is Dictionary) and v.is_empty())
+
 ## True when [param element] is a reading aid (schema-dist [code]profiles/room.md[/code], [code]profiles/lens.md[/code]
 ## rule 4): the world's charter ([code]law[/code], supertype [code]Charter[/code]), its guide ([code]construct[/code],
 ## supertype [code]Guide[/code]) or one of its domains ([code]construct[/code], supertype [code]Domain[/code]), the type
@@ -719,7 +732,7 @@ class View:
 					sees = whole_ids.has(id) or known_of.has(id)
 					if not whole_ids.has(id) and known_of.has(id):
 						stubs[id] = true
-			if by_id[id].get("x_review_proposed") != null:
+			if OWLens.is_proposed(by_id[id]):
 				proposed[id] = true
 				# Keel leaves a proposed element out of the public rung's scope only; the hop never lands on one.
 				if sees and seen_rung != "public":

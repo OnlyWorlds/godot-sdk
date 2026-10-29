@@ -69,14 +69,19 @@ test whose world is missing is skipped, never passed.
 - **Lenses** (the lens profile, serial 83, with its graph section): `OWLens` reads a saved way of reading a world
   (`is_lens`, `is_template`, `check_keys`, `lenses_in_use`, `resolve`, `date_of`, `is_charter_element` for the
   reading aids) and `OWGraph` the world as nodes and edges (`world_graph`, `degree_of`, `out_degree_of`), as the npm
-  and Python packages do: every case of the profile's fixture (147, the graph kind's 37 included), the room profile's
+  and Python packages do: every case of the profile's fixture (152, the graph kind's 38 included), the room profile's
   32, their shared edge file (15) and their shared row cases (20: a row is the body as keel serves that reader, a link
   only to an element it sees of the field's type, a lens's notes never keyed to what it cannot see, the owner's as
   stored). Where the platform's own reader reads otherwise, this reads as it does: nothing
   hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
   would cut, a mark (`x_room_of`, `x_charter_of`) counts by presence, and an umbrella's union drops an element only by
-  id. A JSON number with no fraction is whole (`7.0` reads as 7), in `x_lens` too, since Godot's JSON cannot tell 7
-  from 7.0; past 64 bits it is not. The one case that needs the text (`text_only`) is skipped, as the fixture allows.
+  id. The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
+  White_Space only, `[]`, `{}`) is settled, never a doubt (the review profile's rule 1, serial 87). A node's family
+  is one of `colors.order`'s four words (`OWPresentation.ORDER`); a word not among them fails loudly, naming it:
+  `OWPresentation.use` refuses the table and keeps the one in use, `world_graph` answers it as a caller's mistake
+  with no node, and `codegen/generate.py` refuses a sidecar that carries one (serial 87). A JSON number
+  with no fraction is whole (`7.0` reads as 7), in `x_lens` too, since Godot's JSON cannot tell 7 from 7.0; past 64
+  bits it is not. The one case that needs the text (`text_only`) is skipped, as the fixture allows.
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,

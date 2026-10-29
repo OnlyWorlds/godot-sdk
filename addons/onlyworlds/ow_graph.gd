@@ -22,7 +22,8 @@ const REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of"
 ## The reasons a reader that is not the owner never carries, not even as zero.
 const OWNER_ONLY_REASONS := ["anchor_not_visible", "not_visible", "hidden", "proposed"]
 
-## A node's family and icon are [OWPresentation]'s (schema-dist presentation.json); colour stays the tool's.
+## A node's family and icon are [OWPresentation]'s (schema-dist presentation.json); colour stays the tool's. A family
+## word not in [constant OWPresentation.ORDER] makes the graph a caller's mistake naming the word, with no node.
 const _OPTION_KEYS := ["lens", "as_of", "clock", "rooms", "hidden", "proposed", "map_space"]
 
 ## What [method world_graph] answers. [member refused] names a flag asked from the wrong rung (nothing read);
@@ -98,6 +99,10 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 	var lens: Variant = options.get("lens")
 	if lens != null and not (lens is String or lens is Dictionary):
 		return _mistake(g, "world_graph: lens is a lens body or its id")
+	# A family word not in colors.order fails loudly, naming the word; no node is drawn with a default (serial 87).
+	var unknown := OWPresentation.refusal_of()
+	if unknown != "":
+		return _mistake(g, "world_graph: " + unknown)
 
 	var as_of: Variant = OWLens.whole(as_of_v) if as_of_v != null else OWLens._world_now(world)
 	var r := OWLens.View.new(world, reader, as_of)

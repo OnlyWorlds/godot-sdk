@@ -74,23 +74,69 @@ func test_the_graph_tables_are_the_fixtures(t) -> void:
 		t.eq([n["family"], n["icon"]], [pres["types"][type]["family"], pres["types"][type]["icon"]], type)
 	t.done()
 
-## The node's family and icon follow the presentation: with one type's family changed in memory the node follows, and
-## back on the defaults it returns.
+## The node's family and icon follow the presentation: with one type's family changed in memory to another of the four
+## words the node follows, and back on the defaults it returns.
 func test_the_node_follows_the_presentation(t) -> void:
 	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}, {"id": "l1", "type": "location", "name": "Keep"}]}
 	var before: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
 	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
 	var table: Dictionary = pres["types"].duplicate(true)
-	table["character"]["family"] = "temporal"
+	table["character"]["family"] = "amber"
 	table["character"]["icon"] = "star"
 	OWPresentation.use(table)
 	var after: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
 	OWPresentation.reset()
 	var back: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
 	t.eq(before[0]["family"], pres["types"]["character"]["family"], "the default family")
-	t.eq([after[0]["family"], after[0]["icon"]], ["temporal", "star"], "the changed type follows")
+	t.eq([after[0]["family"], after[0]["icon"]], ["amber", "star"], "the changed type follows")
 	t.eq([after[1]["family"], after[1]["icon"]], [before[1]["family"], before[1]["icon"]], "another type is untouched")
 	t.eq(back, before, "back on the defaults")
+	t.done()
+
+## The lens profile's nodes and presentation.json's _meta.groups (serial 87): a word not in colors.order fails loudly,
+## naming the word, and never draws a default. A table that brings one is refused whole, the table before it kept; a
+## table changed in place after it was taken makes the graph a caller's mistake that names the word, with no node.
+func test_a_family_word_not_in_the_order_fails_loudly(t) -> void:
+	var world := {"elements": [{"id": "c1", "type": "character", "name": "Ada"}]}
+	var before: Array = OWGraph.world_graph(world, {"rung": "owner"}).nodes
+	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
+	var table: Dictionary = pres["types"].duplicate(true)
+	t.eq(OWPresentation.ORDER, pres["colors"]["order"], "the four words are colors.order's, in order")
+	table["character"]["family"] = "temporal"
+	var said := OWPresentation.use(table)
+	t.ok(said.contains("character") and said.contains("\"temporal\""), "use names the type and the word: " + said)
+	var after := OWGraph.world_graph(world, {"rung": "owner"})
+	t.eq(after.nodes, before, "the table with an unknown word is not taken")
+	var partial := {"character": pres["types"]["character"]}
+	t.ok(OWPresentation.use(partial) != "", "a table short of a type is refused too")
+	t.eq(OWPresentation.use(pres["types"].duplicate(true)), "", "the dist's own table is taken")
+	var good: Dictionary = pres["types"].duplicate(true)
+	OWPresentation.use(good)
+	good["character"]["family"] = "temporal"
+	var changed := OWGraph.world_graph(world, {"rung": "owner"})
+	OWPresentation.reset()
+	t.eq(changed.nodes, [], "no node is drawn")
+	t.ok(changed.error.contains("\"temporal\""), "the graph's mistake names the word: " + changed.error)
+	t.eq(OWGraph.world_graph(world, {"rung": "owner"}).nodes, before, "back on the defaults")
+	t.done()
+
+## The review profile's rule 1 (serial 87): an empty review mark ("", White_Space only, [] or {}) is settled, so its
+## element is a node like any other, unmarked, and no flag is needed for it; a doubt is out as proposed.
+func test_an_empty_review_mark_is_no_proposed_node(t) -> void:
+	var marks := {"e_obj": {}, "e_list": [], "e_str": "", "e_ws": " \t　", "d_str": "unsure", "d_list": ["x"],
+		"d_mark": {"by": "m1"}}
+	var world := {"elements": []}
+	for id in marks:
+		world["elements"].append({"id": id, "type": "location", "name": id, "x_review_proposed": marks[id]})
+	var plain := OWGraph.world_graph(world, {"rung": "owner"})
+	t.eq(plain.nodes.map(func(n): return n["id"]), ["e_list", "e_obj", "e_str", "e_ws"], "the empty marks are nodes")
+	t.eq(plain.nodes.filter(func(n): return n.has("marks")), [], "and carry no mark")
+	t.eq(plain.cut, {"proposed": 3}, "only the doubts and the mark are out as proposed")
+	var asked := OWGraph.world_graph(world, {"rung": "owner"}, {"proposed": true})
+	var marked := asked.nodes.filter(func(n): return n.has("marks")).map(func(n): return n["id"])
+	t.eq(marked, ["d_list", "d_mark", "d_str"], "the flag brings back three, marked")
+	var public := OWGraph.world_graph(world, {"rung": "public"})
+	t.eq(public.nodes.size(), 4, "a public reader sees the four settled")
 	t.done()
 
 ## The npm SDK 4.95.0's degreeOf: a mirror pair counts 2 at each end, a link to itself once, a lone node 0, every node

@@ -240,11 +240,20 @@ def emit_pin(pin: dict, version: dict) -> str:
 
 
 def emit_presentation(presentation: dict, head: str) -> str:
+    # serial 87 (lens.md nodes, presentation.json _meta.groups): a word not in colors.order fails loudly, naming the
+    # word; a sidecar that brings one is refused here, before anything is written.
+    order = presentation["colors"]["order"]
+    for slug, t in presentation["types"].items():
+        if t["family"] not in order:
+            sys.exit(f"presentation.json: {slug}'s family {t['family']!r} is not in colors.order {order}")
     out = header(head) + [
         "class_name OWPresentation",
         "extends RefCounted",
         "## Each type's default family and icon: schema-dist presentation.json's [code]types[/code], the first-party",
         "## defaults (a tool may override them: [method use]). Colour is the tool's, so it is not here.",
+        "",
+        "## The colour words in their order (presentation.json [code]colors.order[/code]): a family is one of these.",
+        "const ORDER := [" + ", ".join(f'"{w}"' for w in order) + "]",
         "",
         "## Type slug -> {family, icon}, in the sidecar's order.",
         "const TYPES := {",
@@ -265,12 +274,33 @@ def emit_presentation(presentation: dict, head: str) -> str:
         '\treturn _table[type]["icon"]',
         "",
         "## Read [param table] (the shape of [constant TYPES]) in place of the defaults, for a tool that overrides them.",
-        "static func use(table: Dictionary) -> void:",
+        "## A table whose family for some type is not one of [constant ORDER] is refused whole, naming the word, and the",
+        "## table in use stays: returns that refusal (also pushed as an error), or \"\" when the table is taken.",
+        "static func use(table: Dictionary) -> String:",
+        "\tvar bad := refusal_of(table)",
+        '\tif bad != "":',
+        "\t\tpush_error(\"OnlyWorlds: \" + bad)",
+        "\t\treturn bad",
         "\t_table = table",
+        '\treturn ""',
         "",
         "## Back to the defaults.",
         "static func reset() -> void:",
         "\t_table = TYPES",
+        "",
+        "## Why [param table] cannot be read: the first type in the standard's order with no entry, or whose family is",
+        "## not one of [constant ORDER], named with its word; \"\" when every type's family is one of them. Without a",
+        "## table, the one in use (a table changed in place after [method use] took it).",
+        "static func refusal_of(table: Variant = null) -> String:",
+        "\tvar t: Dictionary = _table if table == null else table",
+        "\tfor type in OWTypes.slugs():",
+        "\t\tvar entry: Variant = t.get(type)",
+        "\t\tif not (entry is Dictionary):",
+        '\t\t\treturn "presentation: %s has no entry" % type',
+        '\t\tif not ORDER.has(entry.get("family")):',
+        '\t\t\treturn "presentation: %s\'s family %s is not one of %s" % [type, JSON.stringify(entry.get("family")),'
+        ' ", ".join(ORDER)]',
+        '\treturn ""',
         "",
     ]
     return "\n".join(out)
