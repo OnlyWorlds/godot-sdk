@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCalendar on the calendar profile's conformance fixture (schema-dist profiles/calendar.fixture.json, the pinned copy
-## at dist.88, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
+## at dist.89, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
 ## calendar's every step read to the fixture's words and breakdown; then what the fixture leaves open, as the profile's
 ## text and the npm and Python packages answer it, and where Godot's one number type could change an answer.
 
@@ -50,6 +50,8 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 			var step: int = int(s["step"])
 			t.eq(OWCalendar.format_step(cal, step), s["words"], "format_step(%d)" % step)
 			t.eq(_seen(OWCalendar.breakdown_step(cal, step)), _want(s["breakdown"]), "breakdown_step(%d)" % step)
+	if c.has("elements"):
+		t.eq(OWCalendar.world_calendars(c["elements"]).map(func(f): return f["id"]), c["found"], "world_calendars: by the field")
 	t.done()
 
 func test_the_fixture_is_the_pinned_one(t) -> void:
@@ -70,11 +72,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 				t.eq(s["breakdown"].keys(), KEYS.keys(), "%s: the breakdown's keys, every one compared" % c["name"])
 		else:
 			t.ok(not c.has("steps"), "%s: a refused value reads no step" % c["name"])
-	t.eq(doc["cases"].size(), 64, "64 cases")
-	t.eq(valid, 30, "30 calendars")
-	t.eq(doc["cases"].size() - valid, 34, "34 refusals")
-	t.eq(steps, 198, "198 steps")
-	t.eq(names.size(), 64, "every case's name is its own")
+	t.eq(doc["cases"].size(), 75, "75 cases")
+	t.eq(valid, 34, "34 calendars")
+	t.eq(doc["cases"].size() - valid, 41, "41 refusals")
+	t.eq(steps, 209, "209 steps")
+	t.eq(names.size(), 75, "every case's name is its own")
 	t.done()
 
 # -- what the fixture leaves open -------------------------------------------------------------------------------------
@@ -124,15 +126,22 @@ func test_a_whole_number_is_a_safe_one(t) -> void:
 	t.ok(OWCalendar.read_value(_with(FROST, ["eras", 0, "start"], 9007199254740991)) != null, "an int at 2^53 - 1 is")
 	t.done()
 
-## after_month is Number.isInteger, not a safe integer: any whole number reads, and one past the months sits nowhere.
-func test_after_month_is_any_whole_number(t) -> void:
-	for v in [1e300, -1.0, 3.0]:
-		var cal := OWCalendar.read_value(_with(FROST, ["intercalary"], [{"name": "Gap", "after_month": v}]))
-		t.ok(cal != null, "after_month %s reads" % var_to_str(v))
-		if cal != null:
-			var b := OWCalendar.breakdown_step(cal, 20)
-			t.eq([b.abs_year, b.month, b.intercalary], [0, null, null], "after_month %s: step 20 is in year 0, in no month" % var_to_str(v))
-			t.eq(OWCalendar.format_step(cal, 21), "1 Frost, 2 AG", "after_month %s: the year is 21 steps" % var_to_str(v))
+## after_month names a month the year has, or 0 (before the first): past the last, below the first, or above 0 with no
+## months, the day has no position and the value is no calendar. Any size refuses, not only a safe integer's.
+func test_after_month_names_a_month_the_year_has(t) -> void:
+	var gap := func(base: Dictionary, v: Variant) -> Variant:
+		return OWCalendar.read_value(_with(base, ["intercalary"], [{"name": "Gap", "after_month": v}]))
+	for v in [1e300, 3.0, 3, -1.0, -1, -1e300]:
+		t.eq(gap.call(FROST, v), null, "two months, after_month %s" % var_to_str(v))
+	for v in [0, 0.0, 1, 2, 2.0]:
+		t.ok(gap.call(FROST, v) != null, "two months, after_month %s" % var_to_str(v))
+	var both := _with(FROST, ["bundles", "year"], {"steps": 50})
+	t.eq(gap.call(both, 3), null, "months and a year length: the months count")
+	t.ok(gap.call(both, 2) != null, "and their last month reads")
+	var no_months := _with(FROST, ["bundles"], {"year": {"steps": 10}})
+	t.eq(gap.call(no_months, 1), null, "no months: after_month 1")
+	t.ok(gap.call(no_months, 0) != null, "no months: after_month 0")
+	t.eq(gap.call(_with(FROST, ["bundles", "months"], false), 1), null, "months false is no months")
 	t.done()
 
 ## The profile's grain is a string, and an empty string is no grain (ruled ahead of the fixture's own case).
@@ -184,8 +193,8 @@ func test_a_json_string_is_strict_json(t) -> void:
 	t.eq(OWCalendar.read_value(null), null, "null")
 	t.done()
 
-## A format that is not a string: npm throws (template.replace) and Python raises TypeError; this reader prints the
-## default template instead, as the profile lets a reader print its own way ("What a reader may ignore").
+## A format that is not a string is ignored and the default template prints (the profile's "What a reader may ignore",
+## ruled at serial 89, where the fixture holds a number and an object); null is absent, and an empty string is a string.
 func test_a_format_that_is_not_text_reads_as_the_default(t) -> void:
 	var cal := OWCalendar.read_value(_with(FROST, ["format"], 5))
 	t.eq(OWCalendar.format_step(cal, 25), "6 Frost, 2 AG", "format 5")

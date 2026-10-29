@@ -95,7 +95,7 @@ test whose world is missing is skipped, never passed.
   `is_to_everyone` and `has_unseen_recipients` (keel's `x_served_trimmed`, `keyless` for a body read with no
   credential), `is_sent_by` (the claim), `sender_status` (verified, mismatch, unverifiable or unseen, by the members
   list), `edited_by`, `read_mark_of` (the reader's own-hand Read mark, the newest by `updated_at`), `unread_for`,
-  `thread_of` and `note_of` (a Character's line). Every case of the profile's fixture (85). A Note's line is proposed
+  `thread_of` and `note_of` (a Character's line). Every case of the profile's fixture (87). A Note's line is proposed
   only by an object mark, as the profile's text and the packages read it (a doubt leaves it shown, unlike
   `OWLens.is_proposed`, the rule of a reader that hands a world on). `OWLens`'s mail rule reads through it.
 - **Calendars** (the calendar profile, `atlas_calendar`, version 1 and 2): `OWCalendar.read_value` reads the field
@@ -104,7 +104,7 @@ test whose world is missing is skipped, never passed.
   `breakdown_step` and `format_step` read a step as npm's `breakdownStep` and `formatStep` do (Euclidean floor, the
   leap rule with `except` and `offset`, eras with an open end skipping down eras, free and nested weeks, the template's
   close-up on JavaScript's white space); `world_calendars` finds them by the field. Every case of the profile's fixture
-  (64: 30 calendars, 198 steps, 34 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
+  (75: 34 calendars, 209 steps, 41 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
   never a number; a month's days are found by arithmetic, never listed. Not ported: `parseDate`, the axis labels
   (`formatYearLabel`, `formatMidLabel`), `formatDuration`, `monthStartSteps`, `validateCalendarConfig`,
   `resolveCalendar`.
