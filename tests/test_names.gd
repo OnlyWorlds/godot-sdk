@@ -60,7 +60,9 @@ func test_no_world_no_map_or_a_map_that_is_not_an_object(t) -> void:
 ## npm refuses a types or supertypes key that is present and null (only an absent one is no map part).
 func test_a_null_part_is_present_and_refused(t) -> void:
 	var types := {"character": {"one": "Employee"}}
-	t.eq(OWNames.type_word({"x_names": {"version": 1, "types": null}}, "character"), null, "types: null")
+	var agent := {"character": {"Agent": {"one": "AI agent"}}}
+	t.eq(OWNames.type_word({"x_names": {"version": 1, "supertypes": agent}}, "character", "Agent"), "AI agent", "the word, without the null")
+	t.eq(OWNames.type_word({"x_names": {"version": 1, "types": null, "supertypes": agent}}, "character", "Agent"), null, "types: null")
 	t.eq(OWNames.type_word({"x_names": {"version": 1, "types": types, "supertypes": null}}, "character"), null, "supertypes: null")
 	t.eq(OWNames.type_word({"x_names": {"version": 1, "types": types, "supertypes": {"character": null}}}, "character"), null,
 		"a supertypes value that is null")
@@ -75,6 +77,8 @@ func test_the_slug_is_matched_as_the_schema_spells_it(t) -> void:
 	t.eq(OWNames.type_word(world, &"character"), "Employee", "a StringName slug, as OWElement.get_type gives it")
 	t.eq(OWNames.type_word(world, "Character"), null, "a type slug is lowercase; the fold is the supertype's")
 	t.eq(OWNames.type_word(world, " character"), null, "a slug is never trimmed")
+	t.eq(OWNames.type_word({"x_names": _fixture()["cases"][0]["map"]}, "employee"), null,
+		"a key that is not one of the 22 is never read, asked for by name (the fixture asks only for species)")
 	t.eq(OWNames.type_word(world, null), null, "no type")
 	t.eq(OWNames.type_word(world, 3), null, "a type that is not text")
 	t.done()
