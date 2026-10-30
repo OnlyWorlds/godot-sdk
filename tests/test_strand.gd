@@ -2,8 +2,8 @@ extends RefCounted
 ## OWStrand on the strand profile's conformance fixture (schema-dist profiles/strand.fixture.json, the pinned copy at
 ## dist.98, its sha256 checked against the manifest): every case's six slots by name, and the mark held equal to the
 ## fixture's. Beside it, what the fixture leaves open: the public rung on a closed and an open world, the mark shapes
-## that are no mark, an empty-string member (an empty slot, by the page's words), and a reading that never moves the
-## world.
+## that are no mark (an empty-string member among them), a story alone, a non-list multi-link, a nameless slot, a
+## caller's mistake, and a reading that never moves the world.
 
 const STRAND := "res://codegen/schema-dist/profiles/strand.fixture.json"
 const STORY := "019a7f00-0000-7000-8000-000000000301"
@@ -61,40 +61,89 @@ func test_the_public_reads_nothing_of_a_closed_world(t) -> void:
 	t.eq(OWStrand.strand_of(world, {"rung": "public"}).to_dict(), owner, "open: the owner's strand")
 	t.done()
 
-## A mark that is not a Dictionary of three Strings is no mark: a member missing, null, a number, the mark a list, a
-## bare id, null, no key. Kills: a mark read from whichever members are strings.
-func test_a_mark_that_is_not_three_strings_is_no_mark(t) -> void:
+## A value that is not the profile's shape is no mark (serial 99): the story's member missing, null or not a String;
+## the event's or the place's an empty string, a number or a Dictionary; the mark a list, a bare id, null, no key.
+## Kills: a mark read from whichever members are strings, and one that refuses only the empty string.
+func test_a_mark_that_is_not_the_profiles_shape_is_no_mark(t) -> void:
 	var harbour: Dictionary = _fixture()["worlds"]["harbour"]
 	var m: Dictionary = harbour[OWStrand.MARK]
-	var no_event := m.duplicate()
-	no_event.erase("event")
-	var null_place := m.duplicate()
-	null_place["location"] = null
-	var number_story := m.duplicate()
-	number_story["narrative"] = 7
-	for bad in [no_event, null_place, number_story, [m["narrative"], m["event"], m["location"]], STORY, null]:
+	var bad := [_without(m, "narrative"), _with(m, "narrative", null), _with(m, "narrative", 7), _with(m, "event", 7),
+		_with(m, "location", 7), _with(m, "event", {}), _with(m, "location", []),
+		[m["narrative"], m["event"], m["location"]], STORY, null]
+	for mark in bad:
 		var world := harbour.duplicate(true)
-		world[OWStrand.MARK] = bad
-		t.eq(OWStrand.strand_of(world, {"rung": "owner"}).to_dict(), EMPTY, var_to_str(bad))
+		world[OWStrand.MARK] = mark
+		t.eq(OWStrand.strand_of(world, {"rung": "owner"}).to_dict(), EMPTY, var_to_str(mark))
 	var none := harbour.duplicate(true)
 	none.erase(OWStrand.MARK)
 	t.eq(OWStrand.strand_of(none, {"rung": "owner"}).to_dict(), EMPTY, "no key")
 	t.done()
 
-## The page's words on a member that is an empty string: a String, so the mark's shape holds, and an id that names no
-## element in the view, so its slot is empty and the rest still read (keel's mark_of). The npm SDK and the Python
-## package read it as no mark; the difference is open with the profile's owner.
-func test_an_empty_string_member_is_an_empty_slot(t) -> void:
-	var world: Dictionary = _fixture()["worlds"]["harbour"].duplicate(true)
-	world[OWStrand.MARK]["event"] = ""
-	var got := OWStrand.strand_of(world, {"rung": "owner"})
-	t.eq(got.narrative["id"] if got.narrative is Dictionary else null, STORY, "the story reads")
-	t.eq(got.event, null, "the event is empty")
-	t.eq(got.location, null, "the place hangs off the event")
-	t.eq(got.character["id"] if got.character is Dictionary else null, "019a7f00-0000-7000-8000-000000000331", "the hero reads")
-	t.eq(got.now["id"] if got.now is Dictionary else null, "019a7f00-0000-7000-8000-000000000322", "now reads")
-	t.eq(got.same, null, "same needs both")
+## An empty string in the event's or the place's member is neither an id nor unset, so the whole value is no mark
+## (ruled for serial 99, the npm and Python readers' reading). Kills: an empty string read as an empty slot.
+func test_an_empty_string_member_is_no_mark(t) -> void:
+	for member in ["event", "location"]:
+		var world: Dictionary = _fixture()["worlds"]["harbour"].duplicate(true)
+		world[OWStrand.MARK][member] = ""
+		t.eq(OWStrand.strand_of(world, {"rung": "owner"}).to_dict(), EMPTY, member)
 	t.done()
+
+## Only the story is required (serial 99): the event and the place null or absent read as unset, so a story alone is a
+## strand begun, its hero and now read; a place named with no event is an empty place. Kills: an unset member read as
+## no mark, and a place read without its event.
+func test_a_story_alone_is_a_strand_begun(t) -> void:
+	var m: Dictionary = _fixture()["worlds"]["harbour"][OWStrand.MARK]
+	for mark in [_with(_with(m, "event", null), "location", null), _without(_without(m, "event"), "location"),
+			_with(m, "event", null), _without(m, "event")]:
+		var world: Dictionary = _fixture()["worlds"]["harbour"].duplicate(true)
+		world[OWStrand.MARK] = mark
+		var got := OWStrand.strand_of(world, {"rung": "owner"})
+		var what := var_to_str(mark)
+		t.eq(got.narrative["id"] if got.narrative is Dictionary else null, STORY, what + ": the story")
+		t.eq(got.event, null, what + ": no happening")
+		t.eq(got.location, null, what + ": a place with no happening is an empty place")
+		t.eq(got.character["id"] if got.character is Dictionary else null, "019a7f00-0000-7000-8000-000000000331", what + ": the hero")
+		t.eq(got.now["id"] if got.now is Dictionary else null, "019a7f00-0000-7000-8000-000000000322", what + ": now")
+		t.eq(got.same, null, what + ": same")
+	t.done()
+
+## A multi-link that is not a list is empty (serial 99): the owner's stored story with a bare string in its events
+## lists nothing, so the event and the place are empty and the rest reads. Kills: keel's one-item reading.
+func test_a_multi_link_that_is_not_a_list_is_empty(t) -> void:
+	var world: Dictionary = _fixture()["worlds"]["harbour"].duplicate(true)
+	for el in world["elements"]:
+		if el["id"] == STORY:
+			el["events"] = "019a7f00-0000-7000-8000-000000000311"
+	var got := OWStrand.strand_of(world, {"rung": "owner"})
+	t.eq(got.narrative["id"] if got.narrative is Dictionary else null, STORY, "the story")
+	t.eq(got.event, null, "no event")
+	t.eq(got.location, null, "no place")
+	t.eq(got.character["id"] if got.character is Dictionary else null, "019a7f00-0000-7000-8000-000000000331", "the hero")
+	t.done()
+
+## A slot whose element has no name, a null one or one that is not text reads an empty string, never null (serial 99).
+func test_a_slot_without_a_name_reads_an_empty_string(t) -> void:
+	for name in ["absent", null, 7]:
+		var world: Dictionary = _fixture()["worlds"]["harbour"].duplicate(true)
+		for el in world["elements"]:
+			if el["id"] == "019a7f00-0000-7000-8000-000000000322":
+				if name is String:
+					el.erase("name")
+				else:
+					el["name"] = name
+		t.eq(OWStrand.strand_of(world, {"rung": "owner"}).now, {"id": "019a7f00-0000-7000-8000-000000000322", "name": ""},
+			var_to_str(name))
+	t.done()
+
+static func _with(m: Dictionary, key: String, value: Variant) -> Dictionary:
+	var out := m.duplicate(true)
+	out[key] = value
+	return out
+
+static func _without(m: Dictionary, key: String) -> Dictionary:
+	var out := m.duplicate(true)
+	out.erase(key)
+	return out
 
 ## A caller's mistake is no reading: the message names it, and the strand is empty.
 func test_a_callers_mistake_is_named(t) -> void:

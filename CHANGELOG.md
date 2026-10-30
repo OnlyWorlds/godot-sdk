@@ -67,9 +67,11 @@ the git log.
   `x_strand` names, one of its events, that event's place, the story's `protagonist`, where the hero is now, and
   whether then and now are one place by id (`{narrative, event, location, character, now, same}`, each slot
   `{id, name}` or null). A slot holds only its own kind, no slot is filled from another, a list's order is never read,
-  and a story the reader knows only as a stub fills its own slot alone. A mark that is not a Dictionary of three
-  Strings is no mark; a member that is an empty string is an empty slot (the page's words; the npm and Python readers
-  read it as no mark). Every case of the profile's fixture (17), held by its sha256.
+  and a story the reader knows only as a stub fills its own slot alone. Only the story's id is required (serial 99):
+  the event and the place null or absent read as unset, a place with no event is an empty place, and any other value
+  there (an empty string, a number, a Dictionary) is no mark, as is a story that is not a String. A multi-link that is
+  not a list lists nothing; a nameless slot reads an empty string; the public rung reads only a world open to anyone.
+  Every case of the profile's fixture, held by its sha256.
 - `OWNames.type_word(world, type, supertype, many)`: a world's own word for a type, the names profile's `x_names` on
   the World (schema-dist `profiles/names.md`), a port of the npm SDK's `typeWord` and the Python package's
   `type_word`. The supertype's entry first, its key trimmed and folded as the room profile reads, then the type's,

@@ -12,7 +12,7 @@ extends RefCounted
 
 ## The World's field that carries the mark.
 const MARK := "x_strand"
-## The mark's three members, in the profile's order.
+## The mark's three members, in the profile's order; only [code]narrative[/code] is required.
 const MEMBERS := ["narrative", "event", "location"]
 
 ## What [method strand_of] answers. Each filled slot is [code]{id, name}[/code], an empty one null. [member error] is
@@ -58,9 +58,13 @@ class Strand:
 ## [code]location[/code] from [code]now[/code], nor the reverse. Each slot's links are read from the body the reader is
 ## served, so a story known only as a stub fills its own slot and nothing past it.
 ##
-## The mark is a Dictionary whose three members are each a String; any other shape (a bare string, a member missing,
-## null or not a String) is no mark, and the strand is empty. An id that names no element in the reader's view, an
-## empty string included, is an empty slot: there is no id-format test here (a malformed id is the doctor's to name).
+## The mark is a Dictionary whose [code]narrative[/code] is a String; [code]event[/code] and [code]location[/code] are
+## each a String id, null or absent, and null or absent reads as unset (serial 99: a strand begins when a story is
+## chosen, and a place with no happening is an empty place). Any other shape is no mark, and the strand is empty: a
+## bare string, [code]narrative[/code] missing or not a String, [code]event[/code] or [code]location[/code] an empty
+## string, a number or a Dictionary. An id that names no element in the reader's view is an empty slot: there is no
+## id-format test here (a malformed id is the doctor's to name). A multi-link that is not a list lists nothing, and a
+## slot whose element has no name reads "", never null.
 static func strand_of(world: Variant, reader: Variant) -> Strand:
 	var out := Strand.new()
 	if not (world is Dictionary and world.get("elements") is Array):
@@ -71,17 +75,16 @@ static func strand_of(world: Variant, reader: Variant) -> Strand:
 		out.error = bad
 		return out
 	var mark: Variant = world.get(MARK)
-	if not (mark is Dictionary):
+	if not (mark is Dictionary and mark.get("narrative") is String):
 		return out
-	for m in MEMBERS:
-		if not (mark.get(m) is String):
-			return out
+	var happening: Variant = mark.get("event")
+	var then: Variant = mark.get("location")
+	if not (_member_ok(happening) and _member_ok(then)):
+		return out
 	var r := OWLens.View.new(world, reader, null)
 	if r.seen_rung == "public" and world.get("open") != true:
 		return out
 	var story: String = mark["narrative"]
-	var happening: String = mark["event"]
-	var then: String = mark["location"]
 	if not _seen(r, story, "narrative"):
 		return out
 	out.narrative = _slot(r, story)
@@ -98,6 +101,11 @@ static func strand_of(world: Variant, reader: Variant) -> Strand:
 	if out.now != null and out.location != null:
 		out.same = out.now["id"] == out.location["id"]
 	return out
+
+## The event's or the place's member: a non-empty String is an id, null or absent is unset; anything else (an empty
+## string, a number, a Dictionary) makes the whole value no mark.
+static func _member_ok(v: Variant) -> bool:
+	return v == null or (v is String and v != "")
 
 ## True when [param id] is an element of [param kind] in the reader's view: a slot holds only its own kind.
 static func _seen(r: OWLens.View, id: Variant, kind: String) -> bool:
