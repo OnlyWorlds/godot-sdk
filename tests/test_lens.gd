@@ -851,8 +851,8 @@ func test_a_lens_whose_anchor_fields_hold_only_empty_strings_names_no_anchor_and
 
 ## A row is the body as the wire serves it to that reader, and a served body of an element under the hidden mark
 ## carries hidden: true: the owner's full row of a hidden element, by the world's list or by its own key; below the
-## owner only a guest's row of its own hidden creation, never a stub. A name row never carries it. The world stays as
-## it was. Kills: the row as stored.
+## owner only a guest's row of its own hidden creation. A name row never carries it. The world stays as it was. Kills:
+## the row as stored.
 func test_an_owners_full_row_of_a_hidden_element_carries_hidden_true_as_served(t) -> void:
 	var world := {"hidden": ["e05"], "elements": [
 		{"id": "e05", "type": "collective", "name": "Guild"},
@@ -864,10 +864,6 @@ func test_an_owners_full_row_of_a_hidden_element_carries_hidden_true_as_served(t
 		{"id": "e06", "type": "collective", "name": "Choir", "hidden": true}], "the world's list and the element's own key, one mark")
 	t.eq(OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L", "e05"]}).rows,
 		[{"id": "e05", "type": "collective", "name": "Guild", "hidden": true}], "a guest's own hidden creation")
-	# Below the owner only a guest's own creation, which it sees whole, carries the mark: a stub never does.
-	var stub: Dictionary = OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L"], "known_of": ["e05"]}).rows[0]
-	t.eq(stub.get("known_of"), true, "the stub is kept")
-	t.ok(not stub.has("hidden"), "a guest's known-of stub of a hidden element carries no hidden key")
 	world["elements"][2]["x_lens"] = {"show": "name"}
 	t.ok(not OWLens.resolve(world, "L", OWNER).rows[0].has("hidden"), "a name row")
 	world["elements"][2]["x_lens"] = {}
@@ -950,4 +946,30 @@ func test_an_unseen_anchor_is_counted_before_the_visited_check_the_lens_itself_i
 	var r := OWLens.resolve(world, umbrella, as_contributor)
 	t.eq(r.kept, PackedStringArray(["o1"]), "the child's own objects")
 	t.eq(r.cut, {"anchor_not_visible": 1}, "the hidden umbrella, once")
+	t.done()
+
+## Hidden beats known_of: a hidden element named in a guest's known_of that is not its own creation is not in that
+## guest's view, so no stub, no row, no count and no mark; a hidden id in whole stays its own creation. A filter keeps
+## nothing of it; an anchor on it is one the guest cannot see, counted only for the owner reading as that guest; a link
+## to it is left out of the guest's served list (no gap). Kills: the hidden element kept as a stub.
+func test_a_hidden_element_in_a_guests_known_of_is_not_in_its_view_no_stub_no_row_no_count_no_mark(t) -> void:
+	var world := {"elements": [
+		{"id": "e05", "type": "character", "name": "Heir", "hidden": true},
+		{"id": "c1", "type": "character", "name": "Ada", "friends": ["e05", "e06"]},
+		{"id": "e06", "type": "character", "name": "Brin"},
+		{"id": "F", "type": "construct", "name": "F", "supertype": "Lens", "x_lens": {"types": ["character"]}},
+		{"id": "A", "type": "construct", "name": "A", "supertype": "Lens", "characters": ["e05"], "x_lens": {"depth": 0}}]}
+	var guest := {"rung": "guest", "whole": ["F", "A", "c1", "e06"], "known_of": ["e05"]}
+	var filter := OWLens.resolve(world, "F", guest)
+	t.eq(filter.kept, PackedStringArray(["c1", "e06"]), "a filter keeps no stub of it")
+	t.eq(filter.cut, {}, "nothing counted")
+	var anchored := OWLens.resolve(world, "A", guest)
+	t.eq([anchored.kept, anchored.cut], [PackedStringArray(), {}], "no stub row, nothing counted for the guest")
+	t.eq(OWLens.resolve(world, "A", {"rung": "owner", "as": guest}).cut, {"anchor_not_visible": 1},
+		"the owner reading as the guest counts the anchor")
+	var view := OWLens.View.new(world, guest, null)
+	t.ok(not view.view.has("e05"), "not in the guest's view")
+	t.eq(view.body("c1")["friends"], ["e06"], "left out of the guest's served list")
+	var own := OWLens.resolve(world, "F", {"rung": "guest", "whole": ["F", "e05"]}).rows
+	t.eq(own.size() == 1 and own[0].get("hidden") == true, true, "a hidden id in whole stays its own creation, marked")
 	t.done()

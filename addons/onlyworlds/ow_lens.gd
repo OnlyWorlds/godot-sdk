@@ -638,8 +638,11 @@ class View:
 				"public":
 					sees = not hidden.has(id) and not room.has(id)
 				_:
-					sees = whole_ids.has(id) or known_of.has(id)
-					if not whole_ids.has(id) and known_of.has(id):
+					# Hidden beats known_of: a hidden element the guest did not make is not in its view (no stub, no
+					# row, no count, no mark); a hidden id in whole is its own creation, served whole.
+					var told := known_of.has(id) and not hidden.has(id)
+					sees = whole_ids.has(id) or told
+					if not whole_ids.has(id) and told:
 						stubs[id] = true
 			if OWLens.is_proposed(by_id[id]):
 				proposed[id] = true
@@ -722,8 +725,8 @@ class View:
 			b = _known_of(b, type)
 		# A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
 		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below the
-		# owner only a guest's own creation carries it, a body it sees whole: never a known-of stub.
-		if hidden.has(id) and not stubs.has(id):
+		# owner only a guest's own creation carries it, a body it sees whole.
+		if hidden.has(id):
 			b["hidden"] = true
 		else:
 			b.erase("hidden")

@@ -316,3 +316,19 @@ func test_below_the_owner_an_edge_to_an_unseen_anchor_a_cut_child_reaches_is_cut
 	var g := OWGraph.world_graph(world, {"rung": "contributor"}, {"lens": "U"})
 	t.eq([g.nodes.map(func(n): return n["id"]), g.cut, g.edges_cut], [["y"], {"types": 1}, {"types": 1}])
 	t.done()
+
+## Hidden beats known_of: a hidden element named in a guest's known_of is no node, and a link to it is left out of the
+## guest's served list, so the next edge's index has no gap; for the guest it is not counted, and for the owner reading
+## as the guest it is not_visible, a target the reader does not see. Kills: the hidden element drawn as a known-of node.
+func test_a_hidden_element_in_a_guests_known_of_is_no_node_and_a_link_to_it_is_not_visible(t) -> void:
+	var world := {"elements": [
+		{"id": "c1", "type": "character", "name": "Ada", "friends": ["h", "b"]},
+		{"id": "h", "type": "character", "name": "Hal", "hidden": true},
+		{"id": "b", "type": "character", "name": "Brin"}]}
+	var guest := {"rung": "guest", "whole": ["c1", "b"], "known_of": ["h"]}
+	var g := OWGraph.world_graph(world, guest)
+	t.eq([g.nodes.map(func(n): return n["id"]), g.edges, g.edges_cut],
+		[["b", "c1"], [{"source": "c1", "field": "friends", "target": "b", "index": 0}], {}])
+	var as_guest := OWGraph.world_graph(world, {"rung": "owner", "as": guest})
+	t.eq([as_guest.nodes.map(func(n): return n["id"]), as_guest.edges_cut], [["b", "c1"], {"not_visible": 1}])
+	t.done()
