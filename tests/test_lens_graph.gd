@@ -245,6 +245,8 @@ func test_ruling_g4_a_nodes_type_is_as_stored(t) -> void:
 	var node: Dictionary = OWGraph.world_graph(world, {"rung": "owner"}).nodes[0]
 	t.eq(node["type"], "Character", "as stored")
 	t.eq(node["family"], OWPresentation.family_of("character"), "the family read by the folded slug")
+	var padded := {"elements": [{"id": "a", "type": " character ", "name": "Ada"}]}
+	t.eq(OWGraph.world_graph(padded, {"rung": "public"}).nodes[0]["type"], " character ", "a public reader's node, padding kept")
 	t.done()
 
 ## G5: an edge's index is the target's place in the link list as served to that reader; a contributor is served the link

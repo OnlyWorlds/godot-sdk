@@ -797,6 +797,27 @@ func test_ruling_7_a_stub_keeps_base_and_public_and_unsets_the_rest(t) -> void:
 		"birth_date": null, "birthplace": null, "friends": [], "created_by": null, "known_of": true}], "keel's stub")
 	t.done()
 
+## A single link stored as "" is served as stored to every reader below the owner: "", never null, and never named in
+## x_served_trimmed, since no id was left out (keel's redact strips only an id the reader cannot see). A Message whose
+## narrator is "" claims no hidden sender.
+func test_an_empty_single_link_is_served_as_stored_and_never_marked_trimmed(t) -> void:
+	var world := {"elements": [
+		{"id": "o1", "type": "object", "name": "Cup", "language": ""},
+		{"id": "c1", "type": "character", "name": "Ada"},
+		{"id": "m1", "type": "narrative", "supertype": "Message", "name": "Hi", "narrator": "", "characters": ["c1"]},
+		_lens_on({"objects": ["o1"], "narratives": ["m1"]}, {"depth": 0})]}
+	for reader in [{"rung": "contributor"}, {"rung": "guest", "whole": ["o1", "c1", "m1", "L"]}, {"rung": "public"}]:
+		var view := OWLens.View.new(world, reader, null)
+		for pair in [["m1", "narrator"], ["o1", "language"]]:
+			var b: Dictionary = view.body(pair[0])
+			t.eq(b.get(pair[1]), "", "%s: %s.%s served as \"\"" % [reader["rung"], pair[0], pair[1]])
+			t.ok(not b.has(OWLens.SERVED_TRIMMED), "%s: %s carries no trimmed mark" % [reader["rung"], pair[0]])
+		var rows: Array = OWLens.resolve(world, "L", reader).rows.filter(func(r): return r["id"] == "m1")
+		t.eq(rows.size(), 1, "%s: the message is kept" % reader["rung"])
+		t.eq(rows[0].get("narrator"), "", "%s: the kept message's narrator" % reader["rung"])
+		t.ok(not rows[0].has(OWLens.SERVED_TRIMMED), "%s: the kept message claims no hidden sender" % reader["rung"])
+	t.done()
+
 ## Ruling 11, as the profile's owner reversed it: two messages with one created_at keep the order of the list they came
 ## in, as the message profile rules, never by id. A tie listed in reverse id order stays as listed.
 func test_ruling_11_a_mail_tie_keeps_the_lists_order(t) -> void:
