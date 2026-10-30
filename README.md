@@ -88,7 +88,10 @@ test whose world is missing is skipped, never passed.
   element of its field's type (a generic pair only when its type key names one of the 22), an anchor id no such
   element holds is counted `anchor_not_visible` for the owner, an umbrella's hop keeps a child it reaches before
   entering it, a count is never erased by a later visit, a known-of stub is keel's (the base and public fields, every
-  other field unset, no extension key), and two messages with one `created_at` order by id. The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
+  other field unset, no extension key), and two messages with one `created_at` order by id; in the graph, an edge to
+  an anchor the reader cannot see carries the lens's `anchor_not_visible`, a Pin's generic pair is placement and never
+  an edge, a node's type and name are as stored, and an edge's index is its place in the list as that reader is
+  served it (a contributor is served a link to a proposed element). The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
   White_Space only, `[]`, `{}`) is settled, never a doubt (the review profile's rule 1, serial 87). A node's family
   is one of `colors.order`'s four words (`OWPresentation.ORDER`); a word not among them fails loudly, naming it:
   `OWPresentation.use` refuses the table and keeps the one in use, `world_graph` answers it as a caller's mistake

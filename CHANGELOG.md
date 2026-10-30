@@ -18,6 +18,11 @@ the git log.
   at its unset value and no extension key (7); the mail part orders two messages with one `created_at` by id (11). A
   whole float in an `x_lens` key already read whole, as ruling 13 now says for every reader. Each change is held by a
   test named for its ruling.
+- `OWGraph.world_graph` follows the owner's rulings on the graph section's silences, ahead of the same serial: a
+  Pin's generic pair is placement, never an edge (G2); a node's `name` is the stored value, null when absent (G3); a
+  node's `type` is as stored, never folded (G4); an edge's `index` is the target's place in the link list as served to
+  that reader, so a contributor's counts a link to a proposed element (G5). An edge to an anchor the reader cannot see
+  already carried the lens's `anchor_not_visible` (G1).
 
 ### Added
 

@@ -207,3 +207,56 @@ func test_a_callers_mistake_and_a_refusal(t) -> void:
 		"the owner as a contributor is judged by the contributor's rung")
 	t.eq(OWGraph.world_graph(world, {"rung": "owner"}, {"hidden": true, "proposed": true}).refused, "", "the owner may ask both")
 	t.done()
+
+# -- the profile owner's rulings on the graph section's silences (each a case in the fixture's next serial) -----------
+
+## G1: an edge to an anchor the reader cannot see carries the lens's own reason, anchor_not_visible, not not_visible.
+## The owner reading as a contributor is told both, so the two can differ.
+func test_ruling_g1_an_edge_to_an_unseen_anchor_carries_the_lens_reason(t) -> void:
+	var world := {"elements": [
+		{"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "characters": ["a", "h"], "x_lens": {"depth": 0}},
+		{"id": "a", "type": "character", "name": "Ada", "friends": ["h"]},
+		{"id": "h", "type": "character", "name": "Hal", "hidden": true}]}
+	var g := OWGraph.world_graph(world, {"rung": "owner", "as": {"rung": "contributor"}}, {"lens": "L"})
+	t.eq(g.nodes.map(func(n): return n["id"]), ["a"], "Ada")
+	t.eq(g.edges_cut, {"anchor_not_visible": 1}, "Ada's link to Hal, the lens's unseen anchor")
+	t.done()
+
+## G2: a Pin's generic pair is placement, never an edge; its map link is.
+func test_ruling_g2_a_pins_pair_is_no_edge(t) -> void:
+	var world := {"elements": [
+		{"id": "m", "type": "map", "name": "Map"},
+		{"id": "p", "type": "pin", "name": "Pin", "map": "m", "element_type": "character", "element_id": "a"},
+		{"id": "a", "type": "character", "name": "Ada"}]}
+	var g := OWGraph.world_graph(world, {"rung": "owner"}, {"map_space": true})
+	t.eq(g.edges, [{"source": "p", "field": "map", "target": "m", "index": 0}], "the map link only")
+	t.done()
+
+## G3: a node's name is the stored value, null when absent, nothing invented.
+func test_ruling_g3_a_nodes_name_is_as_stored(t) -> void:
+	var world := {"elements": [{"id": "a", "type": "character", "name": 7}, {"id": "b", "type": "character"},
+		{"id": "c", "type": "character", "name": ""}]}
+	t.eq(OWGraph.world_graph(world, {"rung": "owner"}).nodes.map(func(n): return n["name"]), [7, null, ""], "7, null, \"\"")
+	t.done()
+
+## G4: a node's type is as stored, never folded (a non-slug type is a data fault for the lint, not the reader's to fold).
+func test_ruling_g4_a_nodes_type_is_as_stored(t) -> void:
+	var world := {"elements": [{"id": "a", "type": "Character", "name": "Ada"}]}
+	var node: Dictionary = OWGraph.world_graph(world, {"rung": "owner"}).nodes[0]
+	t.eq(node["type"], "Character", "as stored")
+	t.eq(node["family"], OWPresentation.family_of("character"), "the family read by the folded slug")
+	t.done()
+
+## G5: an edge's index is the target's place in the link list as served to that reader; a contributor is served the link
+## to a proposed element (keel's scoped), so the index counts it. A hidden id is not served and not counted.
+func test_ruling_g5_a_contributors_index_counts_a_served_proposed_link(t) -> void:
+	var world := {"elements": [
+		{"id": "a", "type": "character", "name": "Ada", "friends": ["h", "px", "b"]},
+		{"id": "h", "type": "character", "name": "Hal", "hidden": true},
+		{"id": "px", "type": "character", "name": "Pax", "x_review_proposed": {"by": "m1"}},
+		{"id": "b", "type": "character", "name": "Brin"}]}
+	var g := OWGraph.world_graph(world, {"rung": "contributor"})
+	t.eq(g.edges, [{"source": "a", "field": "friends", "target": "b", "index": 1}], "served [Pax, Brin]: Brin at 1")
+	t.eq(OWGraph.world_graph(world, {"rung": "public"}).edges, [{"source": "a", "field": "friends", "target": "b", "index": 0}],
+		"the public rung is served no proposed link: Brin at 0")
+	t.done()

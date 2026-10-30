@@ -29,8 +29,8 @@ const _OPTION_KEYS := ["lens", "as_of", "clock", "rooms", "hidden", "proposed", 
 ## What [method world_graph] answers. [member refused] names a flag asked from the wrong rung (nothing read);
 ## [member error] names a caller's mistake (nothing read); both "" otherwise.
 class Graph:
-	## The nodes, by id in code point order: {id, type, name, family, icon}, with marks (room, hidden, proposed) when
-	## any applies and known_of true on a guest's stub.
+	## The nodes, by id in code point order: {id, type, name, family, icon} (the type and the name as stored, null when
+	## absent), with marks (room, hidden, proposed) when any applies and known_of true on a guest's stub.
 	var nodes := []
 	## The edges, by source id, then field name (both by code point), then index: {source, field, target, index}.
 	var edges := []
@@ -161,7 +161,11 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 	for id in ids:
 		var el: Dictionary = r.by_id[id]
 		var type: String = r.type_of[id]
-		var node := {"id": id, "type": type, "name": el["name"] if el.get("name") is String else null,
+		# The type and the name as stored, nothing folded or invented (the profile's rulings G3, G4); the family and icon
+		# are read by the folded slug.
+		var name: Variant = el.get("name")
+		var node := {"id": id, "type": el["type"],
+			"name": name.duplicate(true) if name is Array or name is Dictionary else name,
 			"family": OWPresentation.family_of(type), "icon": OWPresentation.icon_of(type)}
 		var marks := []
 		for k in kinds.call(id):
@@ -187,14 +191,19 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		if r.stubs.has(source):
 			continue
 		var el: Dictionary = r.by_id[source]
-		# A schema link is served whole to the owner; any other view is served it less the ids outside that view.
+		# A schema link is served whole to the owner; any other reader is served the list as keel serves it, a link to a
+		# proposed element kept below the public rung, and the index is the place in that list (the profile's ruling G5).
+		# A Pin's generic pair is placement, never an edge (G2).
 		for lf in OWLens.link_fields_of(r.type_of[source]):
+			var target := OWLens.link_target_of(r.type_of[source], lf[0])
+			if target == "":
+				continue
 			var v: Variant = el.get(lf[0])
 			var list: Array = (v if v is Array else []) if lf[1] else [v]
 			var served := 0
 			for i in list.size():
 				var t: Variant = list[i]
-				var in_served: bool = seen_owner or (t is String and r.view.has(t))
+				var in_served: bool = seen_owner or (t is String and r._served_as(t, target))
 				visit.call(source, lf[0], t, i if seen_owner else served)
 				if in_served:
 					served += 1
