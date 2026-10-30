@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWNames on the names profile's conformance fixture (schema-dist profiles/names.fixture.json, the pinned copy at
-## dist.92, its sha256 checked against the manifest): every case's word, or null for the standard's name. Beside it,
+## dist.93, its sha256 checked against the manifest): every case's word, or null for the standard's name. Beside it,
 ## the readings the fixture does not hold, each as the npm SDK's typeWord reads it.
 
 const NAMES := "res://codegen/schema-dist/profiles/names.fixture.json"

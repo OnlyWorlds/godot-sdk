@@ -50,14 +50,6 @@ func _in_room(t, c: Dictionary) -> void:
 	t.done()
 
 func _case(t, c: Dictionary) -> void:
-	# A text_only case holds only for a reader that sees a number's text (7.0 beside 7). Godot's JSON parses both as one
-	# float (test_x_lens_numbers_as_godot_can_see_them), so the case's 7.0 arrives here as the 7 the reader reads whole;
-	# the fixture's notes let such a reader skip it. Run, the integral-float case would pass only because 7 is past
-	# depth's range, which is no proof of the float rule. The profile's ruling 13 retires that case (a whole float reads
-	# whole in every reader, as here); the fixture's next serial replaces it.
-	if c.get("text_only", false):
-		t.skip("text_only: Godot's JSON gives one number type, so 7.0 cannot be told from 7 (%s)" % c.get("why", ""))
-		return
 	match c["kind"]:
 		"shape":
 			t.eq(OWLens.is_lens(c["element"]), c["is_lens"], "is_lens")
@@ -78,8 +70,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 153, "153 cases")
-	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 75, "invariant": 4, "uses": 4, "graph": 39}, "by kind")
+	t.eq(_fixture()["cases"].size(), 171, "171 cases")
+	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 86, "invariant": 4, "uses": 5, "graph": 45}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:

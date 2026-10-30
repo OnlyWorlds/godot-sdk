@@ -30,6 +30,10 @@ the git log.
 - Pinned to schema-dist `v0.33.0-dist.92`: a Zone leaves map space in the lens profile's graph. Zones are nodes by
   default, for a public reader too; Map, Pin and Marker stay out until `map_space` (`OWGraph.MAP_SPACE`). The
   fixture's graph cases that changed with it were red on the old table and pass now.
+- Pinned to schema-dist `v0.33.0-dist.93`: the lens fixture carries a case for each of the rulings above, nineteen
+  new cases over a ninth world (171 in all: 86 resolve, 45 graph, 5 uses), and `profiles/lens.md` states each
+  reading. The `text_only` keys case this SDK skipped is retired for `keys-an-integral-float-reads-whole`, which runs
+  and passes, so the lens replay skips nothing now. Every case passes.
 
 ### Added
 
