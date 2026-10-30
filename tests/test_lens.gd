@@ -70,8 +70,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 189, "189 cases")
-	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 102, "invariant": 4, "uses": 5, "graph": 47}, "by kind")
+	t.eq(_fixture()["cases"].size(), 191, "191 cases")
+	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 102, "invariant": 4, "uses": 5, "graph": 49}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
