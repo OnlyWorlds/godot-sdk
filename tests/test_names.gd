@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWNames on the names profile's conformance fixture (schema-dist profiles/names.fixture.json, the pinned copy at
-## dist.93, its sha256 checked against the manifest): every case's word, or null for the standard's name. Beside it,
+## dist.94, its sha256 checked against the manifest): every case's word, or null for the standard's name. Beside it,
 ## the readings the fixture does not hold, each as the npm SDK's typeWord reads it.
 
 const NAMES := "res://codegen/schema-dist/profiles/names.fixture.json"
@@ -30,9 +30,9 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var names := {}
 	for c in _fixture()["cases"]:
 		names[c["name"]] = true
-	t.eq(_fixture()["cases"].size(), 23, "23 cases")
-	t.eq(names.size(), 23, "every case's name is its own")
-	t.eq(_fixture()["cases"].filter(func(c): return c["word"] == null).size(), 10, "10 print the standard's name")
+	t.eq(_fixture()["cases"].size(), 29, "29 cases")
+	t.eq(names.size(), 29, "every case's name is its own")
+	t.eq(_fixture()["cases"].filter(func(c): return c["word"] == null).size(), 14, "14 print the standard's name")
 	t.done()
 
 ## Godot's JSON reads every number as a float: the fixture's version 1 arrives as 1.0, its "one": 3 as 3.0. A number 1

@@ -70,8 +70,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 171, "171 cases")
-	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 86, "invariant": 4, "uses": 5, "graph": 45}, "by kind")
+	t.eq(_fixture()["cases"].size(), 186, "186 cases")
+	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 99, "invariant": 4, "uses": 5, "graph": 47}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
@@ -850,8 +850,9 @@ func test_a_lens_whose_anchor_fields_hold_only_empty_strings_names_no_anchor_and
 	t.done()
 
 ## A row is the body as the wire serves it to that reader, and a served body of an element under the hidden mark
-## carries hidden: true: the owner's full row of a hidden element, by the world's list or by its own key; a guest's row
-## of its own hidden creation. A name row never carries it. The world stays as it was. Kills: the row as stored.
+## carries hidden: true: the owner's full row of a hidden element, by the world's list or by its own key; below the
+## owner only a guest's row of its own hidden creation, never a stub. A name row never carries it. The world stays as
+## it was. Kills: the row as stored.
 func test_an_owners_full_row_of_a_hidden_element_carries_hidden_true_as_served(t) -> void:
 	var world := {"hidden": ["e05"], "elements": [
 		{"id": "e05", "type": "collective", "name": "Guild"},
@@ -863,6 +864,10 @@ func test_an_owners_full_row_of_a_hidden_element_carries_hidden_true_as_served(t
 		{"id": "e06", "type": "collective", "name": "Choir", "hidden": true}], "the world's list and the element's own key, one mark")
 	t.eq(OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L", "e05"]}).rows,
 		[{"id": "e05", "type": "collective", "name": "Guild", "hidden": true}], "a guest's own hidden creation")
+	# Below the owner only a guest's own creation, which it sees whole, carries the mark: a stub never does.
+	var stub: Dictionary = OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L"], "known_of": ["e05"]}).rows[0]
+	t.eq(stub.get("known_of"), true, "the stub is kept")
+	t.ok(not stub.has("hidden"), "a guest's known-of stub of a hidden element carries no hidden key")
 	world["elements"][2]["x_lens"] = {"show": "name"}
 	t.ok(not OWLens.resolve(world, "L", OWNER).rows[0].has("hidden"), "a name row")
 	world["elements"][2]["x_lens"] = {}

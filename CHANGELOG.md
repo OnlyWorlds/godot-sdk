@@ -8,6 +8,13 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.94`: the charter, lens and names fixtures' twenty-four new cases. `OWLens.resolve` reads
+  an anchor list's empty or White_Space-only string as no id, so a lens holding only such strings is a filter; a
+  served body carries `hidden: true` where the hidden mark keeps the element (the owner's body, and below the owner a
+  guest's own creation, never a stub), and no `hidden` key otherwise, a stored `false` dropped; below the owner an
+  unseen anchor is recorded under no reason, so a child's cut of the element counts; a note goes with its anchor.
+  `OWCharter`'s Domain hubs leave out an element the reader does not see as the field's type, so a proposed Object
+  is no hub, the owner's view included.
 - `OWLens.resolve` (and `OWGraph.world_graph` with a lens) follows the lens profile owner's rulings on readings no
   fixture case decided yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an
   element of its field's target type, and a generic pair (a Pin's `element_type`/`element_id`) only when its type key

@@ -104,7 +104,7 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 	for d in order + rest:
 		var body := r.body(d)
 		out.domains.append({"id": d, "name": _name(body.get("name")), "sentence": first_line(body.get("description")),
-			"hubs": [] if body.get("known_of") == true else _hubs(d, body)})
+			"hubs": [] if body.get("known_of") == true else _hubs(r, d, body)})
 	return out
 
 ## The Domains alone, as [method charter_of] lists them for [param reader] (the profile's [code]domainsOf[/code]); an
@@ -186,14 +186,15 @@ static func _skill(r: OWLens.View, text: Variant) -> Array:
 	return found.filter(func(i): return objects.has(i)).slice(0, SKILL_MAX)
 
 ## The distinct {type, id} a Domain's served body links, itself excluded, in the schema's field order and each list's
-## own order.
-static func _hubs(id: String, body: Dictionary) -> Array:
+## own order, each an element of the field's type the reader sees: the owner's body keeps a link to a proposed element
+## as stored, and a proposed Object is in no reader's view, the owner's included, so it is no hub.
+static func _hubs(r: OWLens.View, id: String, body: Dictionary) -> Array:
 	var out := []
 	var seen := {"construct/" + id: true}
 	for hf in hub_fields():
 		var v: Variant = body.get(hf[0])
 		for t in (v if v is Array else [v]):
-			if t is String and t != "" and not seen.has(hf[1] + "/" + t):
+			if t is String and t != "" and r.view.has(t) and r.type_of.get(t) == hf[1] and not seen.has(hf[1] + "/" + t):
 				seen[hf[1] + "/" + t] = true
 				out.append({"type": hf[1], "id": t})
 	return out

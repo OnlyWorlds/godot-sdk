@@ -254,7 +254,8 @@ static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 			continue
 		var target := link_target_of(PAIR_TYPE, field)
 		for id in v:
-			if not (id is String) or id == "" or seen.has(id):
+			# An empty string, or one of White_Space alone, is no id and so no anchor (rule 7).
+			if not (id is String) or OWUnicode.trim_white_space(id) == "" or seen.has(id):
 				continue
 			seen[id] = true
 			if r.type_of.get(id) != target:
@@ -720,8 +721,9 @@ class View:
 		if stubs.has(id):
 			b = _known_of(b, type)
 		# A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
-		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py).
-		if hidden.has(id):
+		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below the
+		# owner only a guest's own creation carries it, a body it sees whole: never a known-of stub.
+		if hidden.has(id) and not stubs.has(id):
 			b["hidden"] = true
 		else:
 			b.erase("hidden")
