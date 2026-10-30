@@ -106,6 +106,11 @@ test whose world is missing is skipped, never passed.
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
   each with its sentence and hubs, the Charter's skill Objects as keel's `charter_skill` finds them. Every case of the
   profile's fixture (22).
+- **The strand** (the strand profile, serial 98): `OWStrand.strand_of(world, reader)` is the world's one story in
+  miniature as that reader sees it, `{narrative, event, location, character, now, same}`: the story the World's
+  `x_strand` names, one of its events and that event's place, the story's protagonist and where the hero is now, and
+  whether then and now are one place. An empty slot is null, never filled from another slot; a story the reader only
+  knows of fills its own slot alone. Every case of the profile's fixture (17).
 - **Messages** (the message profile, serial 79): `OWMessage` reads a message between a world's members and the
   Note beside it, as the npm and Python packages do: `is_message`, `is_note`, `recipients_of`, `is_addressed_to`,
   `is_to_everyone` and `has_unseen_recipients` (keel's `x_served_trimmed`, `keyless` for a body read with no
