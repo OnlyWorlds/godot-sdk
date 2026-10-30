@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "d10485997d9149805284eb1d2b907a4e349dedd7524f514f923ad25bf50e7e45"
-const CASES := 41
+const FIXTURE_SHA256 := "93cb3f121cb1eef5ba4c6951c414399c13136c3896f864221a29a3802b82d266"
+const CASES := 45
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -51,7 +51,7 @@ func test_the_fixture_is_the_shared_bytes(t) -> void:
 
 func test_every_case_is_answered_and_none_is_dropped(t) -> void:
 	var cases: Array = _fixture()["cases"]
-	t.eq(cases.size(), CASES, "41 cases")
+	t.eq(cases.size(), CASES, "45 cases")
 	var names := {}
 	var answered := 0
 	for c in cases:

@@ -71,8 +71,10 @@ static func sign_in_first(name: String) -> String:
 ## "Needs the world on this phone"; then "Opens the world" (a world door on an element: a sign-in the row needs is the
 ## more urgent word); else null.
 ##
-## Refuses ([member Result.reason]) an address without a world ([code]no_world[/code]) or with a slug or anything else
-## for its id ([code]bad_world[/code]), and a type, id or pairing [method OWAddress.element_address] refuses.
+## Refuses ([member Result.reason]) whatever [method OWAddress.element_address] refuses of the whole address, in its own
+## form (the site's when it has none): a form, type, id, pairing, moment or lens ([code]bad_moment[/code],
+## [code]bad_lens[/code]), and a slug or anything else for the world's id ([code]bad_world[/code]); and an address
+## without a world ([code]no_world[/code]), the text form inside a world included.
 ## [member Result.message] names the rest: a [param kind] that is neither, an element's openers asked of an address
 ## with no element, an unknown key on the address or the surface, a missing or unknown [code]audience[/code], a surface
 ## value of the wrong type, a tools row that is not one (a [code]needs[/code] outside the list's format included).
@@ -92,8 +94,17 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 	for key in a:
 		if not (key is String or key is StringName) or not OWAddress.KEYS.has(String(key)):
 			return _mistake(out, "unknown key '%s' in the address. The keys are %s." % [key, ", ".join(OWAddress.KEYS)])
-	# The address's checks are the writer's, so a slug, a missing world and a bad type or id refuse as there.
-	var page := OWAddress.element_address(OWAddress.HUMAN, a.get("world"), a.get("type"), a.get("id"))
+	# The address's checks are the writer's: the whole address in its own form (the site's when it has none), so a
+	# bad form, a slug, a bad type, id, moment or lens refuse as there; then the site's page, where a missing world refuses.
+	var whole: Dictionary = a.duplicate()
+	if whole.get("form") == null:
+		whole["form"] = OWAddress.HUMAN
+	var checked := OWAddress.element_address_from(whole)
+	if not checked.ok:
+		out.reason = checked.reason
+		out.message = checked.message
+		return out
+	var page :=OWAddress.element_address(OWAddress.HUMAN, a.get("world"), a.get("type"), a.get("id"))
 	if not page.ok:
 		out.reason = page.reason
 		out.message = page.message

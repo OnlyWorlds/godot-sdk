@@ -14,7 +14,9 @@ the git log.
   `{id, name, href, state}` (the row's word in sentence case, or null). The address is a Dictionary of the parts or an
   `OWAddress.Reading`; the surface a Dictionary (`audience` required, `signed_in`, `browser`, `phone`, `tool`). The
   answer is an `OWOpeners.Result`: `rows` when `ok`; else `reason`, the address profile's refusal, or `reason` "" and
-  a `message` naming the key. Tested by the packages' shared fixture (41 cases, held by its sha256).
+  a `message` naming the key. The whole address is checked by the writer, so a malformed form, lens or moment refuses
+  (`bad_form`, `bad_lens`, `bad_moment`), as the npm SDK 4.110.0 and the Python package 0.91.0 do. Tested by the
+  packages' shared fixture (45 cases, held by its sha256).
 - `OWTools.ALL`: the OnlyWorlds tools list (github.com/OnlyWorlds/tools, `tools.json` format 1) baked in at commit
   `86208c8`, the keys `openers_for` reads. The list is vendored at `codegen/tools/tools.json` and pinned in
   `codegen/tools-pin.json`; `codegen/generate_tools.py` writes `addons/onlyworlds/ow_tools.gd` and `--check` fails
