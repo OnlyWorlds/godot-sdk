@@ -23,6 +23,9 @@ the git log.
   node's `type` is as stored, never folded (G4); an edge's `index` is the target's place in the link list as served to
   that reader, so a contributor's counts a link to a proposed element (G5). An edge to an anchor the reader cannot see
   already carried the lens's `anchor_not_visible` (G1).
+- Pinned to schema-dist `v0.33.0-dist.92`: a Zone leaves map space in the lens profile's graph. Zones are nodes by
+  default, for a public reader too; Map, Pin and Marker stay out until `map_space` (`OWGraph.MAP_SPACE`). The
+  fixture's graph cases that changed with it were red on the old table and pass now.
 
 ### Added
 

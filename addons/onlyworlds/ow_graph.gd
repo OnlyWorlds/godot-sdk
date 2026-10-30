@@ -13,8 +13,9 @@ const DECLARED_LINKS := ["x_lens_leads_to", "x_spine_depends_on"]
 const FLAGS := ["rooms", "hidden", "proposed", "map_space"]
 ## The flags only the owner may ask (judged by the rung it reads as).
 const OWNER_ONLY_FLAGS := ["hidden", "proposed"]
-## Map space: out by default for size, not for standing (a node it brings back carries no mark).
-const MAP_SPACE := ["map", "pin", "marker", "zone"]
+## Map space: out by default for size, not for standing (a node it brings back carries no mark). A Zone is not map
+## space (serial 92): content with spatial presence through its Markers, a node like any other.
+const MAP_SPACE := ["map", "pin", "marker"]
 ## Every reason an element is not a node or an edge was cut, in the order the npm and Python packages count them:
 ## the lens's nine, then the graph's own.
 const REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of", "anchor_not_visible", "not_visible",
