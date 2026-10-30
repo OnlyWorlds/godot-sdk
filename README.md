@@ -41,7 +41,7 @@ for row in menu.rows: print(row["name"], " ", row["href"], " ", row["state"])   
 | `codegen/PIN`, `codegen/schema-dist/` | the pinned schema-dist (tag and manifest sha256), vendored verbatim; never edit it |
 | `codegen/generate_tools.py`, `codegen/tools-pin.json`, `codegen/tools/` | the OnlyWorlds tools list at its own pin (commit and sha256, the npm and Python packages' pin), vendored byte for byte, and its emitter into the **generated** `addons/onlyworlds/ow_tools.gd`; `--check` is its drift guard, `test_generate_tools.py` holds it red on a one-byte change |
 | `tests/` | the headless suite; `tests/data/unicode_vectors.txt` is generated |
-| `tools/` | `pack.gd`, `extract.gd` (shell tools), `check_writer.py` (the reference checker's verdict on a file), `probe_numbers.gd` |
+| `tools/` | `pack.gd`, `extract.gd` (shell tools), `check_writer.py` (the reference checker's verdict on a file), `probe_numbers.gd`, `twin_run.gd` (the lens and graph readers over a file of random worlds, one answer per line in the npm runner's shape, for a side-by-side compare) |
 | `demo/moppetopia_map.tscn` | a world in a scene: the root Map's image with its Pins |
 
 ## Running
