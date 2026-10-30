@@ -8,6 +8,9 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.97`: the address profile's four format cases on an empty string, one per part (an
+  empty world, type, id or lens refuses by that part's own reason; only null or a missing key is absent), which
+  `OWAddress` already answered so.
 - Schema pin to `v0.33.0-dist.96`: two graph cases on a guest's own hidden creation (out of an unlensed graph with no
   count and no counted cut edge; a node of a lensed graph that keeps it, marked hidden, its edge to an element the
   lens never reached `outside_lens`), which `OWGraph.world_graph` already answered so.
