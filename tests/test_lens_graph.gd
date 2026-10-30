@@ -291,3 +291,28 @@ func test_ruling_b_a_wrongly_typed_id_draws_no_edge_and_is_not_counted(t) -> voi
 	t.eq(OWGraph.world_graph(world, {"rung": "contributor"}).edges, [{"source": "c", "field": "friends", "target": "d", "index": 0},
 		{"source": "c", "field": "location", "target": "p", "index": 0}], "a contributor is served friends [D]")
 	t.done()
+
+## The cut counts each element once, so an edge to an element the lens cut only as a wrongly typed anchor (a Location
+## named under characters) reads the lens's reason, never outside_lens. Guards what this reader already does. Kills: the
+## edge's target looked up by its own type and id.
+func test_an_edge_to_an_element_the_lens_cut_as_a_wrongly_typed_anchor_reads_the_lenss_reason(t) -> void:
+	var world := {"elements": [
+		{"id": "o", "type": "object", "name": "Ledger", "location": "x"},
+		{"id": "x", "type": "location", "name": "Harbour"}]}
+	var lens := {"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "characters": ["x"], "objects": ["o"]}
+	var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens})
+	t.eq([g.nodes.map(func(n): return n["id"]), g.cut, g.edges_cut], [["o"], {"anchor_not_visible": 1}, {"anchor_not_visible": 1}])
+	t.done()
+
+## Counts are per reader, and an edge with them: below the owner an element whose owner-side reason was
+## anchor_not_visible and which a child cuts by types is cut by the child's reason, so the edge to it is cut by that
+## reason, never left uncounted. Kills: the unseen anchor recorded for every reader and dropped at the count.
+func test_below_the_owner_an_edge_to_an_unseen_anchor_a_cut_child_reaches_is_cut_by_the_childs_reason(t) -> void:
+	var world := {"elements": [
+		{"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "characters": ["x"], "constructs": ["C"], "x_lens": {"depth": 0}},
+		{"id": "C", "type": "construct", "name": "C", "supertype": "Lens", "characters": ["y"], "x_lens": {"types": ["character"]}},
+		{"id": "y", "type": "character", "name": "Ysolde", "birthplace": "x"},
+		{"id": "x", "type": "location", "name": "Harbour"}]}
+	var g := OWGraph.world_graph(world, {"rung": "contributor"}, {"lens": "U"})
+	t.eq([g.nodes.map(func(n): return n["id"]), g.cut, g.edges_cut], [["y"], {"types": 1}, {"types": 1}])
+	t.done()

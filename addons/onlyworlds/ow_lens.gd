@@ -223,15 +223,19 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 			reading.cut[why] = n
 	# A note on an id that is not an anchor is counted only where the reader sees that id: a note keyed to an element
 	# it cannot see, or to no element, is no note of its, and counting it would tell a guest it exists.
-	var anchors: Array = _anchors_of(body, r)["anchors"]
+	var a := _anchors_of(body, r)
+	var anchors: Array = a["anchors"]
 	for k in recipe["notes"]:
 		if not anchors.has(k) and r.view.has(k):
 			reading.notes_ignored += 1
 	# The rows are built here only, by this lens's recipe: a row kept through a child shows by the umbrella's show, and
-	# carries a note only when it is the umbrella's own anchor.
+	# carries a note only when it is the umbrella's own anchor. A note goes with its anchor: one that reaches nothing
+	# (an id of another type than its field's, a stub lens) carries its note onto no row, even where another path keeps
+	# the element (the profile's owner, ahead of its next serial).
 	for id in keep:
 		reading.kept.append(id)
-		reading.rows.append(r.row(id, recipe["show"], recipe["notes"] if anchors.has(id) else null))
+		var noted: bool = anchors.has(id) and not a["unseen"].has(id)
+		reading.rows.append(r.row(id, recipe["show"], recipe["notes"] if noted else null))
 	return [reading, cut]
 
 ## The anchors and the umbrella's children of a lens in its link order, and whether it names any (an anchor field with
@@ -285,10 +289,13 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 	var list := []
 	var frontier := []
 	for id in a["anchors"]:
-		# Every anchor the reader cannot see is counted, a lens's own id under a field of another type among them (keel
-		# keys an anchor by its field's type, so that is no lens of the reading; the profile's ruling 3).
+		# Every anchor the reader cannot see is counted for the owner, a lens's own id under a field of another type among
+		# them (keel keys an anchor by its field's type, so that is no lens of the reading; the profile's ruling 3). Counts
+		# are per reader: below the owner the anchor is as if not there, recorded under no reason, so a child's later
+		# reason for the same element (types, window) is its first (the profile's owner, ahead of its next serial).
 		if not r.view.has(id) or a["unseen"].has(id):
-			_add_cut(cut, id, "anchor_not_visible")
+			if r.owner:
+				_add_cut(cut, id, "anchor_not_visible")
 			continue
 		if visited.has(id):
 			continue
@@ -697,7 +704,8 @@ class View:
 
 	## The body this reader is served, a copy: a stub for a known-of element; the owner reading as itself, the body as
 	## stored; any other reader, the body as keel serves it ([method _trim]). A stored [constant OWLens.SERVED_TRIMMED]
-	## is never served (keel's serialize pops it before any trim): only the mark this serving makes reaches a reader.
+	## is never served (keel's serialize pops it before any trim): only the mark this serving makes reaches a reader. The
+	## hidden mark is served as [code]hidden: true[/code], so a [code]full[/code] row of a hidden element carries it.
 	func body(id: String) -> Dictionary:
 		if _served.has(id):
 			return _served[id]
@@ -711,6 +719,12 @@ class View:
 			_trim(b, type)
 		if stubs.has(id):
 			b = _known_of(b, type)
+		# A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
+		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py).
+		if hidden.has(id):
+			b["hidden"] = true
+		else:
+			b.erase("hidden")
 		_served[id] = b
 		return b
 

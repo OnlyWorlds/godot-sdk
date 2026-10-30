@@ -835,3 +835,114 @@ func test_ruling_11_a_mail_tie_keeps_the_lists_order(t) -> void:
 	t.eq(r.mail["unread"], ["019a7f00-0000-7000-8000-000000000035", "019a7f00-0000-7000-8000-000000000034"],
 		"Night shift, then Notes to self: as the world lists them, never by id")
 	t.done()
+
+## An empty string is no id, so a lens whose anchor fields hold only empty strings names no anchor and is a filter, as
+## rule 7 reads a lens with empty lists. One real id beside them anchors it, and a served lens whose x_served_trimmed
+## names an anchor field stays anchored. Guards what this reader already does. Kills: [""] read as naming an anchor.
+func test_a_lens_whose_anchor_fields_hold_only_empty_strings_names_no_anchor_and_is_a_filter(t) -> void:
+	var world := {"elements": [{"id": "e03", "type": "law", "name": "Law"}, {"id": "a", "type": "character", "name": "Ada"}]}
+	t.eq(OWLens.resolve(world, _lens_on({"narratives": [""]}, {}), OWNER).kept, PackedStringArray(["a", "e03"]), "a filter")
+	t.eq(OWLens.resolve(world, _lens_on({"characters": ["", ""], "laws": [""]}, {}), {"rung": "public"}).kept,
+		PackedStringArray(["a", "e03"]), "a filter, for any reader")
+	t.eq(OWLens.resolve(world, _lens_on({"characters": ["", "a"]}, {}), OWNER).kept, PackedStringArray(["a"]), "one id anchors it")
+	t.eq(OWLens.resolve(world, _lens_on({"narratives": [""], "x_served_trimmed": ["narratives"]}, {}), OWNER).kept,
+		PackedStringArray(), "an anchor field the server trimmed still names an anchor")
+	t.done()
+
+## A row is the body as the wire serves it to that reader, and a served body of an element under the hidden mark
+## carries hidden: true: the owner's full row of a hidden element, by the world's list or by its own key; a guest's row
+## of its own hidden creation. A name row never carries it. The world stays as it was. Kills: the row as stored.
+func test_an_owners_full_row_of_a_hidden_element_carries_hidden_true_as_served(t) -> void:
+	var world := {"hidden": ["e05"], "elements": [
+		{"id": "e05", "type": "collective", "name": "Guild"},
+		{"id": "e06", "type": "collective", "name": "Choir", "hidden": true},
+		_lens_on({}, {})]}
+	var before := JSON.stringify(world)
+	t.eq(OWLens.resolve(world, "L", OWNER).rows, [
+		{"id": "e05", "type": "collective", "name": "Guild", "hidden": true},
+		{"id": "e06", "type": "collective", "name": "Choir", "hidden": true}], "the world's list and the element's own key, one mark")
+	t.eq(OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L", "e05"]}).rows,
+		[{"id": "e05", "type": "collective", "name": "Guild", "hidden": true}], "a guest's own hidden creation")
+	world["elements"][2]["x_lens"] = {"show": "name"}
+	t.ok(not OWLens.resolve(world, "L", OWNER).rows[0].has("hidden"), "a name row")
+	world["elements"][2]["x_lens"] = {}
+	t.eq(JSON.stringify(world), before, "the world is not changed")
+	t.done()
+
+## keel serves no hidden key on a body no mark hides, so a stored hidden: false is dropped from the row, for the owner
+## and every reader below it. Kills: the stored key carried onto the row.
+func test_a_stored_hidden_false_is_dropped_from_the_row(t) -> void:
+	var world := {"elements": [{"id": "e05", "type": "collective", "name": "Guild", "hidden": false}, _lens_on({}, {})]}
+	for reader in [OWNER, {"rung": "contributor"}, {"rung": "guest", "whole": ["L", "e05"]}, {"rung": "public"}]:
+		t.eq(OWLens.resolve(world, "L", reader).rows, [{"id": "e05", "type": "collective", "name": "Guild"}], reader["rung"])
+	t.done()
+
+## The cut counts each element once under its first reason, and a kept element is never also counted as cut; an anchor
+## resolves by its field's type and the id. One id an umbrella and its child anchor under two wrong types (a Location
+## under characters, then objects) is one element, counted once; one the umbrella anchors under the wrong type and the
+## child under its own is kept and not counted, and so the other way round. Guards what this reader already does (it
+## keys the cut by id). Kills: the cut keyed by (type, id).
+func test_the_cut_counts_each_element_once_and_a_kept_element_is_never_also_cut(t) -> void:
+	var harbour := {"id": "x", "type": "location", "name": "Harbour"}
+	var read := func(u: Dictionary, k: Dictionary) -> OWLens.Reading:
+		var umbrella := {"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "constructs": ["C"], "x_lens": {"depth": 0}}
+		umbrella.merge(u)
+		var child := {"id": "C", "type": "construct", "name": "C", "supertype": "Lens", "x_lens": {"depth": 0}}
+		child.merge(k)
+		return OWLens.resolve({"elements": [child, harbour]}, umbrella, OWNER)
+	var r: OWLens.Reading = read.call({"characters": ["x"]}, {"objects": ["x"]})
+	t.eq([r.kept, r.cut], [PackedStringArray(), {"anchor_not_visible": 1}], "one element, once")
+	r = read.call({"characters": ["x"]}, {"locations": ["x"]})
+	t.eq([r.kept, r.cut], [PackedStringArray(["x"]), {}], "kept by the child, so never also cut")
+	r = read.call({"locations": ["x"]}, {"characters": ["x"]})
+	t.eq([r.kept, r.cut], [PackedStringArray(["x"]), {}], "kept by the umbrella, the child's wrong type not counted")
+	t.done()
+
+## Counts are per reader: below the owner an element whose owner-side reason was anchor_not_visible (a Location the
+## umbrella names under characters) and which a child cuts by types is counted under the child's reason; for the owner
+## anchor_not_visible comes first and it is counted once there. Kills: the unseen anchor recorded for every reader and
+## dropped at the count.
+func test_below_the_owner_an_unseen_anchor_a_cut_child_reaches_is_counted_under_the_childs_reason(t) -> void:
+	var world := {"elements": [
+		{"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "characters": ["x"], "constructs": ["C"], "x_lens": {"depth": 0}},
+		{"id": "C", "type": "construct", "name": "C", "supertype": "Lens", "characters": ["y"], "x_lens": {"types": ["character"]}},
+		{"id": "y", "type": "character", "name": "Ysolde", "birthplace": "x"},
+		{"id": "x", "type": "location", "name": "Harbour"}]}
+	var contributor := OWLens.resolve(world, "U", {"rung": "contributor"})
+	t.eq(contributor.kept, PackedStringArray(["y"]), "Ysolde")
+	t.eq(contributor.cut, {"types": 1}, "the child's reason")
+	t.eq(OWLens.resolve(world, "U", {"rung": "public"}).cut, {"types": 1}, "the public reader's too")
+	t.eq(OWLens.resolve(world, "U", OWNER).cut, {"anchor_not_visible": 1}, "the owner's first reason, once")
+	t.done()
+
+## A note goes with its anchor: an anchor that reaches nothing (a Language named under constructs) carries its note onto
+## no row, even where another path (a child filter) keeps the element, for the owner and below it; and the note is not
+## counted ignored. Kills: an unseen id among the anchors whose notes ride.
+func test_a_note_goes_with_its_anchor_an_anchor_that_reaches_nothing_carries_it_onto_no_row(t) -> void:
+	var world := {"elements": [
+		{"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "constructs": ["e08", "L1"], "x_lens": {"notes": {"e08": "the old tongue"}}},
+		{"id": "L1", "type": "construct", "name": "L1", "supertype": "Lens", "x_lens": {}},
+		{"id": "e08", "type": "language", "name": "Old"}]}
+	for reader in [OWNER, {"rung": "contributor"}]:
+		var r := OWLens.resolve(world, "U", reader)
+		t.eq(r.kept, PackedStringArray(["e08"]), "%s: kept by the child" % reader["rung"])
+		t.ok(r.rows.size() == 1 and not r.rows[0].has("note"), "%s: no note rides" % reader["rung"])
+		t.eq(r.notes_ignored, 0, "%s: a note on an anchor is never counted ignored" % reader["rung"])
+	t.done()
+
+## Visited never comes before visibility, for any anchor: a hidden lens in its own constructs, read as a body through a
+## contributor's view, counts itself for the owner as anchor_not_visible; so does a child lens pointing back at its
+## hidden umbrella, its own objects kept. Guards what this reader already does. Kills: an anchor already visited skipped
+## before it is counted.
+func test_an_unseen_anchor_is_counted_before_the_visited_check_the_lens_itself_included(t) -> void:
+	var as_contributor := {"rung": "owner", "as": {"rung": "contributor"}}
+	var self_lens := {"id": "L0", "type": "construct", "name": "L0", "supertype": "Lens", "hidden": true, "constructs": ["L0"], "x_lens": {}}
+	t.eq(OWLens.resolve({"elements": [self_lens]}, self_lens, as_contributor).cut, {"anchor_not_visible": 1}, "the lens's own id")
+	var umbrella := {"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "hidden": true, "constructs": ["C"], "x_lens": {"depth": 0}}
+	var world := {"elements": [umbrella,
+		{"id": "C", "type": "construct", "name": "C", "supertype": "Lens", "constructs": ["U"], "objects": ["o1"], "x_lens": {"depth": 0}},
+		{"id": "o1", "type": "object", "name": "Cup"}]}
+	var r := OWLens.resolve(world, umbrella, as_contributor)
+	t.eq(r.kept, PackedStringArray(["o1"]), "the child's own objects")
+	t.eq(r.cut, {"anchor_not_visible": 1}, "the hidden umbrella, once")
+	t.done()
