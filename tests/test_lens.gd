@@ -735,6 +735,22 @@ func test_ruling_2_a_generic_pair_links_only_by_one_of_the_22(t) -> void:
 	t.eq(r.kept, PackedStringArray(["a", "p2"]), "only the pin whose pair names a Character")
 	t.done()
 
+## The generic pair's type key compares exact against the 22 slugs, as stored, nothing folded: a stored "Character" or
+## " character " links nothing, and a reader below the owner is served that pair unset.
+func test_ruling_a_a_generic_pairs_type_key_compares_exact(t) -> void:
+	var world := {"elements": [_lens_on({"characters": ["a"]}),
+		{"id": "a", "type": "character", "name": "Ada"},
+		{"id": "p1", "type": "pin", "name": "Capital pin", "element_type": "Character", "element_id": "a"},
+		{"id": "p2", "type": "pin", "name": "Ada's pin", "element_type": "character", "element_id": "a"},
+		{"id": "p3", "type": "pin", "name": "Spaced pin", "element_type": " character ", "element_id": "a"}]}
+	t.eq(OWLens.resolve(world, "L", OWNER).kept, PackedStringArray(["a", "p2"]), "only the pin whose type key is the slug as written")
+	var served := OWLens.View.new(world, {"rung": "contributor"}, null)
+	for pin in ["p1", "p3"]:
+		var b: Dictionary = served.body(pin)
+		t.eq([b.get("element_type"), b.get("element_id")], ["", null], pin + ": served an unset pair")
+	t.eq(served.body("p2").get("element_id"), "a", "the slug as written is served whole")
+	t.done()
+
 ## Ruling 3: an anchor id no element holds is counted for the owner as anchor_not_visible, never skipped; so is one of
 ## another type than its field's. Below the owner nothing is counted.
 func test_ruling_3_a_dangling_anchor_is_counted_for_the_owner(t) -> void:
@@ -789,8 +805,9 @@ func test_ruling_7_a_stub_keeps_base_and_public_and_unsets_the_rest(t) -> void:
 		"birth_date": null, "birthplace": null, "friends": [], "created_by": null, "known_of": true}], "keel's stub")
 	t.done()
 
-## Ruling 11: two messages with one created_at order by id (a world has no order on the wire).
-func test_ruling_11_a_mail_tie_orders_by_id(t) -> void:
+## Ruling 11, as the profile's owner reversed it: two messages with one created_at keep the order of the list they came
+## in, as the message profile rules, never by id. A tie listed in reverse id order stays as listed.
+func test_ruling_11_a_mail_tie_keeps_the_lists_order(t) -> void:
 	var world: Dictionary = _fixture()["worlds"]["post"].duplicate(true)
 	var els: Array = world["elements"]
 	var i34 := els.find(els.filter(func(e): return e["id"].ends_with("0034"))[0])
@@ -802,6 +819,6 @@ func test_ruling_11_a_mail_tie_orders_by_id(t) -> void:
 	els.insert(i34, night)
 	var lens := {"id": "M", "type": "construct", "name": "M", "supertype": "Lens", "x_lens": {"types": ["narrative/message"], "mail": "all"}}
 	var r := OWLens.resolve(world, lens, world["readers"]["seat"], {"clock": CLOCK})
-	t.eq(r.mail["unread"], ["019a7f00-0000-7000-8000-000000000034", "019a7f00-0000-7000-8000-000000000035"],
-		"Notes to self, then Night shift: by id, though the world lists Night shift first")
+	t.eq(r.mail["unread"], ["019a7f00-0000-7000-8000-000000000035", "019a7f00-0000-7000-8000-000000000034"],
+		"Night shift, then Notes to self: as the world lists them, never by id")
 	t.done()

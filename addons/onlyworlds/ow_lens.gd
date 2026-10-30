@@ -392,9 +392,8 @@ static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictio
 			messages.append(b)
 		if r.type_of[id] == "relation":
 			relations.append(b)
-	# By id first, so two messages with one created_at keep the profile's order, created_at then id (its ruling 11): a
-	# world has no order on the wire, and the message readers keep their input's order on a tie.
-	messages.sort_custom(func(a, b) -> bool: return a["id"] < b["id"])
+	# In the order of the world's list, never by id: two messages with one created_at keep it, as the message profile
+	# rules and the message readers read a tie (the lens profile's owner, ahead of its next serial).
 	var mark: Variant = OWMessage.read_mark_of(relations, r.character, r.members)
 	var mine := OWMessage.unread_for(messages, r.character, null, r.members)
 	var unread := {}
@@ -666,8 +665,9 @@ class View:
 		return out
 
 	## The ids the element's owner-served body links to, in the schema's field order, each once. A link reaches only an
-	## element of its field's target type, and a generic pair only when its type key, folded, names the type of one of
-	## the 22 (the profile's rulings 1 and 2, keel's reading): a wrongly typed id, or one no element holds, is no link.
+	## element of its field's target type, and a generic pair only when its type key is one of the 22 slugs exactly as
+	## stored, nothing trimmed or folded (the profile's rulings 1 and 2, keel's [code]et in _TYPES[/code]): a wrongly
+	## typed id, or one no element holds, is no link.
 	func full_links(id: String) -> PackedStringArray:
 		if _full.has(id):
 			return _full[id]
@@ -678,7 +678,7 @@ class View:
 			var target := OWLens.link_target_of(type_of[id], lf[0])
 			if target == "":
 				var of: Variant = el.get(lf[0].trim_suffix("_id") + "_type")
-				target = OWUnicode.profile_fold(of) if of is String else ""
+				target = of if of is String else ""
 			for t in (v if v is Array else []) if lf[1] else [v]:
 				if t is String and t != "" and type_of.get(t) == target and not out.has(t):
 					out.append(t)
@@ -744,8 +744,8 @@ class View:
 	## Keel's reading of a body for a reader below the owner (elements/visibility.py [code]redact[/code],
 	## elements/serialize.py), in place: a link to an id outside [member scoped], or to an element not of the field's
 	## target type (keel checks each id against its target type's table), is left out, a single link null and a list
-	## keeping its order; a Pin's generic pair whose target is unseen or not of its [code]element_type[/code] reads ""
-	## and null; a lens's [code]x_lens.notes[/code] keeps the notes on its served anchors and on other ids keel serves
+	## keeping its order; a Pin's generic pair whose target is unseen or not of its [code]element_type[/code], compared
+	## exactly as stored, reads "" and null; a lens's [code]x_lens.notes[/code] keeps the notes on its served anchors and on other ids keel serves
 	## it, so its keys never name what the reader cannot see. Never on the public rung, [constant OWLens.SERVED_TRIMMED] names what
 	## the trim changed the meaning of: a Message's [constant OWLens.MESSAGE_TRIMMED], a lens's anchor fields and, when
 	## an anchor's note went with it, [code]notes[/code]. The hop never reads this: it follows the stored link.
@@ -763,7 +763,7 @@ class View:
 				# The generic pair: emptied whole, so an unseen target leaves no type word behind.
 				var type_key := field.trim_suffix("_id") + "_type"
 				var of: Variant = b.get(type_key)
-				if v is String and v != "" and not (of is String and _served_as(v, OWUnicode.profile_fold(of))):
+				if v is String and v != "" and not (of is String and _served_as(v, of)):
 					if b.has(type_key):
 						b[type_key] = ""
 					b[field] = null

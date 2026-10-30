@@ -205,7 +205,10 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			for i in list.size():
 				var t: Variant = list[i]
 				var in_served: bool = seen_owner or (t is String and r._served_as(t, target))
-				visit.call(source, lf[0], t, i if seen_owner else served)
+				# An id of another type than the field's target names nothing, as the lens reader keys a link (the
+				# profile's ruling 1): a dangling link, neither an edge nor counted.
+				if t is String and r.type_of.get(t) == target:
+					visit.call(source, lf[0], t, i if seen_owner else served)
 				if in_served:
 					served += 1
 		# A declared extension link is served as stored to every reader.

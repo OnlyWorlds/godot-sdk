@@ -260,3 +260,20 @@ func test_ruling_g5_a_contributors_index_counts_a_served_proposed_link(t) -> voi
 	t.eq(OWGraph.world_graph(world, {"rung": "public"}).edges, [{"source": "a", "field": "friends", "target": "b", "index": 0}],
 		"the public rung is served no proposed link: Brin at 0")
 	t.done()
+
+## Ruling 1 reaches the edge list: a link reaches only an element of its field's target type, so a Character's friends
+## naming a Location names nothing, a dangling link, neither an edge nor counted. The owner's index is still the place in
+## the list as stored.
+func test_ruling_b_a_wrongly_typed_id_draws_no_edge_and_is_not_counted(t) -> void:
+	var world := {"elements": [
+		{"id": "c", "type": "character", "name": "C", "friends": ["p", "h", "d"], "location": "p"},
+		{"id": "p", "type": "location", "name": "P"},
+		{"id": "h", "type": "location", "name": "H", "hidden": true},
+		{"id": "d", "type": "character", "name": "D"}]}
+	var g := OWGraph.world_graph(world, {"rung": "owner"})
+	t.eq(g.edges, [{"source": "c", "field": "friends", "target": "d", "index": 2},
+		{"source": "c", "field": "location", "target": "p", "index": 0}], "the friend D and the location, never P as a friend")
+	t.eq(g.edges_cut, {}, "the hidden Location under friends is no link, so not counted hidden")
+	t.eq(OWGraph.world_graph(world, {"rung": "contributor"}).edges, [{"source": "c", "field": "friends", "target": "d", "index": 0},
+		{"source": "c", "field": "location", "target": "p", "index": 0}], "a contributor is served friends [D]")
+	t.done()

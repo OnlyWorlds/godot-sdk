@@ -85,11 +85,12 @@ test whose world is missing is skipped, never passed.
   hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
   would cut, a mark (`x_room_of`, `x_charter_of`) counts by presence, and an umbrella's union drops an element only by
   id. Ahead of the profile's next serial, its owner's rulings on readings no case decided yet: a link reaches only an
-  element of its field's type (a generic pair only when its type key names one of the 22), an anchor id no such
+  element of its field's type (a generic pair only when its type key is one of the 22 slugs exactly as stored), an anchor id no such
   element holds is counted `anchor_not_visible` for the owner, an umbrella's hop keeps a child it reaches before
   entering it, a count is never erased by a later visit, a known-of stub is keel's (the base and public fields, every
-  other field unset, no extension key), and two messages with one `created_at` order by id; in the graph, an edge to
-  an anchor the reader cannot see carries the lens's `anchor_not_visible`, a Pin's generic pair is placement and never
+  other field unset, no extension key), and two messages with one `created_at` keep the world's list order, never by
+  id; in the graph, a link to an element of another type than its field's names nothing (no edge, no count), an edge
+  to an anchor the reader cannot see carries the lens's `anchor_not_visible`, a Pin's generic pair is placement and never
   an edge, a node's type and name are as stored, and an edge's index is its place in the list as that reader is
   served it (a contributor is served a link to a proposed element). The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
   White_Space only, `[]`, `{}`) is settled, never a doubt (the review profile's rule 1, serial 87). A node's family
