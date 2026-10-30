@@ -263,6 +263,18 @@ func test_ruling_g5_a_contributors_index_counts_a_served_proposed_link(t) -> voi
 		"the public rung is served no proposed link: Brin at 0")
 	t.done()
 
+## A public reader's served link lists leave a proposed id out, as keel's wire serves the public rung, so the index has no
+## gap: a visible target after a proposed one is at 0.
+func test_a_public_readers_served_list_leaves_a_proposed_id_out_and_its_index_has_no_gap(t) -> void:
+	var world := {"elements": [
+		{"id": "a", "type": "character", "name": "Ada", "friends": ["px", "b"]},
+		{"id": "px", "type": "character", "name": "Pax", "x_review_proposed": {"by": "m1"}},
+		{"id": "b", "type": "character", "name": "Brin"}]}
+	t.eq(OWLens.View.new(world, {"rung": "public"}, null).body("a")["friends"], ["b"], "the public rung is served [Brin]")
+	t.eq(OWGraph.world_graph(world, {"rung": "public"}).edges, [{"source": "a", "field": "friends", "target": "b", "index": 0}],
+		"Brin at 0")
+	t.done()
+
 ## Ruling 1 reaches the edge list: a link reaches only an element of its field's target type, so a Character's friends
 ## naming a Location names nothing, a dangling link, neither an edge nor counted. The owner's index is still the place in
 ## the list as stored.
