@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWStrand on the strand profile's conformance fixture (schema-dist profiles/strand.fixture.json, the pinned copy at
-## dist.98, its sha256 checked against the manifest): every case's six slots by name, and the mark held equal to the
+## dist.99, its sha256 checked against the manifest): every case's six slots by name, and the mark held equal to the
 ## fixture's. Beside it, what the fixture leaves open: the public rung on a closed and an open world, the mark shapes
 ## that are no mark (an empty-string member among them), a story alone, a non-list multi-link, a nameless slot, a
 ## caller's mistake, and a reading that never moves the world.
@@ -42,9 +42,9 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(FileAccess.get_sha256(STRAND), manifest["profiles/strand.fixture.json"], "the fixture's bytes are the dist's")
 	var f := _fixture()
 	t.eq(f["profile"], "strand", "the profile")
-	t.eq(f["cases"].size(), 17, "17 cases")
-	t.eq(f["cases"].filter(func(c): return c["kind"] == "strand").size(), 17, "every case a strand case")
-	t.eq(f["worlds"].size(), 15, "15 worlds")
+	t.eq(f["cases"].size(), 26, "26 cases")
+	t.eq(f["cases"].filter(func(c): return c["kind"] == "strand").size(), 26, "every case a strand case")
+	t.eq(f["worlds"].size(), 23, "23 worlds")
 	t.eq(f["mark"]["field"], OWStrand.MARK, "the mark's field")
 	t.eq(f["mark"]["members"], OWStrand.MEMBERS, "the mark's members, in order")
 	t.done()
