@@ -745,6 +745,11 @@ func test_ruling_3_a_dangling_anchor_is_counted_for_the_owner(t) -> void:
 	t.eq(r.kept, PackedStringArray(["a"]), "Ada")
 	t.eq(r.cut, {"anchor_not_visible": 2}, "the missing id and the Location under characters")
 	t.eq(OWLens.resolve(world, "L", {"rung": "contributor"}).cut, {}, "a contributor is not told")
+	# The lens's own id under characters is no lens of the reading (keel keys an anchor by its field's type): counted too.
+	world["elements"][0]["characters"] = ["L", "a"]
+	r = OWLens.resolve(world, "L", OWNER)
+	t.eq(r.kept, PackedStringArray(["a"]), "never in its own result")
+	t.eq(r.cut, {"anchor_not_visible": 1}, "the lens's id under characters")
 	t.done()
 
 ## Ruling 4: an umbrella's children are not in its hop's known set: a child its anchors reach by a hop is kept as an

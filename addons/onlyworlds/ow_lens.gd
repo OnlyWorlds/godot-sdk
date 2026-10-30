@@ -285,10 +285,12 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 	var list := []
 	var frontier := []
 	for id in a["anchors"]:
-		if visited.has(id):
-			continue
+		# Every anchor the reader cannot see is counted, a lens's own id under a field of another type among them (keel
+		# keys an anchor by its field's type, so that is no lens of the reading; the profile's ruling 3).
 		if not r.view.has(id) or a["unseen"].has(id):
 			_add_cut(cut, id, "anchor_not_visible")
+			continue
+		if visited.has(id):
 			continue
 		var why: Variant = r.fence_cut(id, recipe)
 		# Nothing past the reading's date leads anywhere: an anchor cut after_as_of is not hopped out of.
