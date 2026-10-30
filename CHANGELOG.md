@@ -8,6 +8,10 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.95`: five new cases across the charter, lens and message fixtures, and `pairs.json`
+  beside `presentation.json` (vendored with the rest; no reader for it here yet). `OWMessage.read_mark_of` takes
+  `keyless`, as `is_to_everyone` does: a mark served without a credential is ignored, since the keyless public reader
+  is served no `created_by` or `changed_by` on any body.
 - Hidden beats `known_of`: a hidden element named in a guest's `known_of` that is not its own creation is not in that
   guest's view (`OWLens.resolve`, `OWGraph.world_graph`, and the owner reading as that guest): no stub, no row, no
   node, no count and no mark; a link to it is left out of the guest's served lists, and the owner reading as the guest

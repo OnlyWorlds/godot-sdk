@@ -175,9 +175,12 @@ static func edited_by(message: Variant, members: Variant) -> Edit:
 ## hand); where it carries [code]changed_by[/code], that equals its [code]created_by[/code] (a writer with no creator
 ## beside it is no hand, and is ignored). A mark with neither key (a folder, an export) counts. Of several that count,
 ## the newest [code]updated_at[/code] wherever it stands (a readable time beats an unreadable one; a tie keeps the
-## first); a newer mark in another's hand is ignored and the reader's own stands. npm [code]readMarkOf[/code].
-static func read_mark_of(relations: Variant, character_id: Variant, members: Variant) -> Variant:
-	if not (relations is Array) or not (character_id is String) or character_id == "":
+## first); a newer mark in another's hand is ignored and the reader's own stands. [param keyless] true for bodies read
+## with no credential, as [method is_to_everyone] takes it: the keyless public reader is served no
+## [code]created_by[/code] or [code]changed_by[/code] on any body, so no mark counts there and the answer is null. npm
+## [code]readMarkOf[/code].
+static func read_mark_of(relations: Variant, character_id: Variant, members: Variant, keyless: bool = false) -> Variant:
+	if keyless or not (relations is Array) or not (character_id is String) or character_id == "":
 		return null
 	var mark: Variant = null
 	var mark_key: Variant = null

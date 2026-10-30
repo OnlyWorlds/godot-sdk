@@ -42,7 +42,8 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 		"unread":
 			t.eq(_ids(OWMessage.unread_for(c["messages"], c["reader"], c["read_mark"], _members(c))), c["unread"], "unread_for")
 		"mark":
-			var mark: Variant = OWMessage.read_mark_of(c["relations"], c["reader"], _members(c))
+			# A case without keyless has a credential, or is a folder.
+			var mark: Variant = OWMessage.read_mark_of(c["relations"], c["reader"], _members(c), c.get("keyless") == true)
 			t.eq(mark.get("id") if mark is Dictionary else mark, c["mark"], "read_mark_of")
 		"thread":
 			t.eq(_ids(OWMessage.thread_of(c["messages"], c["root"])), c["thread"], "thread_of")
@@ -70,13 +71,13 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in doc["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(doc["cases"].size(), 87, "87 cases")
-	t.eq(counts, {"pair": 10, "addressed": 11, "sent_by": 3, "sender": 14, "unread": 17, "mark": 10, "thread": 4,
+	t.eq(doc["cases"].size(), 88, "88 cases")
+	t.eq(counts, {"pair": 10, "addressed": 11, "sent_by": 3, "sender": 14, "unread": 17, "mark": 11, "thread": 4,
 		"unseen": 3, "everyone": 3, "edited": 4, "note": 8}, "by kind")
 	var names := {}
 	for c in doc["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 87, "every case's name is its own")
+	t.eq(names.size(), 88, "every case's name is its own")
 	t.done()
 
 func test_the_pairs_are_the_fixtures(t) -> void:
