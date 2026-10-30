@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "93cb3f121cb1eef5ba4c6951c414399c13136c3896f864221a29a3802b82d266"
-const CASES := 45
+const FIXTURE_SHA256 := "5a9ebbc8604d2fc87078fef25156dd2e767605a1b08cb2bec43e37c6bc2fd9db"
+const CASES := 54
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -51,7 +51,7 @@ func test_the_fixture_is_the_shared_bytes(t) -> void:
 
 func test_every_case_is_answered_and_none_is_dropped(t) -> void:
 	var cases: Array = _fixture()["cases"]
-	t.eq(cases.size(), CASES, "45 cases")
+	t.eq(cases.size(), CASES, "%d cases" % CASES)
 	var names := {}
 	var answered := 0
 	for c in cases:
@@ -108,4 +108,36 @@ func test_a_game_outside_a_browser_says_opens_in_your_browser(t) -> void:
 	t.eq(r.rows.size(), 2, "two rows")
 	t.eq(r.rows[1]["state"], OWOpeners.OPENS_IN_YOUR_BROWSER, "the word")
 	t.eq(r.rows[1]["href"], "https://zephyr.example/" + WORLD, "the world door")
+	t.done()
+
+func test_an_online_that_is_not_a_boolean_is_refused_by_name(t) -> void:
+	for value in ["no", null, 0, 1, "false"]:
+		var r := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, {"audience": "member", "online": value})
+		t.ok(not r.ok and r.reason == "", "refused as a mistake: %s" % value)
+		t.ok(r.message.contains("surface online is a boolean"), "named: %s gave %s" % [value, r.message])
+	t.done()
+
+func test_offline_the_baked_list_keeps_every_href_and_online_is_the_default(t) -> void:
+	var address := {"form": "human", "world": WORLD}
+	var online := OWOpeners.openers_for(OWTools.ALL, "world", address, {"audience": "member", "signed_in": true})
+	var also := OWOpeners.openers_for(OWTools.ALL, "world", address, {"audience": "member", "signed_in": true, "online": true})
+	var offline := OWOpeners.openers_for(OWTools.ALL, "world", address, {"audience": "member", "signed_in": true, "online": false})
+	t.ok(online.ok and also.ok and offline.ok, "all read")
+	t.eq(also.rows, online.rows, "online true is the default")
+	t.eq(offline.rows.map(func(x): return x["href"]), online.rows.map(func(x): return x["href"]), "every href stays")
+	for row in offline.rows:
+		var href: String = row["href"]
+		var web := href.to_lower().begins_with("http:") or href.to_lower().begins_with("https:")
+		t.eq(row["state"], OWOpeners.NEEDS_A_CONNECTION if web else null, href)
+	t.done()
+
+func test_offline_the_scheme_is_read_in_any_case_and_a_link_with_no_scheme_is_no_web_address(t) -> void:
+	var tools := []
+	for door in ["HTTPS://loud.example/{world}", "Http://plain.example/{world}", "//bare.example/{world}", "app://open/{world}"]:
+		tools.append({"id": "t%d" % tools.size(), "name": "T", "url": "https://t.example", "client": null, "rung": "listed",
+			"open": {"world": door, "element": null, "needs": null}})
+	var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member", "online": false})
+	t.ok(r.ok, "read: " + r.message)
+	var c := OWOpeners.NEEDS_A_CONNECTION
+	t.eq(r.rows.map(func(x): return x["state"]), [c, c, c, null, null], "the site, HTTPS:, Http: say it; //host and app:// do not")
 	t.done()

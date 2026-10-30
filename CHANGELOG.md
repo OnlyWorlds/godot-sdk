@@ -69,11 +69,18 @@ the git log.
   one of its elements (`"element"`), a port of the npm SDK's `openersFor` and the Python package's `openers_for`. The
   site's page comes first, then each listed tool with a link for that kind, in the list's order, each a Dictionary
   `{id, name, href, state}` (the row's word in sentence case, or null). The address is a Dictionary of the parts or an
-  `OWAddress.Reading`; the surface a Dictionary (`audience` required, `signed_in`, `browser`, `phone`, `tool`). The
-  answer is an `OWOpeners.Result`: `rows` when `ok`; else `reason`, the address profile's refusal, or `reason` "" and
-  a `message` naming the key. The whole address is checked by the writer, so a malformed form, lens or moment refuses
-  (`bad_form`, `bad_lens`, `bad_moment`), as the npm SDK 4.110.0 and the Python package 0.91.0 do. Tested by the
-  packages' shared fixture (45 cases, held by its sha256).
+  `OWAddress.Reading`; the surface a Dictionary (`audience` required, `signed_in`, `browser`, `phone`, `online`,
+  `tool`). The answer is an `OWOpeners.Result`: `rows` when `ok`; else `reason`, the address profile's refusal, or
+  `reason` "" and a `message` naming the key. The whole address is checked by the writer, so a malformed form, lens
+  or moment refuses (`bad_form`, `bad_lens`, `bad_moment`), as the npm SDK 4.110.0 and the Python package 0.91.0 do.
+  Tested by the packages' shared fixture (54 cases, held by its sha256).
+- `online` on the `openers_for` surface (default true; anything but a bool is a mistake naming it), as the npm SDK
+  4.118.0 and the Python package 0.96.0 take it. With `online` false, every row whose href is a web address (`http:`
+  or `https:`, in any case, read from the row's own filled href) says `OWOpeners.NEEDS_A_CONNECTION`, "Needs a
+  connection", the site's own row included. The words in order, the first that holds: "You are here", then "Needs a
+  connection", then the account, browser and phone words, then "Opens the world". A row whose link opens an app on
+  the device keeps its own word, and every row keeps its href. The shared fixture moves from 45 to 54 cases (sha256
+  `5a9ebbc8…`, the same bytes as both packages').
 - `OWTools.ALL`: the OnlyWorlds tools list (github.com/OnlyWorlds/tools, `tools.json` format 1) baked in at commit
   `86208c8`, the keys `openers_for` reads. The list is vendored at `codegen/tools/tools.json` and pinned in
   `codegen/tools-pin.json`; `codegen/generate_tools.py` writes `addons/onlyworlds/ow_tools.gd` and `--check` fails

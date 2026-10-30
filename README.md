@@ -130,9 +130,10 @@ test whose world is missing is skipped, never passed.
   `{id, name, href, state}` with its word in sentence case or null. `OWTools.ALL` is the OnlyWorlds tools list as
   of this release (a tool listed after it is offered from the next). The surface says what the game knows and
   nothing is guessed: `audience` (`member` or `public`), `signed_in` (null when unknown: no word), `browser` (false
-  in a game: an account tool says "Opens in your browser"), `phone`, `tool` (your client name: "You are here"). A
-  refused address answers `reason` as the address profile names it; any other mistake answers `reason` "" and a
-  `message` naming the key. Every case of the packages' shared fixture (45).
+  in a game: an account tool says "Opens in your browser"), `phone`, `online` (false with no connection: every row
+  whose link is a web address says "Needs a connection" and keeps its href), `tool` (your client name: "You are
+  here"). A refused address answers `reason` as the address profile names it; any other mistake answers `reason` ""
+  and a `message` naming the key. Every case of the packages' shared fixture (54).
 - **Names** (the names profile, `x_names`, serial 92): `OWNames.type_word(world, type, supertype, many)` is the
   world's own word for a type (Character shown as *Employee*), or null for the standard's name, as the npm SDK's
   `typeWord` and the Python package's `type_word` read it: the supertype's entry, trimmed and folded as the room

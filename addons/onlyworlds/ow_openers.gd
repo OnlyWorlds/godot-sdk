@@ -20,15 +20,18 @@ const SITE_NAME := "onlyworlds.com"
 
 ## The words a row says, sentence case, exactly; "Sign in to <name> first" is [method sign_in_first].
 const YOU_ARE_HERE := "You are here"
+const NEEDS_A_CONNECTION := "Needs a connection"
 const OPENS_IN_YOUR_BROWSER := "Opens in your browser"
 const NEEDS_THE_WORLD_ON_THIS_PHONE := "Needs the world on this phone"
 const OPENS_THE_WORLD := "Opens the world"
 
 ## The keys of a surface, as the fixture and the Python package spell them.
-const SURFACE_KEYS := ["tool", "audience", "signed_in", "browser", "phone"]
+const SURFACE_KEYS := ["tool", "audience", "signed_in", "browser", "phone", "online"]
 const _NEEDS := ["account", "device"]
 
 static var _placeholder: RegEx
+## A web address: its scheme is http or https, in any case. Read from the row's filled href.
+static var _web: RegEx
 
 ## What [method openers_for] answers. [member ok] true: [member rows]. False: [member reason], the address profile's
 ## refusal (one of [constant OWAddress.REFUSALS]), or "" for a caller's mistake that is no refusal, with
@@ -47,8 +50,8 @@ static func sign_in_first(name: String) -> String:
 
 ## The rows of the Open with menu for a world ([param kind] [code]"world"[/code]) or one element of it
 ## ([code]"element"[/code]), in order: first the site's own row (id [code]onlyworlds[/code], name
-## [code]onlyworlds.com[/code], the world's or the element's page on www.onlyworlds.com, never a word, for every
-## audience), then one row per [param tools] row, in the list's order, that is [code]listed[/code] and has a door for
+## [code]onlyworlds.com[/code], the world's or the element's page on www.onlyworlds.com, for every audience, its one
+## word "Needs a connection" when offline), then one row per [param tools] row, in the list's order, that is [code]listed[/code] and has a door for
 ## this kind. [param tools] is [constant OWTools.ALL] or the list as served (its [code]tools[/code] array);
 ## [param address] is an [OWAddress.Reading] from [method OWAddress.parse_link] or a Dictionary of the parts
 ## [method OWAddress.element_address_from] takes, with the world's id. A lens and a moment on it ride on no href.
@@ -61,15 +64,17 @@ static func sign_in_first(name: String) -> String:
 ## ([code]member[/code], a seat in the world, a guest included, or [code]public[/code], the signed-out reader;
 ## required), [code]signed_in[/code] (true, false, or null or absent when the surface cannot know),
 ## [code]browser[/code] (false in a game or a desktop app, which cannot see the browser's sign-in; default true),
-## [code]phone[/code] (default false) and [code]tool[/code] (the client name of the surface's own tool, when it is a
-## listed tool).
+## [code]phone[/code] (default false), [code]online[/code] (false when the device has no connection; default true) and
+## [code]tool[/code] (the client name of the surface's own tool, when it is a listed tool).
 ##
 ## Each row's [code]state[/code], the first that holds: "You are here" for the surface's own tool (its
-## [code]client[/code] is [code]tool[/code]); then what [code]needs[/code] asks of this surface: [code]account[/code]
-## outside a browser "Opens in your browser", in a browser signed out "Sign in to <name> first" (none when
-## [code]signed_in[/code] is null: a word shows only when the surface knows it is true), [code]device[/code] on a phone
-## "Needs the world on this phone"; then "Opens the world" (a world door on an element: a sign-in the row needs is the
-## more urgent word); else null.
+## [code]client[/code] is [code]tool[/code]); then, when [code]online[/code] is false, "Needs a connection" for a row
+## whose href is a web address (scheme [code]http:[/code] or [code]https:[/code]; a row whose link opens an app on the
+## device is unaffected, and the href stays in the row either way); then what [code]needs[/code] asks of this
+## surface: [code]account[/code] outside a browser "Opens in your browser", in a browser signed out "Sign in to <name>
+## first" (none when [code]signed_in[/code] is null: a word shows only when the surface knows it is true),
+## [code]device[/code] on a phone "Needs the world on this phone"; then "Opens the world" (a world door on an element:
+## a sign-in the row needs is the more urgent word); else null.
 ##
 ## Refuses ([member Result.reason]) whatever [method OWAddress.element_address] refuses of the whole address, in its own
 ## form (the site's when it has none): a form, type, id, pairing, moment or lens ([code]bad_moment[/code],
@@ -129,6 +134,7 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 	var signed_in: Variant = surface.get("signed_in")
 	var browser: Variant = surface.get("browser", true)
 	var phone: Variant = surface.get("phone", false)
+	var online: Variant = surface.get("online", true)
 	if not (audience is String or audience is StringName) or (audience != MEMBER and audience != PUBLIC):
 		return _mistake(out, "surface audience is 'member' or 'public'; got %s" % _show(audience))
 	if tool != null and not (tool is String or tool is StringName):
@@ -139,9 +145,12 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		return _mistake(out, "surface browser is a boolean")
 	if not phone is bool:
 		return _mistake(out, "surface phone is a boolean")
+	if not online is bool:
+		return _mistake(out, "surface online is a boolean")
 
 	var site: String = page.address if kind == ELEMENT else OWAddress.element_address(OWAddress.HUMAN, world).address
-	out.rows.append({"id": SITE_ID, "name": SITE_NAME, "href": site, "state": null})
+	var site_state: Variant = NEEDS_A_CONNECTION if _offline(site, online) else null
+	out.rows.append({"id": SITE_ID, "name": SITE_NAME, "href": site, "state": site_state})
 	for r in tools:
 		if not r is Dictionary or not r.get("id") is String or not r.get("name") is String:
 			return _mistake(out, "each tools row is a Dictionary with an id and a name")
@@ -170,11 +179,15 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		if template == null:
 			continue
 		# The first that holds. A word the row needs (it cannot open now) comes before "Opens the world" (it opens,
-		# somewhere else), so a world door alone that needs a sign-in says the sign-in.
+		# somewhere else), so a world door alone that needs a sign-in says the sign-in. With no connection a web link
+		# opens nothing, whatever else it needs.
+		var href := _fill(template, values)
 		var client: Variant = r.get("client")
 		var state: Variant = null
 		if tool != null and client is String and client == String(tool):
 			state = YOU_ARE_HERE
+		elif _offline(href, online):
+			state = NEEDS_A_CONNECTION
 		elif needs == "account" and not browser:
 			state = OPENS_IN_YOUR_BROWSER
 		elif needs == "account" and signed_in is bool and signed_in == false:
@@ -183,9 +196,16 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			state = NEEDS_THE_WORLD_ON_THIS_PHONE
 		elif kind == ELEMENT and element_door == null:
 			state = OPENS_THE_WORLD
-		out.rows.append({"id": rid, "name": name, "href": _fill(template, values), "state": state})
+		out.rows.append({"id": rid, "name": name, "href": href, "state": state})
 	out.ok = true
 	return out
+
+static func _offline(href: String, online: bool) -> bool:
+	if online:
+		return false
+	if _web == null:
+		_web = RegEx.create_from_string("(?i)^https?:")
+	return _web.search(href) != null
 
 ## Each {world}, {type} and {id} in one pass, as the npm SDK's replace does.
 static func _fill(template: String, values: Dictionary) -> String:
