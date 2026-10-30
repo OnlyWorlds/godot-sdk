@@ -6,6 +6,19 @@ the git log.
 
 ## [Unreleased]
 
+### Changed
+
+- `OWLens.resolve` (and `OWGraph.world_graph` with a lens) follows the lens profile owner's rulings on readings no
+  fixture case decided yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an
+  element of its field's target type, and a generic pair (a Pin's `element_type`/`element_id`) only when its type key
+  names one of the 22 (rulings 1, 2); an anchor id no element of its field's type holds is counted for the owner as
+  `anchor_not_visible`, never skipped (3); an umbrella's hop keeps a child lens it reaches as an element before it is
+  entered (4); a lens id a child cut before it was entered stays counted in the cut (5); a known-of stub keeps the base
+  fields (`change_seq` too) and its type's public fields, a public link as the reader is served it, every other field
+  at its unset value and no extension key (7); the mail part orders two messages with one `created_at` by id (11). A
+  whole float in an `x_lens` key already read whole, as ruling 13 now says for every reader. Each change is held by a
+  test named for its ruling.
+
 ### Added
 
 - `OWOpeners.openers_for(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or

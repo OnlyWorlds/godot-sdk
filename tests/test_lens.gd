@@ -53,7 +53,8 @@ func _case(t, c: Dictionary) -> void:
 	# A text_only case holds only for a reader that sees a number's text (7.0 beside 7). Godot's JSON parses both as one
 	# float (test_x_lens_numbers_as_godot_can_see_them), so the case's 7.0 arrives here as the 7 the reader reads whole;
 	# the fixture's notes let such a reader skip it. Run, the integral-float case would pass only because 7 is past
-	# depth's range, which is no proof of the float rule.
+	# depth's range, which is no proof of the float rule. The profile's ruling 13 retires that case (a whole float reads
+	# whole in every reader, as here); the fixture's next serial replaces it.
 	if c.get("text_only", false):
 		t.skip("text_only: Godot's JSON gives one number type, so 7.0 cannot be told from 7 (%s)" % c.get("why", ""))
 		return
@@ -634,10 +635,9 @@ func test_a_mark_counts_by_presence(t) -> void:
 	t.eq(OWGraph.world_graph(world, OWNER).cut, {"room": 2}, "an unlensed graph leaves two room elements out")
 	t.done()
 
-## A float in an x_lens key is refused, the key named, while an element's date reads 7.0 as 7. Godot's JSON reads a 7
-## and a 7.0 alike (both a float), so this reader cannot see a JSON 7.0 in x_lens: there an integral number is whole,
-## as in a date, and what it can see is refused (a fraction, NaN, infinity, a number past 64 bits). The TypeScript SDK
-## reads JSON the same way.
+## A whole float in an x_lens key reads whole, as an element's date reads 7.0 as 7 (the profile's ruling 13); what is
+## refused is a fraction, NaN, infinity, a number past 64 bits. Godot's JSON reads a 7 and a 7.0 alike (both a float),
+## as the TypeScript SDK's does.
 func test_x_lens_numbers_as_godot_can_see_them(t) -> void:
 	t.eq(typeof(JSON.parse_string("[7.0]")[0]), typeof(JSON.parse_string("[7]")[0]), "Godot's JSON: 7 and 7.0 are one type")
 	t.eq(OWLens.check_keys(JSON.parse_string("{\"depth\": 2.0, \"changed_within\": 7.0}")), null, "a JSON 2.0 reads as 2")
@@ -706,4 +706,97 @@ func test_an_umbrella_child_mail_rule_takes_its_messages_out(t) -> void:
 		"kept [%s]" % _names(world, r.kept))
 	t.eq(r.mail, null, "the umbrella names no mail rule")
 	t.eq(r.cut, {}, "nothing counted")
+	t.done()
+
+# -- the profile owner's rulings on readings no fixture case decided yet (each a case in the fixture's next serial) ----
+
+## Ruling 1: a link reaches only an element of its field's target type. Ada's species names a Location and an Event's
+## locations names Ada: neither is a hop, either way. Her location is.
+func test_ruling_1_a_link_reaches_only_its_fields_target_type(t) -> void:
+	var world := {"elements": [_lens_on({"characters": ["a"]}),
+		{"id": "a", "type": "character", "name": "Ada", "species": ["port"], "location": "home"},
+		{"id": "port", "type": "location", "name": "Port"},
+		{"id": "home", "type": "location", "name": "Home"},
+		{"id": "fair", "type": "event", "name": "Fair", "locations": ["a"]}]}
+	var r := OWLens.resolve(world, "L", OWNER)
+	t.eq(r.kept, PackedStringArray(["a", "home"]), "Ada and her location only")
+	t.eq(r.cut, {}, "a wrongly typed id is no hop, so nothing to count")
+	t.done()
+
+## Ruling 2: a generic pair links only when its type key names one of the 22, and then only to an element of that type.
+func test_ruling_2_a_generic_pair_links_only_by_one_of_the_22(t) -> void:
+	var world := {"elements": [_lens_on({"characters": ["a"]}),
+		{"id": "a", "type": "character", "name": "Ada"},
+		{"id": "p1", "type": "pin", "name": "Dragon pin", "element_type": "dragon", "element_id": "a"},
+		{"id": "p2", "type": "pin", "name": "Ada's pin", "element_type": "character", "element_id": "a"},
+		{"id": "p3", "type": "pin", "name": "Wrong pin", "element_type": "location", "element_id": "a"},
+		{"id": "p4", "type": "pin", "name": "Bare pin", "element_id": "a"}]}
+	var r := OWLens.resolve(world, "L", OWNER)
+	t.eq(r.kept, PackedStringArray(["a", "p2"]), "only the pin whose pair names a Character")
+	t.done()
+
+## Ruling 3: an anchor id no element holds is counted for the owner as anchor_not_visible, never skipped; so is one of
+## another type than its field's. Below the owner nothing is counted.
+func test_ruling_3_a_dangling_anchor_is_counted_for_the_owner(t) -> void:
+	var world := {"elements": [_lens_on({"characters": ["a", "ghost", "port"]}, {"depth": 0}),
+		{"id": "a", "type": "character", "name": "Ada"},
+		{"id": "port", "type": "location", "name": "Port"}]}
+	var r := OWLens.resolve(world, "L", OWNER)
+	t.eq(r.kept, PackedStringArray(["a"]), "Ada")
+	t.eq(r.cut, {"anchor_not_visible": 2}, "the missing id and the Location under characters")
+	t.eq(OWLens.resolve(world, "L", {"rung": "contributor"}).cut, {}, "a contributor is not told")
+	t.done()
+
+## Ruling 4: an umbrella's children are not in its hop's known set: a child its anchors reach by a hop is kept as an
+## element before it is entered.
+func test_ruling_4_a_child_the_umbrellas_hop_reaches_is_kept(t) -> void:
+	var world := _umbrella({"characters": ["a"]}, {"characters": ["a"], "x_lens": {"depth": 0}})
+	var r := OWLens.resolve(world, "U", OWNER)
+	t.eq(r.kept, PackedStringArray(["a", "K"]), "Ada, then K by the hop (Ada is K's anchor), then K's own Ada once")
+	t.eq(r.cut, {}, "nothing cut")
+	t.done()
+
+## Ruling 5: a lens id a child cut before it was entered stays counted in the cut; a later visit never erases a count.
+func test_ruling_5_a_cut_lens_id_stays_cut_once_entered(t) -> void:
+	var world := {"elements": [
+		{"id": "U", "type": "construct", "name": "U", "supertype": "Lens", "constructs": ["K1", "K2"], "x_lens": {"depth": 0}},
+		{"id": "K1", "type": "construct", "name": "K1", "supertype": "Lens", "characters": ["a"], "x_lens": {"types": ["location"]}},
+		{"id": "K2", "type": "construct", "name": "K2", "supertype": "Lens", "characters": ["a"], "x_lens": {"depth": 0}},
+		{"id": "a", "type": "character", "name": "Ada"}]}
+	var r := OWLens.resolve(world, "U", OWNER)
+	t.eq(r.kept, PackedStringArray(["a"]), "Ada, through both children")
+	t.eq(r.cut, {"types": 1}, "K2, cut by K1's types before U entered it")
+	t.done()
+
+## Ruling 7: a known-of stub is shaped as keel serves it: the base and public fields kept (a public link redacted to
+## what the reader sees), every other field at its unset value, extension keys dropped, known_of true.
+func test_ruling_7_a_stub_keeps_base_and_public_and_unsets_the_rest(t) -> void:
+	var world := {"elements": [_lens_on({"characters": ["s"]}, {"depth": 0}),
+		{"id": "s", "type": "character", "name": "Sable", "description": "Quiet.", "supertype": "Smith", "change_seq": 5,
+			"physicality": "Tall", "height": 180, "species": ["sp1", "sp2"], "mentality": "Calm", "background": "Secret.",
+			"birth_date": 12, "birthplace": "loc", "friends": ["sp1"], "x_custom": "kept nowhere", "created_by": "m1"},
+		{"id": "sp1", "type": "species", "name": "Elves"},
+		{"id": "sp2", "type": "species", "name": "Hidden kin"},
+		{"id": "loc", "type": "location", "name": "Forge"}]}
+	var r := OWLens.resolve(world, "L", {"rung": "guest", "whole": ["L", "sp1"], "known_of": ["s"]})
+	t.eq(r.rows, [{"id": "s", "type": "character", "name": "Sable", "description": "Quiet.", "supertype": "Smith",
+		"change_seq": 5, "physicality": "Tall", "height": 180, "species": ["sp1"], "mentality": "", "background": "",
+		"birth_date": null, "birthplace": null, "friends": [], "created_by": null, "known_of": true}], "keel's stub")
+	t.done()
+
+## Ruling 11: two messages with one created_at order by id (a world has no order on the wire).
+func test_ruling_11_a_mail_tie_orders_by_id(t) -> void:
+	var world: Dictionary = _fixture()["worlds"]["post"].duplicate(true)
+	var els: Array = world["elements"]
+	var i34 := els.find(els.filter(func(e): return e["id"].ends_with("0034"))[0])
+	var i35 := els.find(els.filter(func(e): return e["id"].ends_with("0035"))[0])
+	var night: Dictionary = els[i35]
+	night["created_at"] = els[i34]["created_at"]
+	night["updated_at"] = els[i34]["updated_at"]
+	els.remove_at(i35)
+	els.insert(i34, night)
+	var lens := {"id": "M", "type": "construct", "name": "M", "supertype": "Lens", "x_lens": {"types": ["narrative/message"], "mail": "all"}}
+	var r := OWLens.resolve(world, lens, world["readers"]["seat"], {"clock": CLOCK})
+	t.eq(r.mail["unread"], ["019a7f00-0000-7000-8000-000000000034", "019a7f00-0000-7000-8000-000000000035"],
+		"Notes to self, then Night shift: by id, though the world lists Night shift first")
 	t.done()

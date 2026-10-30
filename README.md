@@ -84,13 +84,17 @@ test whose world is missing is skipped, never passed.
   stored). Where the platform's own reader reads otherwise, this reads as it does: nothing
   hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
   would cut, a mark (`x_room_of`, `x_charter_of`) counts by presence, and an umbrella's union drops an element only by
-  id. The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
+  id. Ahead of the profile's next serial, its owner's rulings on readings no case decided yet: a link reaches only an
+  element of its field's type (a generic pair only when its type key names one of the 22), an anchor id no such
+  element holds is counted `anchor_not_visible` for the owner, an umbrella's hop keeps a child it reaches before
+  entering it, a count is never erased by a later visit, a known-of stub is keel's (the base and public fields, every
+  other field unset, no extension key), and two messages with one `created_at` order by id. The review mark (`x_review_proposed`, `OWLens.is_proposed`) counts by presence too, and an empty one (`""`,
   White_Space only, `[]`, `{}`) is settled, never a doubt (the review profile's rule 1, serial 87). A node's family
   is one of `colors.order`'s four words (`OWPresentation.ORDER`); a word not among them fails loudly, naming it:
   `OWPresentation.use` refuses the table and keeps the one in use, `world_graph` answers it as a caller's mistake
   with no node, and `codegen/generate.py` refuses a sidecar that carries one (serial 87). A JSON number
-  with no fraction is whole (`7.0` reads as 7), in `x_lens` too, since Godot's JSON cannot tell 7 from 7.0; past 64
-  bits it is not. The one case that needs the text (`text_only`) is skipped, as the fixture allows.
+  with no fraction is whole (`7.0` reads as 7), in `x_lens` too (the owner's ruling 13); past 64 bits it is not. The
+  one case that needs the text (`text_only`) is skipped, as the fixture allows; the ruling retires it.
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,

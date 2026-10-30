@@ -13,10 +13,9 @@ extends RefCounted
 ## section through it.
 ##
 ## Element bodies are Dictionaries as the API or a world folder gives them. Godot's JSON reads every number as a
-## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]). The
-## profile refuses a float in an [code]x_lens[/code] key (a JSON [code]7.0[/code]) while a date reads 7.0 as 7; Godot's
-## JSON cannot tell 7 from 7.0, so here [code]x_lens[/code] reads an integral number as whole too, and refuses what it
-## can see: a fraction, NaN, infinity, a number past 64 bits.
+## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]). A
+## whole float reads whole in an [code]x_lens[/code] key as in a date (the profile's ruling 13: [code]depth: 7.0[/code]
+## is 7); what is refused is a fraction, NaN, infinity, a number past 64 bits.
 
 ## The pair a lens is, each word trimmed and folded as the room profile reads its pairs.
 const PAIR_TYPE := "construct"
@@ -75,8 +74,12 @@ const DATE_FIELD := {
 	"event": "start_date", "narrative": "start_date", "relation": "start_date", "zone": "start_date",
 }
 
-## What a known-of stub serves beside its type's public fields (never a link, never a date).
-const STUB_FIELDS := ["id", "type", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at"]
+## What a known-of stub keeps beside its type's public fields (keel's base: never a link, never a date); every other
+## field it serves at its unset value.
+const STUB_FIELDS := ["id", "type", "name", "description", "supertype", "subtype", "image_url", "created_at", "updated_at",
+	"change_seq"]
+## The server's hands, which a stub serves as null (keel's [code]_known_of_value[/code]).
+const HANDS := ["created_by", "changed_by", "changed_via", "changed_client"]
 ## The fields the platform shows on a stub beside those (schema-dist presentation.json [code]types.<type>.public[/code];
 ## held equal to it by the tests). A type not named here has none.
 const PUBLIC_FIELDS := {"character": ["physicality", "height", "weight", "species", "reputation"]}
@@ -207,9 +210,8 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 	var resolved := _resolve_one(body, recipe, r, visited, wall)
 	reading.mail = resolved["mail"]
 	var keep: Array = resolved["list"]
+	# A lens a child cut before it was entered stays counted (the profile's ruling 5): a later visit erases no count.
 	var cut: Dictionary = resolved["cut"]
-	for id in visited:
-		cut.erase(id)
 	for why in CUT_REASONS:
 		if OWNER_ONLY.has(why) and not r.owner:
 			continue
@@ -235,7 +237,8 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 ## The anchors and the umbrella's children of a lens in its link order, and whether it names any (an anchor field with
 ## an entry, or x_served_trimmed naming one: such a lens is never read as a filter). A child is a lens in
 ## [code]constructs[/code] the reader is served whole; one it knows only as a stub serves no recipe and no links, so it
-## is an anchor the reader cannot see ([code]unseen[/code]), never entered.
+## is an anchor the reader cannot see ([code]unseen[/code]), never entered. So is an id no element of the field's type
+## holds (the profile's ruling 3: counted for the owner, never skipped).
 static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 	var anchors := []
 	var children := []
@@ -245,11 +248,14 @@ static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 		var v: Variant = lens.get(field)
 		if not (v is Array):
 			continue
+		var target := link_target_of(PAIR_TYPE, field)
 		for id in v:
 			if not (id is String) or id == "" or seen.has(id):
 				continue
 			seen[id] = true
-			if field == "constructs" and r.view.has(id) and is_lens(r.by_id[id]):
+			if r.type_of.get(id) != target:
+				unseen[id] = true
+			elif field == "constructs" and r.view.has(id) and is_lens(r.by_id[id]):
 				if not r.stubs.has(id):
 					children.append(id)
 					continue
@@ -276,13 +282,10 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 	var anchor_set := {}
 	for id in a["anchors"]:
 		anchor_set[id] = true
-	var child_set := {}
-	for id in a["children"]:
-		child_set[id] = true
 	var list := []
 	var frontier := []
 	for id in a["anchors"]:
-		if visited.has(id) or not r.by_id.has(id):
+		if visited.has(id):
 			continue
 		if not r.view.has(id) or a["unseen"].has(id):
 			_add_cut(cut, id, "anchor_not_visible")
@@ -314,7 +317,9 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 				selected.append(id)
 		list.append_array(r.sort(selected.filter(passes)))
 	elif recipe["depth"] >= 1:
-		var excluded := func(id: String) -> bool: return anchor_set.has(id) or child_set.has(id) or visited.has(id)
+		# The hop's known set is the anchors and the lenses entered (the profile's ruling 4): a child not yet entered is
+		# an element like any other, kept by the hop that reaches it before it is entered.
+		var excluded := func(id: String) -> bool: return anchor_set.has(id) or visited.has(id)
 		var reach := r.reach(frontier, excluded)
 		var hop: Dictionary = reach[0]
 		list.append_array(r.sort(hop.keys().filter(passes)))
@@ -385,6 +390,9 @@ static func _mail_part(r: View, mode: String, budget: int, clock: int) -> Dictio
 			messages.append(b)
 		if r.type_of[id] == "relation":
 			relations.append(b)
+	# By id first, so two messages with one created_at keep the profile's order, created_at then id (its ruling 11): a
+	# world has no order on the wire, and the message readers keep their input's order on a tie.
+	messages.sort_custom(func(a, b) -> bool: return a["id"] < b["id"])
 	var mark: Variant = OWMessage.read_mark_of(relations, r.character, r.members)
 	var mine := OWMessage.unread_for(messages, r.character, null, r.members)
 	var unread := {}
@@ -655,7 +663,9 @@ class View:
 					out[i] = true
 		return out
 
-	## The ids the element's owner-served body links to, in the schema's field order, each once.
+	## The ids the element's owner-served body links to, in the schema's field order, each once. A link reaches only an
+	## element of its field's target type, and a generic pair only when its type key, folded, names the type of one of
+	## the 22 (the profile's rulings 1 and 2, keel's reading): a wrongly typed id, or one no element holds, is no link.
 	func full_links(id: String) -> PackedStringArray:
 		if _full.has(id):
 			return _full[id]
@@ -663,8 +673,12 @@ class View:
 		var out := PackedStringArray()
 		for lf in OWLens.link_fields_of(type_of[id]):
 			var v: Variant = el.get(lf[0])
+			var target := OWLens.link_target_of(type_of[id], lf[0])
+			if target == "":
+				var of: Variant = el.get(lf[0].trim_suffix("_id") + "_type")
+				target = OWUnicode.profile_fold(of) if of is String else ""
 			for t in (v if v is Array else []) if lf[1] else [v]:
-				if t is String and t != "" and not out.has(t):
+				if t is String and t != "" and type_of.get(t) == target and not out.has(t):
 					out.append(t)
 		_full[id] = out
 		return out
@@ -687,30 +701,43 @@ class View:
 			return _served[id]
 		var el: Dictionary = by_id[id]
 		var type: String = type_of[id]
-		var b := {}
+		var b := el.duplicate(true)
+		b.erase(OWLens.SERVED_TRIMMED)
+		# The owner reading as itself is served as keel serves a reader with no viewer: nothing redacted, a link to a
+		# proposed element kept too.
+		if seen_rung != "owner":
+			_trim(b, type)
 		if stubs.has(id):
-			var link_names := {}
-			for lf in OWLens.link_fields_of(type):
-				link_names[lf[0]] = true
-			var keep := {}
-			for f in OWLens.STUB_FIELDS:
-				keep[f] = true
-			for f in OWLens.PUBLIC_FIELDS.get(type, []):
-				if not link_names.has(f):
-					keep[f] = true
-			for k in el:
-				if keep.has(k):
-					b[k] = el[k].duplicate(true) if el[k] is Dictionary or el[k] is Array else el[k]
-			b["known_of"] = true
-		else:
-			b = el.duplicate(true)
-			b.erase(OWLens.SERVED_TRIMMED)
-			# The owner reading as itself is served as keel serves a reader with no viewer: nothing redacted, a link to a
-			# proposed element kept too.
-			if seen_rung != "owner":
-				_trim(b, type)
+			b = _known_of(b, type)
 		_served[id] = b
 		return b
+
+	## A served body as its known-of stub (keel elements/visibility.py [code]known_of[/code], the profile's ruling 7):
+	## the base and the type's public fields kept (a public link as the trim left it), every other field at its unset
+	## value (text [code]""[/code], a number or a single link null, a list [code][][/code], a generic pair
+	## [code]""[/code] and null, the server's hands null), every other key dropped (an extension, the trimmed mark),
+	## and [code]known_of[/code] true.
+	static func _known_of(b: Dictionary, type: String) -> Dictionary:
+		var fields: Dictionary = OWTypes.SCRIPTS[type].get_script_constant_map()["FIELDS"]
+		var public: Array = OWLens.PUBLIC_FIELDS.get(type, [])
+		var out := {}
+		for k in b:
+			if OWLens.STUB_FIELDS.has(k) or public.has(k):
+				out[k] = b[k]
+			elif OWLens.HANDS.has(k):
+				out[k] = null
+			elif fields.has(k):
+				match fields[k][0]:
+					"scalar_str":
+						out[k] = ""
+					"multi":
+						out[k] = []
+					"generic":
+						out[k] = null if k.ends_with("_id") else ""
+					_:
+						out[k] = null
+		out["known_of"] = true
+		return out
 
 	## Keel's reading of a body for a reader below the owner (elements/visibility.py [code]redact[/code],
 	## elements/serialize.py), in place: a link to an id outside [member scoped], or to an element not of the field's
