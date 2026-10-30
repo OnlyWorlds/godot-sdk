@@ -24,6 +24,8 @@ var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # no
 var cal := OWCalendar.read_value(element.get(OWCalendar.FIELD))   # null: not a calendar, show bare numbers
 print(OWCalendar.format_step(cal, 1200))                           # the step in the world's words, or "1200"
 
+var word = OWNames.type_word(world_json, "character", "Agent", true)   # "AI agents", or null: print "Characters"
+
 var where := {"world": world_id, "type": "pin", "id": pin.id}         # or a Reading that names its world
 var menu := OWOpeners.openers_for(OWTools.ALL, "element", where, {"audience": "member", "browser": false})
 for row in menu.rows: print(row["name"], " ", row["href"], " ", row["state"])   # state: null or "Opens in your browser"
@@ -131,5 +133,11 @@ test whose world is missing is skipped, never passed.
   in a game: an account tool says "Opens in your browser"), `phone`, `tool` (your client name: "You are here"). A
   refused address answers `reason` as the address profile names it; any other mistake answers `reason` "" and a
   `message` naming the key. Every case of the packages' shared fixture (45).
+- **Names** (the names profile, `x_names`, serial 92): `OWNames.type_word(world, type, supertype, many)` is the
+  world's own word for a type (Character shown as *Employee*), or null for the standard's name, as the npm SDK's
+  `typeWord` and the Python package's `type_word` read it: the supertype's entry, trimmed and folded as the room
+  profile reads, then the type's, printed as written. A display lookup only: the folder, the ids and every other
+  reader keep the standard's names. Version `1` read as `1.0` is the number 1; a `types` or `supertypes` key present
+  and null refuses the map. Every case of the profile's fixture (23).
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.

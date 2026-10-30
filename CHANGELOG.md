@@ -33,6 +33,12 @@ the git log.
 
 ### Added
 
+- `OWNames.type_word(world, type, supertype, many)`: a world's own word for a type, the names profile's `x_names` on
+  the World (schema-dist `profiles/names.md`), a port of the npm SDK's `typeWord` and the Python package's
+  `type_word`. The supertype's entry first, its key trimmed and folded as the room profile reads, then the type's,
+  else null for the standard's name; a value that is not a names map is null everywhere. Godot's JSON reads
+  `version` 1 as 1.0, which is the number 1; `true` and `"1"` are not. Tested by the profile's fixture (23 cases,
+  held by its sha256).
 - `OWOpeners.openers_for(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or
   one of its elements (`"element"`), a port of the npm SDK's `openersFor` and the Python package's `openers_for`. The
   site's page comes first, then each listed tool with a link for that kind, in the list's order, each a Dictionary
