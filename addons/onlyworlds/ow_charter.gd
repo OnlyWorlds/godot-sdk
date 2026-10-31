@@ -12,7 +12,8 @@ extends RefCounted
 ## [code]front_door[/code] on [code]GET /me[/code] and the join reply) is the reading this follows, the npm SDK's
 ## [code]charterOf[/code] and the Python package's [code]charter_of[/code] the same. The world and the reader are
 ## [method OWLens.resolve]'s, read through the same [OWLens.View], so a fixture reader means one thing in both. The
-## fixture beside the profile is this file's test.
+## fixture beside the profile is this file's test. [method served] reads the packet a server's front door serves,
+## the strand fourth (serial 100).
 
 ## The three pairs, type and supertype trimmed and folded, a slash between, as [OWLens] holds them.
 const PAIRS := OWLens.READING_AID_PAIRS
@@ -35,11 +36,39 @@ class Packet:
 	var guide: Variant = null
 	## Each [code]{id, name, sentence, hubs}[/code], in the profile's order.
 	var domains := []
+	## The world's strand as the key reads it, fourth at the door (an [OWStrand.Strand]), read by [method served] from
+	## a front door's packet; null when the packet carries none, and from [method charter_of], which reads the three
+	## aids alone.
+	var strand: Variant = null
 	var error := ""
 
-	## The packet in the profile's shape.
+	## The packet in the profile's shape: [code]{charter, guide, domains}[/code], then [code]strand[/code] when it
+	## was read.
 	func to_dict() -> Dictionary:
-		return {"charter": charter, "guide": guide, "domains": domains}
+		var out := {"charter": charter, "guide": guide, "domains": domains}
+		if strand != null:
+			out["strand"] = strand.to_dict()
+		return out
+
+## A front door's packet as the server serves it: [code]reading_aids[/code] in a [code]GET /me[/code] answer or an
+## agent's join answer ([param answer], the parsed body), read as served and never recomputed (who sees what is the
+## server's reading for the key). The Charter, the Guide and the Domains are copied as served (a Charter or Guide that
+## is not a Dictionary reads null, Domains that are not an Array none); [code]strand[/code] is read by
+## [method OWStrand.served], six null slots an empty strand, an absent key null (a server from before serial 100).
+## Null when the answer carries no packet (a player's join answer, an older server). The answer is never changed.
+static func served(answer: Variant) -> Packet:
+	if not (answer is Dictionary and answer.get("reading_aids") is Dictionary):
+		return null
+	var aids: Dictionary = answer["reading_aids"]
+	var out := Packet.new()
+	out.charter = aids["charter"].duplicate(true) if aids.get("charter") is Dictionary else null
+	out.guide = aids["guide"].duplicate(true) if aids.get("guide") is Dictionary else null
+	var listed: Variant = aids.get("domains")
+	for d in (listed if listed is Array else []):
+		if d is Dictionary:
+			out.domains.append(d.duplicate(true))
+	out.strand = OWStrand.served(aids.get("strand"))
+	return out
 
 ## True when [param element] is a reading aid: [method OWLens.is_charter_element], the pair AND the mark.
 static func is_charter_element(element: Variant) -> bool:

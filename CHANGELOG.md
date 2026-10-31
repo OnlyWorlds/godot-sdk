@@ -70,6 +70,13 @@ the git log.
 
 ### Added
 
+- `OWCharter.served(answer)`: the front door's packet as the server serves it, `reading_aids` in a `GET /me` answer
+  or an agent's join answer, read as served for that key and never recomputed: the Charter, the Guide and the Domains
+  as served, then the world's strand (serial 100) as `strand`, an `OWStrand.Strand` read by `OWStrand.served` (each
+  slot `{id, name}` or null, `same` as served). Six null slots read as an empty strand, the world having none or its
+  story being out of the key's view; a packet with no `strand` (a server from before serial 100) reads `strand`
+  null; an answer with no packet (a player's join answer) reads null. `to_dict` writes the packet in the charter
+  profile's order, the strand fourth, and only when it was served. `charter_of` still reads the three aids alone.
 - `OWStrand.strand_of(world, reader)`: the strand profile's reader (schema-dist `profiles/strand.md`, serial 98), a
   world's strand as one reader sees it through the lens reader's own view (`OWLens.View`): the story the World's
   `x_strand` names, one of its events, that event's place, the story's `protagonist`, where the hero is now, and

@@ -111,6 +111,9 @@ test whose world is missing is skipped, never passed.
   `x_strand` names, one of its events and that event's place, the story's protagonist and where the hero is now, and
   whether then and now are one place. Only the story is required; an empty slot is null, never filled from another
   slot; a story the reader only knows of fills its own slot alone. Every case of the profile's fixture.
+- **The front door's packet** (serial 100): `OWCharter.served(answer)` reads `reading_aids` from a `GET /me` answer
+  or an agent's join answer as the server serves it for that key: the Charter, the Guide, the Domains, then the
+  strand (`strand`, an `OWStrand.Strand`, six null slots when the key sees none; null from a server that sends none).
 - **Messages** (the message profile, serial 79): `OWMessage` reads a message between a world's members and the
   Note beside it, as the npm and Python packages do: `is_message`, `is_note`, `recipients_of`, `is_addressed_to`,
   `is_to_everyone` and `has_unseen_recipients` (keel's `x_served_trimmed`, `keyless` for a body read with no

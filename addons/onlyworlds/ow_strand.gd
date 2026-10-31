@@ -102,6 +102,29 @@ static func strand_of(world: Variant, reader: Variant) -> Strand:
 		out.same = out.now["id"] == out.location["id"]
 	return out
 
+## The six slots as a server serves them ([code]reading_aids.strand[/code] on [code]GET /me[/code] and an agent's join
+## reply, read by [method OWCharter.served]): read as served, never recomputed. A slot is [code]{id, name}[/code] or
+## null (one that is not a Dictionary with a String [code]id[/code] reads empty, a name that is not a String ""), and
+## [code]same[/code] a bool or null. Null when [param slots] is not a Dictionary (the key absent).
+static func served(slots: Variant) -> Strand:
+	if not slots is Dictionary:
+		return null
+	var out := Strand.new()
+	out.narrative = _served_slot(slots.get("narrative"))
+	out.event = _served_slot(slots.get("event"))
+	out.location = _served_slot(slots.get("location"))
+	out.character = _served_slot(slots.get("character"))
+	out.now = _served_slot(slots.get("now"))
+	var same: Variant = slots.get("same")
+	out.same = same if same is bool else null
+	return out
+
+static func _served_slot(v: Variant) -> Variant:
+	if not (v is Dictionary and v.get("id") is String):
+		return null
+	var name: Variant = v.get("name")
+	return {"id": v["id"], "name": name if name is String else ""}
+
 ## The event's or the place's member: a non-empty String is an id, null or absent is unset; anything else (an empty
 ## string, a number, a Dictionary) makes the whole value no mark.
 static func _member_ok(v: Variant) -> bool:
