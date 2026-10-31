@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "351ddec25f3af8cf8ec2c9c901d6ed4719355286467ada091e45d6012f8ed05b"
-const CASES := 57
+const FIXTURE_SHA256 := "0cbd1de0daa3535fbf36dcd502a611c6d960db827cfe88f5045f0a1a49d65ea0"
+const CASES := 61
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -133,11 +133,35 @@ func test_offline_the_baked_list_keeps_every_href_and_online_is_the_default(t) -
 
 func test_offline_the_scheme_is_read_in_any_case_and_a_link_with_no_scheme_is_no_web_address(t) -> void:
 	var tools := []
-	for door in ["HTTPS://loud.example/{world}", "Http://plain.example/{world}", "//bare.example/{world}", "app://open/{world}"]:
+	for door in ["HTTPS://loud.example/{world}", "Http://plain.example/{world}", "app://open/{world}"]:
 		tools.append({"id": "t%d" % tools.size(), "name": "T", "url": "https://t.example", "client": null, "rung": "listed",
 			"open": {"world": door, "element": null, "needs": null}})
 	var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member", "online": false})
 	t.ok(r.ok, "read: " + r.message)
 	var c := OWOpeners.NEEDS_A_CONNECTION
-	t.eq(r.rows.map(func(x): return x["state"]), [c, c, c, null, null], "the site, HTTPS:, Http: say it; //host and app:// do not")
+	t.eq(r.rows.map(func(x): return x["state"]), [c, c, c, null], "the site, HTTPS:, Http: say it; app:// does not")
+	t.done()
+
+func test_every_scheme_that_opens_no_app_is_refused_in_either_door_and_any_case(t) -> void:
+	for scheme in ["javascript", "data", "vbscript", "file", "blob", "about"]:
+		for spelled in [scheme, scheme.to_upper(), scheme.capitalize()]:
+			for key in ["world", "element"]:
+				var open := {"world": "https://skiff.example/{world}", "element": null, "needs": null}
+				open[key] = "%s:x/{world}" % spelled
+				var tools := [{"id": "skiff", "name": "Skiff", "url": "https://skiff.example", "client": "skiff", "rung": "listed", "open": open}]
+				var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
+				t.ok(not r.ok and r.reason == "", "refused as a mistake: %s open.%s" % [spelled, key])
+				t.ok(r.message.contains("tool skiff: open.%s is a %s: link, which opens no app" % [key, scheme]), "named: " + r.message)
+	t.done()
+
+func test_a_template_must_begin_with_its_scheme_and_a_null_one_is_still_null(t) -> void:
+	for bad in ["", "//bare.example/{world}", " https://skiff.example/{world}", "1app://x", "{world}"]:
+		var open := {"world": bad, "element": null, "needs": null}
+		var tools := [{"id": "skiff", "name": "Skiff", "url": "https://skiff.example", "client": "skiff", "rung": "listed", "open": open}]
+		var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
+		t.ok(not r.ok and r.reason == "" and r.message.contains("tool skiff: open.world begins with its scheme"), "refused: '%s' gave %s" % [bad, r.message])
+	var none := [{"id": "skiff", "name": "Skiff", "url": "https://skiff.example", "client": "skiff", "rung": "listed",
+		"open": {"world": "https://skiff.example/{world}", "element": null, "needs": null}}]
+	var ok := OWOpeners.openers_for(none, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
+	t.ok(ok.ok and ok.rows.size() == 2, "a null element template is still null")
 	t.done()

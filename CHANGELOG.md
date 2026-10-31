@@ -45,6 +45,7 @@ the git log.
 
 ### Changed
 
+- Parity with the TypeScript SDK 4.123.2: `OWOpeners.openers_for` refuses a tools row whose `open.world` or `open.element` template does not begin with its scheme, or whose scheme (in any case) is `javascript`, `data`, `vbscript`, `file`, `blob` or `about`, which open no app. The refusal is a mistake with a message naming the tool and the key, as the reader's other malformed rows are; a null template is still null. The shared openers fixture is re-vendored at 61 cases.
 - Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
   the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
   shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated headers move

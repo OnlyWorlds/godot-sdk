@@ -29,7 +29,12 @@ const OPENS_THE_WORLD := "Opens the world"
 const SURFACE_KEYS := ["tool", "audience", "signed_in", "browser", "phone", "online"]
 const _NEEDS := ["account", "device"]
 
+## Schemes that open no app: a row whose link used one would run what it carries when pressed.
+const _NO_APP := ["javascript", "data", "vbscript", "file", "blob", "about"]
+
 static var _placeholder: RegEx
+## A template begins with its scheme (a browser drops leading spaces before reading one).
+static var _scheme: RegEx
 ## A web address: its scheme is http or https, in any case. Read from the row's filled href.
 static var _web: RegEx
 
@@ -83,7 +88,9 @@ static func sign_in_first(name: String) -> String:
 ## without a world ([code]no_world[/code]), the text form inside a world included.
 ## [member Result.message] names the rest: a [param kind] that is neither, an element's openers asked of an address
 ## with no element, an unknown key on the address or the surface, a missing or unknown [code]audience[/code], a surface
-## value of the wrong type, a tools row that is not one (a [code]needs[/code] outside the list's format included).
+## value of the wrong type, a tools row that is not one (a [code]needs[/code] outside the list's format included, and an
+## [code]open[/code] template that does not begin with its scheme or whose scheme opens no app: [code]javascript[/code],
+## [code]data[/code], [code]vbscript[/code], [code]file[/code], [code]blob[/code] or [code]about[/code], in any case).
 static func openers_for(tools: Variant, kind: Variant, address: Variant, surface: Variant) -> Result:
 	var out := Result.new()
 	if not tools is Array:
@@ -164,10 +171,11 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			return _mistake(out, "tool %s: open is a Dictionary or null" % rid)
 		var world_door: Variant = o.get("world")
 		var element_door: Variant = o.get("element")
-		if world_door != null and not world_door is String:
-			return _mistake(out, "tool %s: open.world is a link template or null" % rid)
-		if element_door != null and not element_door is String:
-			return _mistake(out, "tool %s: open.element is a link template or null" % rid)
+		var refused := _template_refusal(rid, "world", world_door)
+		if refused == "":
+			refused = _template_refusal(rid, "element", element_door)
+		if refused != "":
+			return _mistake(out, refused)
 		var needs: Variant = o.get("needs")
 		if needs != null and not (needs is String and _NEEDS.has(needs)):
 			return _mistake(out, "tool %s: open.needs is 'account', 'device' or null; got %s" % [rid, _show(needs)])
@@ -200,6 +208,23 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		out.rows.append({"id": rid, "name": name, "href": href, "state": state})
 	out.ok = true
 	return out
+
+## What is wrong with one open template, or "" when it is null or a good link: not a string, not beginning with its
+## scheme, or a scheme (in any case) that opens no app.
+static func _template_refusal(rid: String, key: String, v: Variant) -> String:
+	if v == null:
+		return ""
+	if not v is String:
+		return "tool %s: open.%s is a link template or null" % [rid, key]
+	if _scheme == null:
+		_scheme = RegEx.create_from_string("^([A-Za-z][A-Za-z0-9+.-]*):")
+	var m := _scheme.search(v)
+	if m == null:
+		return "tool %s: open.%s begins with its scheme" % [rid, key]
+	var scheme := m.get_string(1).to_lower()
+	if _NO_APP.has(scheme):
+		return "tool %s: open.%s is a %s: link, which opens no app" % [rid, key, scheme]
+	return ""
 
 static func _offline(href: String, online: bool) -> bool:
 	if online:
