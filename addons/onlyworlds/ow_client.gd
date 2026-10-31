@@ -66,6 +66,11 @@ const _IF_MATCH_KEYS := ["if_match"]
 const _EDIT_KEYS := ["add", "remove"]
 const _BULK_KEYS := ["atomic", "idempotency_key"]
 const _WORLD_READS := "list, list_all, get_element and get_world"
+## Around the refusal [method _seg] puts in a path for a value that is not one segment.
+const _REFUSED_OPEN := "\u0001"
+const _REFUSED_CLOSE := "\u0002"
+static var _path_type: RegEx
+static var _path_value: RegEx
 
 ## Why the client was not built ("" when it was): a config it refuses. Every call then answers that refusal and
 ## sends nothing.
@@ -383,7 +388,7 @@ func list(type: String, options: Dictionary = {}) -> Reply:
 		query.append([field, filter[field] if filter[field] != null else ""])
 	if view_as != "":
 		query.append(["as", view_as])
-	var r := _object(await _request("GET", "/%s/" % type.uri_encode(), query, {"world_read": true}))
+	var r := _object(await _request("GET", "/%s/" % _seg("type", type), query, {"world_read": true}))
 	if not r.ok:
 		return r
 	var body: Dictionary = r.value
@@ -433,7 +438,7 @@ func list_all(type: String, options: Dictionary = {}, on_page: Callable = Callab
 
 ## [code]GET /{type}/{id}/[/code]: one element in its type's model. [param options], each optional:
 ## [code]expand[/code], [code]fields[/code] and [code]view_as[/code] (sent as [code]as[/code]), as [method list] takes
-## them, sent in that order. The id is escaped as a path segment. On a client with [member world] set it reads that
+## them, sent in that order. The type and the id are each checked as one path segment (see [method _seg]): a value that is not one is refused, nothing sent. On a client with [member world] set it reads that
 ## world. Named [code]get_element[/code]: [code]get[/code] is [method Object.get]. Mirrors the TypeScript SDK's
 ## [code]get[/code].
 func get_element(type: String, id: String, options: Dictionary = {}) -> Reply:
@@ -445,7 +450,7 @@ func get_element(type: String, id: String, options: Dictionary = {}) -> Reply:
 		["fields", ",".join(_names(options, "fields"))],
 		["as", _opt(options, "view_as")],
 	].filter(func(p): return p[1] != "")
-	var r := _object(await _request("GET", "/%s/%s/" % [type.uri_encode(), id.uri_encode()], query, {"world_read": true}))
+	var r := _object(await _request("GET", "/%s/%s/" % [_seg("type", type), _seg("id", id)], query, {"world_read": true}))
 	if r.ok:
 		r.value = OWTypes.make(type, r.value)
 	return r
@@ -572,7 +577,7 @@ func create(type: String, element: Variant, options: Dictionary = {}) -> Reply:
 	var key := _opt(options, "idempotency_key")
 	if _no_id(body):
 		body["id"] = OWId.mint(key, 0)
-	return _element(type, await _request("POST", "/%s/" % type.uri_encode(), [], {"body": body, "idempotency_key": key, "write": true}))
+	return _element(type, await _request("POST", "/%s/" % _seg("type", type), [], {"body": body, "idempotency_key": key, "write": true}))
 
 ## [code]PUT /{type}/{id}/[/code]: upsert by the caller's own id, creating the element under [param id] or writing it
 ## whole: the local-first write. keel's document declares no [code]Idempotency-Key[/code] or [code]If-Match[/code]
@@ -634,8 +639,8 @@ func delete(type: String, id: String, options: Dictionary = {}) -> Reply:
 ## (ids already there or already gone are fine), answering the element whole in its type's model. The one way to change
 ## a link array: [method patch] refuses one. [param edit] holds [code]add[/code] and [code]remove[/code], each an
 ## Array of ids, each optional and sent only when given. [code]options.if_match[/code] as on [method patch]: a link
-## write moves the element too. A 202 is a proposal, as on [method upsert]. The id and the field are escaped as path
-## segments. Mirrors the TypeScript SDK's [code]editLinks[/code].
+## write moves the element too. A 202 is a proposal, as on [method upsert]. The type, the id and the field are each checked as one path
+## segment and escaped: a value that is not one is refused, nothing sent. Mirrors the TypeScript SDK's [code]editLinks[/code].
 func edit_links(type: String, id: String, field: String, edit: Dictionary, options: Dictionary = {}) -> Reply:
 	var refused := _check(edit, _EDIT_KEYS, "edit_links")
 	if refused == "":
@@ -650,7 +655,7 @@ func edit_links(type: String, id: String, field: String, edit: Dictionary, optio
 	for k in _EDIT_KEYS:
 		if edit.get(k) != null:
 			body[k] = Array(_names(edit, k))
-	return _element(type, await _request("POST", "/%s/%s/links/%s" % [type.uri_encode(), id.uri_encode(), field.uri_encode()], [],
+	return _element(type, await _request("POST", "/%s/%s/links/%s" % [_seg("type", type), _seg("id", id), _seg("field", field)], [],
 		{"body": body, "if_match": options.get("if_match"), "write": true, "proposable": true}))
 
 ## [code]POST /bulk/[/code]: write many elements of mixed types in one request, a [BulkResult]. [param items], in the
@@ -758,7 +763,23 @@ static func _no_id(body: Dictionary) -> bool:
 	return id == null or (id is String and id == "")
 
 static func _element_path(type: String, id: String) -> String:
-	return "/%s/%s/" % [type.uri_encode(), id.uri_encode()]
+	return "/%s/%s/" % [_seg("type", type), _seg("id", id)]
+
+## One value of a request path, checked as one segment and escaped. A type is a lower-case word
+## ([code]^[a-z][a-z0-9_]*$[/code]); every other value is letters, digits and [code]_ . -[/code], not starting with a
+## dot or a dash. keel decodes an escaped slash before it routes (measured on production: [code]/character/abc%2Fhidden/[/code]
+## answers as [code]/character/abc/hidden/[/code] does), so the escape alone cannot hold a slash: a value that is not
+## one segment is refused, and what passes is escaped as well. GDScript has no exceptions, so a refused value comes back
+## as a marked refusal in the path, which [method _request] answers as a refused [Reply] before anything is sent.
+## Mirrors the TypeScript SDK's [code]seg()[/code].
+static func _seg(name: String, value: String) -> String:
+	if _path_type == null:
+		_path_type = RegEx.create_from_string("^[a-z][a-z0-9_]*\\z")
+		_path_value = RegEx.create_from_string("^[A-Za-z0-9][A-Za-z0-9_.-]*\\z")
+	var shape := _path_type if name == "type" else _path_value
+	if shape.search(value) == null:
+		return "%s%s %s is not one path segment. Nothing was sent.%s" % [_REFUSED_OPEN, name, JSON.stringify(value), _REFUSED_CLOSE]
+	return value.uri_encode()
 
 ## A reply whose value is an element, typed as [param type]'s model.
 func _element(type: String, r: Reply) -> Reply:
@@ -781,6 +802,9 @@ func _element(type: String, r: Reply) -> Reply:
 ## [code]allow_empty[/code] (an empty 2xx body answers null). The value is the parsed body. The rule is the Unity
 ## SDK's [code]RequestWithResponseAsync[/code] and the TypeScript SDK's [code]request()[/code].
 func _request(method: String, path: String, query: Array, how: Dictionary = {}) -> Reply:
+	var refusal := path.find(_REFUSED_OPEN)
+	if refusal >= 0:
+		return _refused(path.substr(refusal + 1, path.find(_REFUSED_CLOSE, refusal) - refusal - 1))
 	if error != "":
 		return _refused("OWClient was not built: %s Nothing was sent." % error)
 	var auth: bool = how.get("auth", true)

@@ -358,8 +358,8 @@ func test_get_element_sends_its_options_and_reads_the_model(t) -> void:
 	t.eq(fake.last().url, BASE + "/pin/p1/?expand=map%2Czone&fields=name&as=m1", "expand, fields, as")
 	t.ok(r.value is OWPin, "a Pin's own model")
 	t.eq(r.value.get_value("element_type"), "location", "")
-	await c.get_element("pin", "a/b?c")
-	t.eq(fake.last().url, BASE + "/pin/a%2Fb%3Fc/", "the id escaped: a path segment, never a route or a query")
+	await c.get_element("pin", "a.b_c-D9")
+	t.eq(fake.last().url, BASE + "/pin/a.b_c-D9/", "an id of one segment goes out as given")
 	for bad in [{"viewAs": "x"}, {"fields": "name"}, {"view_as": 1}]:
 		var f2 = Fake.new()
 		var refused: OWClient.Reply = await _make(f2).get_element("pin", "p1", bad)

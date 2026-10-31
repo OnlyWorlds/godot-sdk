@@ -45,7 +45,17 @@ the git log.
 
 ### Changed
 
-- Parity with the TypeScript SDK 4.123.2: `OWOpeners.openers_for` refuses a tools row whose `open.world` or `open.element` template does not begin with its scheme, or whose scheme (in any case) is `javascript`, `data`, `vbscript`, `file`, `blob` or `about`, which open no app. The refusal is a mistake with a message naming the tool and the key, as the reader's other malformed rows are; a null template is still null. The shared openers fixture is re-vendored at 61 cases.
+- Parity with the TypeScript SDK 4.123.2: `OWOpeners.openers_for` refuses a tools row whose `open.world` or
+  `open.element` template does not begin with its scheme, or whose scheme (in any case) is `javascript`, `data`,
+  `vbscript`, `file`, `blob` or `about`, which open no app. The refusal is a mistake with a message naming the tool
+  and the key, as the reader's other malformed rows are; a null template is still null. The shared openers fixture is
+  re-vendored at 61 cases.
+- Parity with the TypeScript SDK 4.123.3: a value that is not one path segment is refused before anything is sent.
+  The element type must be a lower-case word (letters, digits and underscores, starting with a letter); the id and
+  the link field letters, digits and `_ . -`, not starting with a dot or a dash. `list`, `list_all`, `get_element`,
+  `create`, `upsert`, `patch`, `delete` and `edit_links` answer an `OWApiError` of kind `refused` naming the value
+  (`id "..." is not one path segment. Nothing was sent.`). The server decodes an escaped slash before it routes, so
+  the escape the client already applied could not hold one; what passes is still escaped.
 - Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
   the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
   shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated headers move

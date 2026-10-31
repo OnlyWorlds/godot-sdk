@@ -165,9 +165,9 @@ func test_upsert_patch_delete_and_if_match(t) -> void:
 	var fake = Fake.new()
 	fake.body = ELEMENT
 	var c := _make(fake)
-	await c.upsert("character", "c 1/x", {"id": "c 1/x", "name": "Ana"})
-	t.eq(fake.last().url, BASE + "/character/c%201%2Fx/", "upsert: the id escaped as a path segment")
-	t.eq(_body(fake.last()), {"id": "c 1/x", "name": "Ana"}, "the element whole")
+	await c.upsert("character", "c1.x-2", {"id": "c1.x-2", "name": "Ana"})
+	t.eq(fake.last().url, BASE + "/character/c1.x-2/", "upsert: an id of one segment goes out as given")
+	t.eq(_body(fake.last()), {"id": "c1.x-2", "name": "Ana"}, "the element whole")
 	for h in ["If-Match", "Idempotency-Key"]:
 		t.ok(not fake.last().headers.has(h), "upsert: keel declares no %s on PUT" % h)
 	await c.patch("character", "c1", {"name": "Bo"}, {"if_match": 41})
@@ -202,8 +202,8 @@ func test_edit_links_sends_add_and_remove(t) -> void:
 	t.ok(r.value is OWCharacter and r.value.friends == PackedStringArray(["c2"]), "the element whole, typed")
 	await c.edit_links("character", "c1", "friends", {"remove": []})
 	t.eq(fake.last().body, "{\"remove\":[]}", "only the keys given")
-	await c.edit_links("character", "c/1", "a b", {"add": ["c2"]})
-	t.eq(fake.last().url, BASE + "/character/c%2F1/links/a%20b", "the id and the field escaped")
+	await c.edit_links("character", "c.1", "friends_2", {"add": ["c2"]})
+	t.eq(fake.last().url, BASE + "/character/c.1/links/friends_2", "the id and the field of one segment go out as given")
 	t.done()
 
 func test_bulk_mints_by_position_and_reads_the_replay(t) -> void:

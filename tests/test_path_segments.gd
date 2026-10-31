@@ -1,21 +1,24 @@
 extends RefCounted
-## A caller's string never changes which route is asked: every type, id and link field in a request path is sent as one
-## escaped segment. keel's document declares each element id a UUID, so the escape changes nothing on a real id; on
-## "abc/hidden" the raw form asked a different route. The rule is the TypeScript SDK's 4.122.1 (its
-## test/path-segments.test.mjs), in the two halves it has:
-##  - the source scan reads ow_client.gd, finds every request path it builds and fails on a value put in unescaped, and
-##    on a path built some way the scan cannot read (a concatenation, a variable, an unknown helper); it also asserts
-##    it found a plausible number of paths, so a scan that lost its shape fails instead of passing empty;
-##  - the wire: calls with an id like "abc/hidden?x=1#y" through the fake transport, the escaped path asserted for
-##    every route that takes a caller's string.
+## A caller's string never changes which route is asked: every type, id and link field in a request path is checked as
+## one segment (refused before sending when it is not one) and sent escaped. keel decodes an escaped slash before it
+## routes (measured on production 2026-10-31: /character/abc%2Fhidden/ answers 405 as /character/abc/hidden/ does), so
+## the escape alone cannot hold a slash. keel's document declares each element id a UUID, so the check and the escape
+## change nothing on a real id. The rule is the TypeScript SDK's 4.123.3 (its test/path-segments.test.mjs), in the two
+## halves it has:
+##  - the source scan reads ow_client.gd, finds every request path it builds and fails on a value put in without the
+##    checking helper _seg (an escape alone no longer passes), and on a path built some way the scan cannot read (a
+##    concatenation, a variable, an unknown helper); it also asserts it found a plausible number of paths, so a scan
+##    that lost its shape fails instead of passing empty;
+##  - the wire: calls with a value that is not one segment, each refused with nothing sent and the value named, and
+##    calls with one-segment values that go out as given.
 
 const Fake := preload("res://tests/fake_transport.gd")
 const CLIENT := "res://addons/onlyworlds/ow_client.gd"
 const BASE := "https://example.test/api/v2"
-const ID := "abc/hidden?x=1#y"
-const ESC := "abc%2Fhidden%3Fx%3D1%23y"
+const UUID := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
+const ID := UUID + "/hidden"
 
-## The scan: each problem as a line, [] when every path is read and every substituted value is escaped. [param src] is
+## The scan: each problem as a line, [] when every path is read and every substituted value goes through _seg. [param src] is
 ## the client's source; [param stats] (a Dictionary) gets "paths", the request calls read.
 static func scan(src: String, stats: Dictionary) -> PackedStringArray:
 	var problems := PackedStringArray()
@@ -86,7 +89,7 @@ static func _path_arg(rest: String) -> Dictionary:
 			var comma := after.find(",")
 			if comma < 0:
 				return {}
-			return {"literal": lit.get_string(1), "values": PackedStringArray([after.substr(0, comma).strip_edges()])}
+			return {"literal": lit.get_string(1), "values": PackedStringArray([_split(after)[0]])}   # the one value, a call such as _seg("type", type) whole
 		return {}
 	var h := RegEx.create_from_string("^(_element_path)\\([^()]*\\)\\s*,").search(rest)
 	if h != null:
@@ -139,13 +142,14 @@ static func _judge(literal: String, values: PackedStringArray, where: String) ->
 		problems.append("a path format other than %s: " + where)
 	if slots != values.size():
 		problems.append("a path with %d slots and %d values: %s" % [slots, values.size(), where])
-	var escaped := RegEx.create_from_string("^[A-Za-z_][A-Za-z0-9_]*\\.uri_encode\\(\\)$")
+	# _seg("id", id): the checking helper, named for the value it checks (type, id or field).
+	var checked := RegEx.create_from_string('^_seg\\("(type|id|field)", \\1\\)$')
 	for v in values:
-		if escaped.search(v) == null:
-			problems.append("a raw value (%s) in a request path: %s" % [v, where])
+		if checked.search(v) == null:
+			problems.append("a value not checked by _seg (%s) in a request path: %s" % [v, where])
 	return problems
 
-func test_source_every_value_in_a_request_path_is_escaped(t) -> void:
+func test_source_every_value_in_a_request_path_goes_through_seg(t) -> void:
 	var src := FileAccess.get_file_as_string(CLIENT)
 	t.ok(src != "", "the client's source was read")
 	var stats := {}
@@ -183,62 +187,94 @@ func _gd_files(dir: String) -> PackedStringArray:
 ## The scan itself, on sources it must refuse: a raw value on one route, a path built by concatenation on another,
 ## a variable, an unknown helper, a count that does not match.
 func test_the_scan_refuses_what_it_should(t) -> void:
-	var good := 'func f():\n\tawait _request("GET", "/%s/%s/" % [type.uri_encode(), id.uri_encode()], q)\n'
-	t.eq(scan(good, {}), PackedStringArray(), "an escaped route passes")
+	var good := 'func f():\n\tawait _request("GET", "/%s/%s/" % [_seg("type", type), _seg("id", id)], q)\n'
+	t.eq(scan(good, {}), PackedStringArray(), "a checked route passes")
 	var cases := {
 		"a raw type": 'await _request("GET", "/%s/" % type, q)',
-		"a raw id in a list": 'await _request("GET", "/%s/%s/" % [type.uri_encode(), id], q)',
-		"a raw field": 'await _request("POST", "/%s/%s/links/%s" % [type.uri_encode(), id.uri_encode(), field], q)',
+		"a raw id in a list": 'await _request("GET", "/%s/%s/" % [_seg("type", type), id], q)',
+		"a raw field": 'await _request("POST", "/%s/%s/links/%s" % [_seg("type", type), _seg("id", id), field], q)',
+		"an escape without the check on the type": 'await _request("GET", "/%s/" % type.uri_encode(), q)',
+		"an escape without the check on the id": 'await _request("GET", "/%s/%s/" % [_seg("type", type), id.uri_encode()], q)',
+		"a check named for another value": 'await _request("GET", "/%s/%s/" % [_seg("type", type), _seg("type", id)], q)',
 		"a concatenation": 'await _request("GET", "/" + type + "/", q)',
 		"a variable": 'await _request("GET", path, q)',
 		"an unknown helper": 'await _request("GET", _other_path(type, id), q)',
 		"a method that is not a literal": 'await _request(verb, "/x/", q)',
-		"a count that does not match": 'await _request("GET", "/%s/%s/" % [type.uri_encode()], q)',
+		"a count that does not match": 'await _request("GET", "/%s/%s/" % [_seg("type", type)], q)',
 		"a format that is not %s": 'await _request("GET", "/%d/" % [n], q)',
 	}
 	for label in cases:
 		var problems := scan("func f():\n\t" + cases[label] + "\n", {})
 		t.ok(not problems.is_empty(), "the scan refuses " + label)
 	# A helper whose return is raw is refused through its call site.
-	var helper := 'await _request("PUT", _element_path(type, id), [])\nstatic func _element_path(type: String, id: String) -> String:\n\treturn "/%s/%s/" % [type, id.uri_encode()]\n'
+	var helper := 'await _request("PUT", _element_path(type, id), [])\nstatic func _element_path(type: String, id: String) -> String:\n\treturn "/%s/%s/" % [type, _seg("id", id)]\n'
 	t.ok(not scan(helper, {}).is_empty(), "the scan refuses a raw value in the path helper")
+	var escaped_only := 'await _request("PUT", _element_path(type, id), [])\nstatic func _element_path(type: String, id: String) -> String:\n\treturn "/%s/%s/" % [type.uri_encode(), id.uri_encode()]\n'
+	t.ok(not scan(escaped_only, {}).is_empty(), "the scan refuses a helper that only escapes")
 	t.done()
 
-## [name, call, method, want]: each route that takes a caller's string, the path asked.
-func _cases() -> Array:
+## [name, what, call]: each route that takes a caller's string, with a value that is not one segment; what is named.
+func _refused() -> Array:
 	return [
-		["get_element id", "GET", "/character/%s/" % ESC, func(c): return await c.get_element("character", ID)],
-		["upsert id", "PUT", "/character/%s/" % ESC, func(c): return await c.upsert("character", ID, {"name": "x"})],
-		["patch id", "PATCH", "/character/%s/" % ESC, func(c): return await c.patch("character", ID, {"name": "x"})],
-		["delete id", "DELETE", "/character/%s/" % ESC, func(c): return await c.delete("character", ID)],
-		["edit_links id and field", "POST", "/character/%s/links/friends%%2Fx" % ESC,
-			func(c): return await c.edit_links("character", ID, "friends/x", {"add": []})],
-		["list type", "GET", "/character%2Fx/", func(c): return await c.list("character/x")],
-		["get_element type", "GET", "/character%2Fx/y/", func(c): return await c.get_element("character/x", "y")],
-		["create type", "POST", "/character%2Fx/", func(c): return await c.create("character/x", {"name": "x"})],
-		["upsert type", "PUT", "/character%2Fx/y/", func(c): return await c.upsert("character/x", "y", {"name": "x"})],
-		["patch type", "PATCH", "/character%2Fx/y/", func(c): return await c.patch("character/x", "y", {"name": "x"})],
-		["delete type", "DELETE", "/character%2Fx/y/", func(c): return await c.delete("character/x", "y")],
-		["edit_links type", "POST", "/character%2Fx/y/links/friends",
-			func(c): return await c.edit_links("character/x", "y", "friends", {"add": []})],
+		["get_element", "id", func(c): return await c.get_element("character", ID)],
+		["upsert", "id", func(c): return await c.upsert("character", ID, {"name": "x"})],
+		["patch", "id", func(c): return await c.patch("character", ID, {"name": "x"})],
+		["delete", "id", func(c): return await c.delete("character", ID)],
+		["edit_links (id)", "id", func(c): return await c.edit_links("character", ID, "friends", {"add": []})],
+		["edit_links (field)", "field", func(c): return await c.edit_links("character", UUID, "friends/x", {"add": []})],
+		["list (type)", "type", func(c): return await c.list("character/x")],
+		["list_all (type)", "type", func(c): return await c.list_all("character/x")],
+		["get_element (type)", "type", func(c): return await c.get_element("Character", UUID)],
+		["create (type)", "type", func(c): return await c.create("character/x", {"name": "x"})],
+		["upsert (type)", "type", func(c): return await c.upsert("character/x", UUID, {"name": "x"})],
+		["patch (type)", "type", func(c): return await c.patch("character/x", UUID, {"name": "x"})],
+		["delete (type)", "type", func(c): return await c.delete("character/x", UUID)],
+		["edit_links (type)", "type", func(c): return await c.edit_links("character/x", UUID, "friends", {"add": []})],
+		["get_element (escaped slash)", "id", func(c): return await c.get_element("character", UUID + "%2Fhidden")],
+		["get_element (dot segment)", "id", func(c): return await c.get_element("character", "..")],
+		["get_element (empty id)", "id", func(c): return await c.get_element("character", "")],
+		["list (empty type)", "type", func(c): return await c.list("")],
+		["get_element (query and fragment)", "id", func(c): return await c.get_element("character", "abc?x=1#y")],
+		["get_element (a trailing newline)", "id", func(c): return await c.get_element("character", UUID + "\n")],
+		["get_element (a space)", "id", func(c): return await c.get_element("character", "a b")],
+		["get_element (a leading dash)", "id", func(c): return await c.get_element("character", "-a")],
+		["get_element (a leading dot)", "id", func(c): return await c.get_element("character", ".a")],
+		["get_element (a non-ASCII letter)", "id", func(c): return await c.get_element("character", "caf\u00e9")],
+		["get_element (a type with a trailing newline)", "type", func(c): return await c.get_element("character\n", UUID)],
 	]
 
 func get_cases() -> Array:
 	var out := []
-	for k in _cases():
+	for k in _refused():
 		var name: String = k[0]
-		var method: String = k[1]
-		var want: String = k[2]
-		var fn: Callable = k[3]
-		out.append(["wire: %s is one segment" % name, func(t) -> void:
+		var what: String = k[1]
+		var fn: Callable = k[2]
+		out.append(["wire: %s, a value that is not one segment is refused before sending" % name, func(t) -> void:
 			var fake = Fake.new()
 			fake.body = "{\"id\":\"x\",\"name\":\"x\",\"data\":[],\"has_more\":false}"
 			var c := OWClient.new({"api_key": "ow_w_test", "api_pin": "0000", "base_url": BASE, "transport": fake})
-			await fn.call(c)
-			t.ok(fake.calls.size() >= 1, "%s: something was sent" % name)
-			if fake.calls.size() >= 1:
-				var q = fake.calls[0]
-				t.eq(q.method, method, name + ": method")
-				t.eq(String(q.url).split("?")[0], BASE + want, name)
+			var r: OWClient.Reply = await fn.call(c)
+			t.ok(not r.ok, "%s: refused" % name)
+			if not r.ok:
+				t.eq(r.error.kind, OWApiError.REFUSED, name + ": a refusal, not an answer")
+				t.ok(r.error.message.begins_with(what + " \""), "%s: names the %s: %s" % [name, what, r.error.message])
+				t.ok(r.error.message.ends_with(" is not one path segment. Nothing was sent."), "%s: says why: %s" % [name, r.error.message])
+			t.eq(fake.calls.size(), 0, name + ": nothing was sent")
 			t.done()])
+	out.append(["wire: the refusal names the value as JSON", func(t) -> void:
+		var c := OWClient.new({"api_key": "ow_w_test", "api_pin": "0000", "base_url": BASE, "transport": Fake.new()})
+		var r: OWClient.Reply = await c.get_element("character", ID)
+		t.eq(r.error.message, "id \"%s/hidden\" is not one path segment. Nothing was sent." % UUID, "the message")
+		t.done()])
+	out.append(["wire: a value that is one segment goes out as given", func(t) -> void:
+		var fake = Fake.new()
+		fake.body = "{\"id\":\"x\",\"name\":\"x\",\"data\":[],\"has_more\":false}"
+		var c := OWClient.new({"api_key": "ow_w_test", "api_pin": "0000", "base_url": BASE, "transport": fake})
+		await c.get_element("character", UUID)
+		await c.get_element("character", "a.b_c-D9")
+		await c.edit_links("character", UUID, "friends", {"add": []})
+		await c.get_element("pin_x2", "9")
+		t.eq(fake.calls.map(func(q): return String(q.url).split("?")[0].trim_prefix(BASE)),
+			["/character/%s/" % UUID, "/character/a.b_c-D9/", "/character/%s/links/friends" % UUID, "/pin_x2/9/"], "the paths")
+		t.done()])
 	return out
