@@ -1,7 +1,8 @@
 # OnlyWorlds SDK for Godot (spike)
 
 A GDScript addon that reads OnlyWorlds world folders and `.owworld` files into typed elements, and writes them back
-in the format's own bytes. Godot 4.7, the standard build (no C#). Not released; private at `OnlyWorlds/godot-sdk`.
+in the format's own bytes; it reads an onlyworlds.com world over the API too. Godot 4.7, the standard build (no C#).
+Not released; private at `OnlyWorlds/godot-sdk`.
 
 ```gdscript
 var world := OWWorld.read_folder("C:/worlds/moppetopia")
@@ -29,7 +30,49 @@ var word = OWNames.type_word(world_json, "character", "Agent", true)   # "AI age
 var where := {"world": world_id, "type": "pin", "id": pin.id}         # or a Reading that names its world
 var menu := OWOpeners.openers_for(OWTools.ALL, "element", where, {"audience": "member", "browser": false})
 for row in menu.rows: print(row["name"], " ", row["href"], " ", row["state"])   # state: null or "Opens in your browser"
+
+var client := OWClient.new({"api_key": "ow_r_..."})            # client.error: "" when built
+var r := await client.list_all("character")                    # r.value, or r.error (an OWApiError)
 ```
+
+## The API client
+
+`OWClient` reads an onlyworlds.com world over keel's v2 API into the same typed models a folder gives. It reads only,
+so far: `health`, `get_world`, `me`, `members`, `list` (one page), `list_all` (every page), `get_element`, `changes`
+(a page of the change feed) and `changes_head` (its tip, conditional on the last ETag). Each returns through `await`
+and answers an `OWClient.Reply`: `value` on success, else `error`.
+
+```gdscript
+var client := OWClient.new({"api_key": "ow_w_...", "api_pin": "1234"})   # a world key; its PIN goes on GET /me only
+var page: OWClient.Page = (await client.list("location", {"supertype": "City", "filter": {"parent_location": id}})).value
+var r := await client.get_element("character", id, {"expand": ["friends"]})
+if r.error and r.error.is_not_found(): print("gone")
+var me := (await client.me()).value
+var aids := OWCharter.served(me)                                  # the Charter, the Guide, the Domains, the strand
+var tip: OWClient.ChangesPage = (await client.changes_head()).value   # tip.unchanged: keel answered 304
+var public := OWClient.new({"world": world_id})                  # no key: a public world, as the public reads it
+var mine := OWClient.new({"api_key": "ow_a_...", "world": world_id})  # an account token reads the world it names
+```
+
+- **Credentials**, as the Unity and TypeScript SDKs send them: a world key (`ow_w_`, `ow_r_`, a 10-digit legacy key)
+  as `API-Key`, its PIN as `API-Pin` only on `GET /me` among the reads, and on every request of a legacy key; an
+  account token as a Bearer, never with the PIN, with `world=<id>` on the world reads and the roster; no key at all
+  on the world reads with `world=<id>`. The health pulse carries no credential. Anything else a client could not
+  send (`me` on an account token, the roster with no key, a world read on an account token without `world`) is
+  refused before sending, and nothing is sent.
+- **Errors**: one type, `OWApiError`, with a `kind`: `api` (keel's envelope: `status`, `code`, `message`, `param`,
+  `doc_url`, `retry_after`), `transport` (no answer), `refused` (a caller's mistake, nothing sent: an unknown option, a
+  value of the wrong type, `world` beside a world key) and `answer` (a 2xx that is not what the route answers).
+- **Options** are Dictionaries, and an unknown key is refused, never dropped (a dropped filter lists everything).
+- **The cursor walk** is driven by `has_more`, never by a page's size; it stops at a page with no cursor and refuses a
+  page that hands back the cursor it was sent.
+- **Transport**: `OWHttpTransport` (Godot's `HTTPClient`, one connection a request, polled between frames, or with
+  `blocking` without yielding) by default; any `OWTransport` subclass goes in the config's `transport` (the tests use a
+  fake that records each request). Inside a `SceneTree` script's `_init`, before its first frame, TLS does not start:
+  await one `process_frame` first.
+- **The wire**: every request the read calls make is held to keel's document (`tests/data/keel-wire.json`, keel's
+  OpenAPI document as the Unity SDK reduces it, vendored byte for byte): every path, method, query parameter and
+  header one keel declares there; every key the models read one keel serves.
 
 ## Layout
 
@@ -40,7 +83,7 @@ for row in menu.rows: print(row["name"], " ", row["href"], " ", row["state"])   
 | `codegen/generate.py` | the emitter (Python standard library); `--check` is the drift guard |
 | `codegen/PIN`, `codegen/schema-dist/` | the pinned schema-dist (tag and manifest sha256), vendored verbatim; never edit it |
 | `codegen/generate_tools.py`, `codegen/tools-pin.json`, `codegen/tools/` | the OnlyWorlds tools list at its own pin (commit and sha256, the npm and Python packages' pin), vendored byte for byte, and its emitter into the **generated** `addons/onlyworlds/ow_tools.gd`; `--check` is its drift guard, `test_generate_tools.py` holds it red on a one-byte change |
-| `tests/` | the headless suite; `tests/data/unicode_vectors.txt` is generated |
+| `tests/` | the headless suite; `tests/data/unicode_vectors.txt` is generated; `tests/data/keel-wire.json` is keel's wire document, vendored from the Unity SDK (`test_client_wire.gd` names its commit and checks its sha256) |
 | `tools/` | `pack.gd`, `extract.gd` (shell tools), `check_writer.py` (the reference checker's verdict on a file), `probe_numbers.gd`, `twin_run.gd` (the lens and graph readers over a file of random worlds, one answer per line in the npm runner's shape, for a side-by-side compare) |
 | `demo/moppetopia_map.tscn` | a world in a scene: the root Map's image with its Pins |
 

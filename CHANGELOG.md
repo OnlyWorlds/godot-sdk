@@ -6,8 +6,25 @@ the git log.
 
 ## [Unreleased]
 
+### Added
+
+- `OWClient`, the first API client: an onlyworlds.com world read over keel's v2 API into the SDK's own element
+  models. The read calls: `health`, `get_world`, `me` (its `reading_aids` read by `OWCharter.served`), `members`,
+  `list` (with its typed options and single-link filters), `list_all` (the cursor walk, by `has_more`),
+  `get_element`, `changes` and `changes_head` (the tip, conditional on its ETag, a 304 handing back the last tip).
+  The credential rules are the Unity SDK's `OWClient`: which header carries which credential, the PIN only on
+  `GET /me` among the reads (and on every request of a legacy key), `world=` for an account token or no key, and
+  what such a client may not send refused before sending. Every call answers an `OWClient.Reply` through `await`.
+- `OWApiError`: keel's error envelope typed (status, code, message, param, doc URL, `Retry-After`), and the client's
+  own word when no answer came, a call was refused before sending, or a 2xx was not the answer.
+- `OWTransport`, the seam the client sends through, and `OWHttpTransport`, its default on Godot's `HTTPClient`
+  (polled between frames, or blocking): no scene tree needed, unlike `HTTPRequest`.
+- The wire checks: every request the read calls make is held to keel's OpenAPI document (`tests/data/keel-wire.json`,
+  vendored from the Unity SDK), every key the models read to what keel serves.
+
 ### Changed
 
+- The test runner awaits each test, and hands it the tree (`t.tree`), so a test can wait a frame.
 - Schema pin to `v0.33.0-dist.100`: the strand on the front door. The strand profile's rule 2 says the server's front
   door (`GET /me` and an agent's join reply) serves `reading_aids.strand`, the six slots of the strand as that key
   reads the world, six null slots when the world has none or its story is out of the key's view; the charter

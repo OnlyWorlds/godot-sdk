@@ -4,7 +4,8 @@ extends SceneTree
 ##   godot --headless --path <project> --script res://tests/run.gd [-- --filter=<substr>]
 ## Runs every res://tests/test_*.gd: each method named test_*, and each case a suite's get_cases() returns
 ## ([label, Callable] pairs). Every test gets a T and ends with t.done(): a script error abandons a function without
-## failing anything, so a test that never reaches done() is counted as failed.
+## failing anything, so a test that never reaches done() is counted as failed. A test may await (the live client
+## test waits a frame: TLS is not ready inside a SceneTree's _init); each is awaited before the next.
 ## Exits 0 only when nothing failed; prints the total.
 
 class T:
@@ -12,6 +13,8 @@ class T:
 	var checks := 0
 	var reached_end := false
 	var skipped := ""
+	## The runner, for a test that waits a frame (Engine.get_main_loop() is null inside its _init).
+	var tree: SceneTree
 	func ok(cond: bool, msg: String = "") -> void:
 		checks += 1
 		if not cond:
@@ -39,8 +42,9 @@ var checks := 0
 
 func _run(label: String, fn: Callable) -> void:
 	var t := T.new()
+	t.tree = self
 	var t0 := Time.get_ticks_msec()
-	fn.call(t)
+	await fn.call(t)
 	var ms := Time.get_ticks_msec() - t0
 	checks += t.checks
 	if not t.reached_end:
@@ -79,13 +83,13 @@ func _init() -> void:
 			var label: String = f + ":" + name
 			if filter != "" and not label.contains(filter):
 				continue
-			_run(label, Callable(suite, name))
+			await _run(label, Callable(suite, name))
 		if suite.has_method("get_cases"):
 			for c in suite.get_cases():
 				var label: String = f + ":" + c[0]
 				if filter != "" and not label.contains(filter):
 					continue
-				_run(label, c[1])
+				await _run(label, c[1])
 	print("")
 	print("TOTAL: %d tests, %d passed, %d failed, %d skipped (%d checks) in %.1f s" % [passed + failed + skipped, passed, failed, skipped, checks, (Time.get_ticks_msec() - t_all) / 1000.0])
 	quit(1 if failed > 0 else 0)
