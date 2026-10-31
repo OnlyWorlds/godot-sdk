@@ -36,6 +36,10 @@ the git log.
 - The wire checks: every request the read calls make is held to keel's OpenAPI document (`tests/data/keel-wire.json`,
   vendored from the Unity SDK), every key the models read to what keel serves.
 
+### Fixed
+
+- Parity with the TypeScript SDK 4.122.1: every value a call puts in a request path is sent as one escaped segment, the element type and the link field included (`list`, `get_element`, `create`, `upsert`, `patch`, `delete`, `edit_links`). The id and the link field were escaped already; the type went in as given, so a type carrying a slash asked a different route. On a real type name nothing changes on the wire. A test reads the client's source and fails on any request path built from an unescaped value or in a way it cannot read.
+
 ### Changed
 
 - Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
