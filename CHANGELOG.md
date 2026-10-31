@@ -38,6 +38,10 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
+  the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
+  shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated headers move
+  with the serial.
 - The test runner awaits each test, and hands it the tree (`t.tree`), so a test can wait a frame.
 - Schema pin to `v0.33.0-dist.100`: the strand on the front door. The strand profile's rule 2 says the server's front
   door (`GET /me` and an agent's join reply) serves `reading_aids.strand`, the six slots of the strand as that key
