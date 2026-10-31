@@ -4,10 +4,11 @@ extends RefCounted
 ## nothing was sent. GDScript has no exceptions, so a call answers an [OWClient.Reply] whose [member OWClient.Reply.error]
 ## is one of these, or null.
 ##
-## [member kind] says which of four it is, since each has another remedy: [constant API] (keel answered and said no:
+## [member kind] says which of five it is, since each has another remedy: [constant API] (keel answered and said no:
 ## branch on [member code], point a person at [member doc_url]), [constant TRANSPORT] (no answer came: offline, a
 ## timeout), [constant REFUSED] (the client refused the call before sending anything: a caller's mistake, the message
-## names it) and [constant ANSWER] (a 2xx whose body is not the answer the route documents). keel's envelope is
+## names it), [constant ANSWER] (a 2xx whose body is not the answer the route documents) and [constant PROPOSED] (a
+## write became a proposal: nothing was written, [member proposal] is the row a person decides). keel's envelope is
 ## [code]{"error": {type, code, message, param, doc_url}}[/code]; a body without the wrapper is read as the envelope
 ## itself, and the upload host's [code]{"error": "<code>"}[/code] as its code, as the Unity and TypeScript SDKs read
 ## them. Mirrors the TypeScript SDK's [code]OwApiError[/code].
@@ -20,6 +21,10 @@ const TRANSPORT := "transport"
 const REFUSED := "refused"
 ## A 2xx whose body is not what the route answers (not JSON, or not the documented shape).
 const ANSWER := "answer"
+## keel answered 202 with [code]{proposal}[/code] to a write that may become one (an upsert, a patch, a link edit by
+## an agent seat in a world that takes its writes as proposals): the element did not change. Not a failure to retry:
+## the write waits for a person.
+const PROPOSED := "proposed"
 
 var kind := API
 ## The HTTP status; 0 when no answer came or nothing was sent.
@@ -39,6 +44,8 @@ var raw_body := ""
 ## Seconds to wait before a retry, from [code]Retry-After[/code] (whole seconds, or an HTTP date read against the
 ## clock); null when it was absent or unreadable.
 var retry_after: Variant = null
+## On [constant PROPOSED]: the proposal row keel answered (a Dictionary, as served); null otherwise.
+var proposal: Variant = null
 
 ## keel's answer as an error: the envelope read defensively (a gateway's HTML page is a message, never a parse
 ## error), [code]Retry-After[/code] read from [param headers] by any case. Mirrors the TypeScript SDK's
@@ -167,6 +174,45 @@ func resync_reason() -> Variant:
 	var inner = body.get("error") if body is Dictionary else null
 	var reason = inner.get("reason") if inner is Dictionary else null
 	return reason if reason is String and (reason == "role" or reason == "view") else null
+
+## A write became a proposal (202, kind [constant PROPOSED]): [member proposal] is the row; the element did not
+## change. Mirrors the TypeScript SDK's [code]isProposed[/code].
+func is_proposed() -> bool:
+	return kind == PROPOSED
+
+## A conditional write's [code]If-Match[/code] was stale (412 [code]precondition_failed[/code]: a patch, a link edit
+## or a delete): the element changed since the [code]change_seq[/code] sent, and nothing was written. [method current]
+## is the element as it is now; decide from it, then send again with its [code]change_seq[/code]. Mirrors the
+## TypeScript SDK's [code]isPreconditionFailed[/code].
+func is_precondition_failed() -> bool:
+	return status == 412 and code == "precondition_failed"
+
+## On a 412: the [code]current[/code] object keel sends beside the envelope, the element as it is now (a
+## Dictionary, as served); null on any other answer, when keel sent none, or when the body is not JSON. Mirrors the
+## Unity SDK's [code]Current[/code].
+func current() -> Variant:
+	if status != 412 or raw_body == "":
+		return null
+	var json := JSON.new()
+	var body = json.data if json.parse(raw_body) == OK else null
+	var now = body.get("current") if body is Dictionary else null
+	return now if now is Dictionary else null
+
+## The id is taken (409 [code]id_conflict[/code]): a create whose element carried its id and already landed, so the
+## element is there. Mirrors the TypeScript SDK's [code]isIdConflict[/code].
+func is_id_conflict() -> bool:
+	return status == 409 and code == "id_conflict"
+
+## The same [code]Idempotency-Key[/code] came with another body (409 [code]idempotency_error[/code]): a key is for
+## one write and its retries only. Mirrors the TypeScript SDK's [code]isIdempotencyConflict[/code].
+func is_idempotency_conflict() -> bool:
+	return status == 409 and code == "idempotency_error"
+
+## keel refused a known-of stub's key on a write (422 [code]known_of_not_writable[/code]). This client refuses a stub
+## before sending and leaves the key out of every other body, so keel should not answer it this. Mirrors the
+## TypeScript SDK's [code]isKnownOfNotWritable[/code].
+func is_known_of_not_writable() -> bool:
+	return status == 422 and code == "known_of_not_writable"
 
 ## Worth sending again later: a 429 or a 5xx, and the three 409s that clear by themselves; never a used-up allowance
 ## or a service turned off. Mirrors the Unity SDK's [code]IsRetryable[/code] (the TypeScript SDK has none: it names

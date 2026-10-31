@@ -1,10 +1,11 @@
 extends RefCounted
-## Every request OWClient's read calls make, held to keel's own document, and every key the client's models read held
-## to what keel serves. The client tests beside this one assert what the client SENDS, which cannot catch a client that
-## sends the wrong thing consistently; this asserts what keel SERVES: the path is one keel has, the method one it takes
-## there, every query parameter and header sent one keel declares on that operation, no body on a read; the other way
-## round, every key a model reads is one keel's answer declares, and every error code an OWApiError helper names is
-## one keel lists. The checks are the Unity SDK's OWWireContractTests, those that apply to reads.
+## Every request OWClient's read and write calls make, held to keel's own document, and every key the client's models
+## read held to what keel serves. The client tests beside this one assert what the client SENDS, which cannot catch a
+## client that sends the wrong thing consistently; this asserts what keel SERVES: the path is one keel has, the method
+## one it takes there, every query parameter and header sent one keel declares on that operation, no body on a read and
+## a JSON object on a write, every body key one keel declares there (a bulk item's element as its type's create); the
+## other way round, every key a model reads is one keel's answer declares, and every error code an OWApiError helper
+## names is one keel lists. The checks are the Unity SDK's OWWireContractTests, those that apply to these calls.
 ##
 ## The fixture is keel's published document as the Unity SDK's tools/refresh_wire.py reduces it, vendored byte for
 ## byte from unity-sdk (Packages/com.onlyworlds.sdk/Tests/Editor/Fixtures/wire/keel-wire.json at 0c53d12, fetched
@@ -38,15 +39,32 @@ func _doc() -> Dictionary:
 		_wire = JSON.parse_string(FileAccess.get_file_as_string(WIRE))
 	return _wire
 
-## Every read call, every option given, on each credential: keel's requests, which the checks below judge.
+## Every write, every option given, with a body that holds each kind of key a write cleans or keeps.
+static func _writes(c: OWClient) -> void:
+	await c.create("character", {"name": "Ana", "world": "w1", "created_at": "t", "background": null, "x_tool": 1})
+	await c.create("character", {"name": "Ana"}, {"idempotency_key": "k1"})
+	await c.upsert("character", "c1", {"id": "c1", "name": "Ana", "type": "character", "change_seq": 4.0, "friends": ["c2"],
+		"birthplace": null, "level": 3.0})
+	await c.patch("character", "c1", {"name": "Bo", "birthplace": "l1"}, {"if_match": 4})
+	await c.delete("character", "c1", {"if_match": 4})
+	await c.edit_links("character", "c1", "friends", {"add": ["c2"], "remove": ["c3"]}, {"if_match": 4})
+	await c.bulk([{"type": "character", "element": {"name": "A", "updated_at": "t"}},
+		{"type": "location", "element": {"name": "Port", "parent_location": null}}], {"atomic": true, "idempotency_key": "k2"})
+
+## Every read call and every write, every option given, on each credential: keel's requests, which the checks below
+## judge. An agent client reads too, so a declaration sent on a read would be seen.
 func _record() -> Array:
 	var fake = Fake.new()
 	var clients := [
 		OWClient.new({"api_key": "ow_w_test", "api_pin": "0000", "base_url": BASE, "transport": fake}),
 		OWClient.new({"api_key": "0123456789", "api_pin": "0000", "base_url": BASE, "transport": fake}),
 		OWClient.new({"api_key": "ow_r_test", "base_url": BASE, "transport": fake}),
+		OWClient.new({"api_key": "ow_w_seat", "api_pin": "ow_s_x", "agent": true, "client": "wire-test", "base_url": BASE,
+			"transport": fake}),
 	]
 	for c: OWClient in clients:
+		fake.body = "{}"
+		await _writes(c)
 		fake.body = "{}"
 		await c.health()
 		await c.get_world()
@@ -82,6 +100,8 @@ func _record() -> Array:
 		await c.list("character", {"limit": 5, "cursor": "c", "fields": ["name"], "name": "n", "name_contains": "m",
 			"supertype": "s", "subtype": "u", "expand": ["friends"], "ids": ["c1"], "created_by": "owner", "view_as": "public"})
 		await c.list("location", {"filter": {"parent_location": "p1"}})
+		fake.body = "{}"
+		await _writes(c)   # refused, nothing sent: neither writes
 	return fake.calls
 
 static func _keel_path(url: String) -> String:
@@ -151,21 +171,64 @@ func test_every_header_is_one_keel_declares(t) -> void:
 				"%s %s: header '%s' is not one keel declares there" % [call.method, call.url, name])
 	t.done()
 
-func test_no_read_sends_a_body(t) -> void:
+func test_no_read_sends_a_body_and_every_write_body_is_a_json_object(t) -> void:
 	for call in await _record():
-		t.eq(call.body, null, "%s %s" % [call.method, call.url])
-		t.ok(not call.headers.has("Content-Type"), "%s %s: no body, no media type" % [call.method, call.url])
+		var label := "%s %s" % [call.method, call.url]
+		if call.method == "GET" or call.method == "DELETE":
+			t.eq(call.body, null, label)
+			t.ok(not call.headers.has("Content-Type"), "%s: no body, no media type" % label)
+			continue
+		t.ok(call.body is String and JSON.parse_string(call.body) is Dictionary, "%s: a JSON object" % label)
+		t.eq(call.headers.get("Content-Type"), "application/json", label)
 	t.done()
 
-func test_the_recording_covers_every_read(t) -> void:
+## [top-level keys, patterns] a write operation declares for its body, or for the part under [param prefix].
+static func _declared_body(op: Dictionary, prefix := "") -> Array:
+	var keys: Array = op.get("body", [])
+	return [_below(keys, prefix) if prefix != "" else _top(keys), op.get("body_patterns", [])]
+
+static func _undeclared(body: Dictionary, declared: Array) -> Array:
+	var out := []
+	for k: String in body:
+		if not declared[0].has(k) and not declared[1].any(func(p): return RegEx.create_from_string(p).search(k) != null):
+			out.append(k)
+	return out
+
+func test_every_body_key_is_one_keel_declares(t) -> void:
+	var paths: Dictionary = _doc()["paths"]
+	var checked := 0
+	for call in await _record():
+		var op = _find(call)[0]
+		if op == null or not (call.body is String):
+			continue
+		var label := "%s %s" % [call.method, call.url]
+		var body: Dictionary = JSON.parse_string(call.body)
+		t.eq(_undeclared(body, _declared_body(op)), [], "%s: every key one keel declares on the body (%s)" % [label, op.get("body")])
+		checked += 1
+		if not body.has("items"):
+			continue
+		for item: Dictionary in body["items"]:
+			t.eq(_undeclared(item, _declared_body(op, "items[].")), [], "%s: an item's keys" % label)
+			var create: Dictionary = paths["/api/v2/" + item["type"]]["POST"]
+			t.eq(_undeclared(item["element"], _declared_body(create)), [],
+				"%s: a %s item's element, every key one POST /%s/ declares" % [label, item["type"], item["type"]])
+			checked += 1
+	t.eq(checked, 4 * (6 + 2), "six bodies and two bulk items on each world key")
+	t.done()
+
+func test_the_recording_covers_every_read_and_write(t) -> void:
 	# An empty recording would pass the checks above with nothing checked.
 	var calls := await _record()
-	t.eq(calls.size(), 3 * 12 + 6 + 5, "12 requests on each world key (list_all one page), 6 on an account token, 5 on no key (its roster refused)")
+	t.eq(calls.size(), 4 * (12 + 7) + 6 + 5,
+		"12 reads and 7 writes on each world key (list_all one page), 6 reads on an account token, 5 on no key (its "
+		+ "roster refused); neither writes")
 	var paths := {}
 	for c in calls:
 		paths[c.method + " " + _keel_path(c.url)] = true
 	for p in ["GET /api/v2/health", "GET /api/v2/world", "GET /api/v2/me", "GET /api/v2/members", "GET /api/v2/character",
-			"GET /api/v2/location", "GET /api/v2/character/c1", "GET /api/v2/changes"]:
+			"GET /api/v2/location", "GET /api/v2/character/c1", "GET /api/v2/changes", "POST /api/v2/character",
+			"PUT /api/v2/character/c1", "PATCH /api/v2/character/c1", "DELETE /api/v2/character/c1",
+			"POST /api/v2/character/c1/links/friends", "POST /api/v2/bulk"]:
 		t.ok(paths.has(p), "%s is recorded" % p)
 	t.eq(calls.filter(func(c): return c.url.contains("world=")).size(), 9, "the world reads of an account token and of no key")
 	t.ok(calls.any(func(c): return c.headers.has("If-None-Match")), "a tip read with a tag is recorded")
@@ -173,6 +236,10 @@ func test_the_recording_covers_every_read(t) -> void:
 	t.ok(calls.any(func(c): return c.headers.has("Authorization")), "a Bearer is recorded")
 	t.ok(calls.any(func(c): return c.url.contains("head=true")), "")
 	t.ok(calls.any(func(c): return c.url.contains("after=")), "")
+	for h in ["If-Match", "Idempotency-Key", "X-OW-Client", "X-OW-Agent", "Content-Type"]:
+		t.ok(calls.any(func(c): return c.headers.has(h)), "%s is recorded" % h)
+	t.eq(calls.filter(func(c): return c.method == "GET" and c.headers.has("API-Pin") and c.headers.get("API-Key") == "ow_w_seat").size(),
+		1, "the agent reads too (its /me alone with the PIN)")
 	t.done()
 
 # -- What the models read ----------------------------------------------------------------------------------------------
@@ -215,6 +282,28 @@ func test_the_changes_page_reads_what_keel_serves_and_every_key_of_a_row(t) -> v
 	rows.sort()
 	read.sort()
 	t.eq(read, rows, "OWClient.Change reads every key of a row, and only those")
+	t.done()
+
+func test_the_bulk_result_reads_what_keel_serves_and_every_key_of_a_slot(t) -> void:
+	var served: Array = _doc()["paths"]["/api/v2/bulk"]["POST"]["response"]
+	t.eq(OWClient.BulkResult.KEYS.filter(func(k): return not served.has(k)), [], "OWClient.BulkResult reads only keys keel serves")
+	var slots := _below(served, "items[].")
+	var read: Array = OWClient.BulkSlot.KEYS.duplicate()
+	slots.sort()
+	read.sort()
+	t.eq(read, slots, "OWClient.BulkSlot reads every key of a slot, and only those")
+	t.done()
+
+func test_every_write_answers_the_element_a_model_reads(t) -> void:
+	# create, upsert, patch and edit_links answer the element whole: the keys a model reads are served there too.
+	var paths: Dictionary = _doc()["paths"]
+	for type in OWTypes.slugs():
+		for op in [paths["/api/v2/" + type]["POST"], paths["/api/v2/" + type + "/{id}"]["PUT"],
+				paths["/api/v2/" + type + "/{id}"]["PATCH"], paths["/api/v2/" + type + "/{id}/links/{field}"]["POST"]]:
+			var served := _top(op["response"])
+			for key in _model_keys(type):
+				if not NOT_SERVED.has(key):
+					t.ok(served.has(key), "%s.%s is not a key a write's answer serves" % [type, key])
 	t.done()
 
 func test_the_reading_aids_are_the_packet_owcharter_served_reads(t) -> void:

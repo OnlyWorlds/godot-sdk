@@ -8,6 +8,20 @@ the git log.
 
 ### Added
 
+- `OWClient`'s element writes: `create` (`POST /{type}/`), `upsert` (`PUT`), `patch` (`PATCH`, with `if_match`),
+  `delete` (with `if_match`), `edit_links` (`POST /{type}/{id}/links/{field}` with `{add, remove}`, the one way to
+  change a link array: a patch carrying one is refused) and `bulk` (`POST /bulk/`, `atomic`, a typed
+  `OWClient.BulkResult` whose slots carry their own status, error and proposal, and `was_replay` from keel's replay
+  header). The body is cleaned as the Unity SDK cleans it (the read-only keys left out, a null string field sent as
+  `""`, extension keys untouched) and written compact with JavaScript's number form. Every write sends the PIN and
+  `X-OW-Client` (the new `client` config key, `godot-sdk` by default), and `X-OW-Agent` on a client the new `agent`
+  config key declares an AI agent. A 202 is an `OWApiError` of the new kind `proposed`, its row in `proposal`; new
+  helpers `is_proposed`, `is_precondition_failed` with `current()` (the element as it is now on a 412),
+  `is_id_conflict`, `is_idempotency_conflict`, `is_known_of_not_writable`. The wire checks cover the writes: every
+  body key one keel declares on that operation (a bulk item's element as its type's create declares it).
+- `OWId`: element ids as the standard mints them, a UUIDv7 (`new_id`), and under an `Idempotency-Key` the UUIDv5 of
+  the key and the position in the shared keyed namespace (`keyed`), the id the Unity, TypeScript and Python clients
+  derive, so a keyed retry sends the same body and keel replays it.
 - `OWClient`, the first API client: an onlyworlds.com world read over keel's v2 API into the SDK's own element
   models. The read calls: `health`, `get_world`, `me` (its `reading_aids` read by `OWCharter.served`), `members`,
   `list` (with its typed options and single-link filters), `list_all` (the cursor walk, by `has_more`),

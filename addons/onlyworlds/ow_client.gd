@@ -1,10 +1,11 @@
 class_name OWClient
 extends RefCounted
 ## A thin client for the OnlyWorlds v2 API (keel, onlyworlds.com): reads a world over the network into the SDK's own
-## element models. Deliberately thin: no cache, no sync state, no retry. What it holds is the wire's contract: which
-## header carries which credential, where the PIN goes and where it never goes, what a key may send at all (refused
-## here, nothing sent, rather than a 401 from keel), opaque cursors, the cursor walk driven by [code]has_more[/code],
-## and keel's error envelope as an [OWApiError].
+## element models, and writes its elements back. Deliberately thin: no cache, no sync state, no retry. What it holds is
+## the wire's contract: which header carries which credential, where the PIN goes and where it never goes, what a key
+## may send at all (refused here, nothing sent, rather than a 401 from keel), opaque cursors, the cursor walk driven by
+## [code]has_more[/code], a write's body cleaned of what keel refuses, client-minted ids, and keel's error envelope as
+## an [OWApiError].
 ##
 ## [codeblock]
 ## var client := OWClient.new({"api_key": "ow_r_...", "api_pin": ""})   # client.error: "" when built
@@ -24,9 +25,27 @@ extends RefCounted
 ## verifies a PIN wherever it is sent, at a cost) and on every request of a legacy key; an account token
 ## ([code]ow_a_[/code]) as a Bearer, never with the PIN, and only on the reads that name a world with
 ## [code]world=[/code] (set [code]world[/code] in the config) and the roster; no key at all reads a public world the same
-## way. The health pulse carries no credential. Mirrors the TypeScript SDK's [code]OwV2Client[/code].
+## way. The health pulse carries no credential. The writes ([method create], [method upsert], [method patch],
+## [method delete], [method edit_links], [method bulk]) go with the PIN, [code]X-OW-Client[/code] (the config's
+## [code]client[/code]) and, on a client the config declares an agent, [code]X-OW-Agent[/code]; an account token and a
+## keyless client write nothing. Mirrors the TypeScript SDK's [code]OwV2Client[/code].
+##
+## [codeblock]
+## var writer := OWClient.new({"api_key": "ow_w_...", "api_pin": "1234", "client": "my-game"})
+## var made := await writer.create("character", {"name": "Ana"})            # the id minted here, a UUIDv7
+## var r := await writer.patch("character", made.value.id, {"level": 4}, {"if_match": seq})
+## if r.error and r.error.is_precondition_failed():
+##     print(r.error.current())                                             # someone wrote first: the element now
+## await writer.edit_links("character", made.value.id, "friends", {"add": [bo_id]})
+## [/codeblock]
 
 const DEFAULT_BASE_URL := "https://www.onlyworlds.com/api/v2"
+## The name sent as [code]X-OW-Client[/code] on element writes when the config gives none.
+const DEFAULT_CLIENT_NAME := "godot-sdk"
+## Keys a write never sends: keel refuses them (a 422) or names them itself ([code]world[/code] from the key). A
+## blacklist that must never become a whitelist: extension keys ([code]x_*[/code]) pass through every write untouched.
+## The Unity SDK's [code]OWPayload.ReadOnlyFields[/code], the TypeScript SDK's [code]READ_ONLY_FIELDS[/code].
+const READ_ONLY_FIELDS := ["world", "type", "created_at", "updated_at", "change_seq", "known_of"]
 ## The key kinds, as [method key_kind_of] reads them.
 const KEY_WRITE := "write"
 const KEY_READ := "read"
@@ -37,11 +56,15 @@ const KEY_NONE := "none"
 ## keel's cap on one page of the change feed; past it keel answers 422, where the element lists clamp.
 const MAX_CHANGES_LIMIT := 1000
 
-const _CONFIG_KEYS := ["api_key", "api_pin", "world", "base_url", "page_size", "transport"]
+const _CONFIG_KEYS := ["api_key", "api_pin", "world", "base_url", "page_size", "transport", "agent", "client"]
 const _LIST_KEYS := ["limit", "cursor", "expand", "fields", "ids", "created_by", "name", "name_contains", "supertype",
 	"subtype", "filter", "view_as"]
 const _GET_KEYS := ["expand", "fields", "view_as"]
 const _CHANGES_KEYS := ["since", "after"]
+const _CREATE_KEYS := ["idempotency_key"]
+const _IF_MATCH_KEYS := ["if_match"]
+const _EDIT_KEYS := ["add", "remove"]
+const _BULK_KEYS := ["atomic", "idempotency_key"]
 const _WORLD_READS := "list, list_all, get_element and get_world"
 
 ## Why the client was not built ("" when it was): a config it refuses. Every call then answers that refusal and
@@ -57,6 +80,13 @@ var key_kind := KEY_NONE
 var world := ""
 ## What the requests go through: the config's, else an [OWHttpTransport].
 var transport: OWTransport
+## The name this client sends as [code]X-OW-Client[/code] on element writes, and on no read: keel stores it on the
+## element ([code]changed_client[/code]) and on a feed's delete row, so a reader can tell which tool made a change.
+var client_name := DEFAULT_CLIENT_NAME
+## True when the config declares this client an AI agent: every element write carries [code]X-OW-Agent[/code], and
+## keel records it as agent-made. It describes the caller, so only the caller sets it; off in a tool people use. An
+## agent seat's key is recorded as an agent without it.
+var agent := false
 
 var _api_key := ""
 var _api_pin := ""
@@ -145,12 +175,62 @@ class ChangesPage:
 	## [member epoch] are the last 200's. False on every 200. Never on the wire.
 	var unchanged := false
 
+## What [method OWClient.bulk] answers. keel answers 200 even when slots failed: each slot's [member BulkSlot.status]
+## is where the truth lives, so check [method failed] (or [method all_succeeded]) before trusting the write. After an
+## atomic request with [member errors] true nothing was written, though the slots that would have succeeded still say
+## 201 with the ids and timestamps they would have had: do not record those as created.
+class BulkResult:
+	## The keys this reads from keel's answer.
+	const KEYS := ["errors", "items"]
+	## True when any slot failed.
+	var errors := false
+	## The slots ([OWClient.BulkSlot]), in the order of the items sent.
+	var items: Array = []
+	## True when keel replayed the first answer for this [code]Idempotency-Key[/code] and wrote nothing (its
+	## [code]Idempotent-Replay[/code] header). Never on the wire's body.
+	var was_replay := false
+
+	## The slots that did not succeed, in order.
+	func failed() -> Array:
+		return items.filter(func(s): return not s.succeeded())
+
+	func succeeded_count() -> int:
+		return items.size() - failed().size()
+
+	## True when no slot failed and keel said none did.
+	func all_succeeded() -> bool:
+		return not errors and failed().is_empty()
+
+## One item's outcome in a [BulkResult].
+class BulkSlot:
+	## The keys this reads from a slot of keel's answer.
+	const KEYS := ["status", "id", "created_at", "updated_at", "error", "proposal"]
+	## The item's own HTTP status: 201 created, 200 updated, 202 a proposal, else its failure.
+	var status := 0
+	var id := ""
+	## On a success: keel's timestamps, from which a sync baseline is set.
+	var created_at: Variant = null
+	var updated_at: Variant = null
+	## On a failure: the slot's error as an [OWApiError] of kind [constant OWApiError.API], its status the slot's.
+	var error: OWApiError = null
+	## On a 202: the proposal row the item became (the element did not change), a Dictionary as served.
+	var proposal: Variant = null
+
+	func succeeded() -> bool:
+		return status >= 200 and status < 300
+
+	func is_proposed() -> bool:
+		return status == 202
+
 ## Build a client from [param config]: [code]api_key[/code] (a world key, an account token, or none for a keyless
 ## reader), [code]api_pin[/code] (the world's PIN, or an agent seat's secret), [code]world[/code] (a world's id, for an
-## account token or no key), [code]base_url[/code], [code]page_size[/code] (100 when absent or not above 0) and
-## [code]transport[/code] (an [OWTransport]; an [OWHttpTransport] when absent). A config it refuses (an unknown key, a
-## value of the wrong type, a [code]world[/code] beside a world key or empty, no key and no world) leaves
-## [member error] saying why. Mirrors the TypeScript SDK's [code]new OwV2Client[/code].
+## account token or no key), [code]base_url[/code], [code]page_size[/code] (100 when absent or not above 0),
+## [code]transport[/code] (an [OWTransport]; an [OWHttpTransport] when absent), [code]client[/code] (the name sent as
+## [code]X-OW-Client[/code], keel's rule [code][a-z0-9-]{1,32}[/code] and no version: [code]atlas[/code], not
+## [code]atlas-1.76[/code]; [constant DEFAULT_CLIENT_NAME] when absent) and [code]agent[/code] (a bool: declare this
+## client an AI agent). A config it refuses (an unknown key, a value of the wrong type, a client name outside keel's
+## rule, nothing trimmed; a [code]world[/code] beside a world key or empty, no key and no world) leaves [member error]
+## saying why. Mirrors the TypeScript SDK's [code]new OwV2Client[/code].
 func _init(config: Dictionary = {}) -> void:
 	error = _configure(config)
 	if transport == null:
@@ -167,6 +247,18 @@ func _configure(config: Dictionary) -> String:
 		return "OWClient: page_size is an int; got %s." % type_string(typeof(config["page_size"]))
 	if config.get("transport") != null and not (config["transport"] is OWTransport):
 		return "OWClient: transport is an OWTransport."
+	if config.get("agent") != null and not (config["agent"] is bool):
+		return "OWClient: agent is a bool; got %s." % type_string(typeof(config["agent"]))
+	agent = config.get("agent") == true
+	var name = config.get("client")
+	if name != null:
+		if not (name is String):
+			return "OWClient: client is a String; got %s." % type_string(typeof(name))
+		if not _is_client_name(name):
+			return ("OWClient: client must be lower case letters, digits and hyphens, 1 to 32 characters "
+				+ "([a-z0-9-]{1,32}), such as 'atlas'; got %s. It is sent as X-OW-Client on element writes; leave it "
+				+ "out for '%s'.") % [var_to_str(name), DEFAULT_CLIENT_NAME]
+		client_name = name
 	var key: String = config.get("api_key") if config.get("api_key") != null else ""
 	key_kind = key_kind_of(key)
 	var w = config.get("world")
@@ -452,6 +544,229 @@ func _changes_page(r: Reply) -> Reply:
 	r.value = page
 	return r
 
+# -- Element writes -----------------------------------------------------------------------------------------------------
+#
+# Each takes an element as an OWElement (its data is sent) or a Dictionary, never changed here: the body is a copy,
+# cleaned as the Unity SDK's Sanitize cleans it (READ_ONLY_FIELDS left out, a null scalar string sent as "", the one
+# unset the wire carries; a single link's null, an x_* value and an absent key left as they are), written as
+# JavaScript's JSON.stringify writes it. A known-of stub (known_of: true) is refused before sending: its empty fields
+# are not the element's values, and writing it would blank them. Every write is an element write: the PIN,
+# X-OW-Client, and X-OW-Agent on an agent client. An account token and a keyless client are refused, nothing sent.
+
+## [code]POST /{type}/[/code]: create one element, answering it as keel wrote it, in its type's model. An element with
+## no id gets one minted here: a UUIDv7 ([method OWId.new_id]), or with [code]options.idempotency_key[/code] the id
+## derived from the key ([method OWId.keyed], index 0), so a retry with the same key sends the same body and keel
+## replays its first answer (24 hours), writing nothing; the same key with another body is a 409
+## ([method OWApiError.is_idempotency_conflict]). The key goes as [code]Idempotency-Key[/code] only when given. An
+## unkeyed retry of an element without an id creates a second one; one that carries its id answers 409
+## [code]id_conflict[/code] when it already landed ([method OWApiError.is_id_conflict]). Never reuse a key for a new
+## write: an undo that re-creates under the first key gets the old answer back. Mirrors the TypeScript SDK's
+## [code]create[/code].
+func create(type: String, element: Variant, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _CREATE_KEYS, "create")
+	if refused != "":
+		return _refused(refused)
+	var body = _element_body(type, element, "create")
+	if body is String:
+		return _refused(body)
+	var key := _opt(options, "idempotency_key")
+	if _no_id(body):
+		body["id"] = OWId.mint(key, 0)
+	return _element(type, await _request("POST", "/%s/" % type, [], {"body": body, "idempotency_key": key, "write": true}))
+
+## [code]PUT /{type}/{id}/[/code]: upsert by the caller's own id, creating the element under [param id] or writing it
+## whole: the local-first write. keel's document declares no [code]Idempotency-Key[/code] or [code]If-Match[/code]
+## here, so none is sent. An agent seat's PUT on an existing element, in a world that takes its writes as proposals,
+## answers 202: an [OWApiError] of kind [constant OWApiError.PROPOSED], and the element did not change. Mirrors the
+## TypeScript SDK's [code]upsert[/code].
+func upsert(type: String, id: String, element: Variant) -> Reply:
+	if id == "":
+		return _refused("upsert: needs the element's id. Nothing was sent.")
+	var body = _element_body(type, element, "upsert")
+	if body is String:
+		return _refused(body)
+	return _element(type, await _request("PUT", _element_path(type, id), [],
+		{"body": body, "write": true, "proposable": true}))
+
+## [code]PATCH /{type}/{id}/[/code]: a partial update. Destructive on the keys sent: whatever is in [param partial]
+## replaces what keel holds, so send only what changed; a key left out is left alone. A link array is refused here,
+## nothing sent: a PATCH replaces it whole, so a writer adding one id erases what another added since; change it with
+## [method edit_links]. [code]options.if_match[/code]: the element's [code]change_seq[/code] as read (an int, or a whole
+## float as JSON reads it), sent as [code]If-Match[/code]; the write lands only if nobody changed the element since,
+## else a 412 ([method OWApiError.is_precondition_failed]) whose [method OWApiError.current] is the element now. A 202
+## is a proposal, as on [method upsert]; a stale [code]If-Match[/code] is still a 412 first. Mirrors the TypeScript SDK's
+## [code]patch[/code].
+func patch(type: String, id: String, partial: Variant, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _IF_MATCH_KEYS, "patch")
+	if refused != "":
+		return _refused(refused)
+	if id == "":
+		return _refused("patch: needs the element's id. Nothing was sent.")
+	var body = _element_body(type, partial, "patch")
+	if body is String:
+		return _refused(body)
+	var script = OWTypes.SCRIPTS.get(type)
+	if script != null:
+		for k in body:
+			if script.FIELDS.has(k) and script.FIELDS[k][0] == "multi":
+				return _refused(("patch: '%s' is a link array, which a PATCH replaces whole (an id another writer added "
+					+ "since is lost); change it with edit_links (POST /%s/{id}/links/%s). Nothing was sent.") % [k, type, k])
+	return _element(type, await _request("PATCH", _element_path(type, id), [],
+		{"body": body, "if_match": options.get("if_match"), "write": true, "proposable": true}))
+
+## [code]DELETE /{type}/{id}/[/code]: delete an element. keel writes a tombstone and takes the id out of every other
+## element's links in the same write. Answers no value; an element already gone is the same 204.
+## [code]options.if_match[/code] as on [method patch]: a stale one is a 412 and nothing is deleted. Never a proposal.
+## Mirrors the TypeScript SDK's [code]delete[/code].
+func delete(type: String, id: String, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _IF_MATCH_KEYS, "delete")
+	if refused != "":
+		return _refused(refused)
+	if id == "":
+		return _refused("delete: needs the element's id. Nothing was sent.")
+	var r := await _request("DELETE", _element_path(type, id), [],
+		{"if_match": options.get("if_match"), "write": true, "allow_empty": true})
+	if r.ok:
+		r.value = null
+	return r
+
+## [code]POST /{type}/{id}/links/{field}[/code] with [code]{add, remove}[/code]: change one link array, merged by keel
+## (ids already there or already gone are fine), answering the element whole in its type's model. The one way to change
+## a link array: [method patch] refuses one. [param edit] holds [code]add[/code] and [code]remove[/code], each an
+## Array of ids, each optional and sent only when given. [code]options.if_match[/code] as on [method patch]: a link
+## write moves the element too. A 202 is a proposal, as on [method upsert]. The id and the field are escaped as path
+## segments. Mirrors the TypeScript SDK's [code]editLinks[/code].
+func edit_links(type: String, id: String, field: String, edit: Dictionary, options: Dictionary = {}) -> Reply:
+	var refused := _check(edit, _EDIT_KEYS, "edit_links")
+	if refused == "":
+		refused = _check(options, _IF_MATCH_KEYS, "edit_links")
+	if refused != "":
+		return _refused(refused)
+	if id == "":
+		return _refused("edit_links: needs the element's id. Nothing was sent.")
+	if field == "":
+		return _refused("edit_links: needs a link field's name (friends, species). Nothing was sent.")
+	var body := {}
+	for k in _EDIT_KEYS:
+		if edit.get(k) != null:
+			body[k] = Array(_names(edit, k))
+	return _element(type, await _request("POST", "/%s/%s/links/%s" % [type, id.uri_encode(), field.uri_encode()], [],
+		{"body": body, "if_match": options.get("if_match"), "write": true, "proposable": true}))
+
+## [code]POST /bulk/[/code]: write many elements of mixed types in one request, a [BulkResult]. [param items], in the
+## order the slots come back: each an [OWElement] (its own type) or [code]{"type": slug, "element": element}[/code]
+## (an absent element is an empty one). Each element is cleaned as a single write's is, and one without an id gets one
+## by its position: under [code]options.idempotency_key[/code] the id derived from the key and the position, so a retry
+## sends the same body and replays ([member BulkResult.was_replay]), else a fresh UUIDv7. [code]options.atomic[/code]
+## true asks for all or nothing (false by default, as keel's). keel answers 200 even when slots failed: read the slots.
+## Refused, nothing sent: no items, an item that is neither, one without a type, a known-of stub (named by its index).
+## Mirrors the TypeScript SDK's [code]bulk[/code].
+func bulk(items: Array, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _BULK_KEYS, "bulk")
+	if refused != "":
+		return _refused(refused)
+	if items.is_empty():
+		return _refused("bulk: needs at least one item. Nothing was sent.")
+	var key := _opt(options, "idempotency_key")
+	var sent := []
+	for i in items.size():
+		var item = items[i]
+		var where := "bulk: items[%d]" % i
+		var type := ""
+		var element: Variant = {}
+		if item is OWElement:
+			type = String(item.get_type())
+			element = item
+		elif item is Dictionary:
+			for k in item:
+				if not (k is String and (k == "type" or k == "element")):
+					return _refused(("%s: unknown key '%s'; an item is {type, element} or an OWElement. Nothing was "
+						+ "sent.") % [where, k])
+			type = item["type"] if item.get("type") is String else ""
+			element = item["element"] if item.get("element") != null else {}
+		else:
+			return _refused("%s is {type, element} or an OWElement; got %s. Nothing was sent." % [where, type_string(typeof(item))])
+		if type == "":
+			return _refused("%s needs a type. Nothing was sent." % where)
+		var body = _element_body(type, element, where)
+		if body is String:
+			return _refused(body)
+		if _no_id(body):
+			body["id"] = OWId.mint(key, i)
+		sent.append({"type": type, "element": body})
+	var r := _object(await _request("POST", "/bulk/", [],
+		{"body": {"items": sent, "atomic": options.get("atomic") == true}, "idempotency_key": key, "write": true}))
+	if not r.ok:
+		return r
+	var result := BulkResult.new()
+	result.errors = r.value.get("errors") == true
+	var rows = r.value.get("items", [])
+	if not (rows is Array):
+		return _bad(r, "POST /bulk/ answered items that are not a list")
+	for row in rows:
+		if not (row is Dictionary):
+			return _bad(r, "POST /bulk/ answered a slot that is not an object")
+		var slot := BulkSlot.new()
+		var status = row.get("status")
+		slot.status = int(status) if (status is float or status is int) else 0
+		slot.id = _text(row.get("id"))
+		slot.created_at = row.get("created_at")
+		slot.updated_at = row.get("updated_at")
+		if row.get("error") is Dictionary:
+			slot.error = OWApiError.from_response(slot.status, JSON.stringify({"error": row["error"]}), {})
+		slot.proposal = row["proposal"] if row.get("proposal") is Dictionary else null
+		result.items.append(slot)
+	var replay = r.response.header("Idempotent-Replay")
+	result.was_replay = replay is String and replay.to_lower() == "true"
+	r.value = result
+	return r
+
+## The body of an element write: a cleaned copy of [param element] (an [OWElement] of [param type], or a Dictionary),
+## or the refusal as a String.
+static func _element_body(type: String, element: Variant, where: String) -> Variant:
+	var data: Dictionary
+	if element is OWElement:
+		var own := String(element.get_type())
+		if own != "" and own != type:
+			return "%s: the element is a %s, not a %s. Nothing was sent." % [where, own, type]
+		data = element.to_dict()
+	elif element is Dictionary:
+		data = element
+	else:
+		return "%s: the element is a Dictionary or an OWElement; got %s. Nothing was sent." % [where, type_string(typeof(element))]
+	var stub = data.get("known_of")
+	if stub is bool and stub:
+		return ("%s: this body is a known-of stub (known_of: true), not the element: its empty fields are not its "
+			+ "values, and writing it would blank them. Write from a whole copy, or send only the fields you mean to "
+			+ "change. Nothing was sent.") % where
+	var body := data.duplicate(true)
+	for f in READ_ONLY_FIELDS:
+		body.erase(f)
+	var script = OWTypes.SCRIPTS.get(type)
+	for k in body:
+		if body[k] != null or not (k is String):
+			continue
+		var kind = OWElement.BASE_FIELDS[k][0] if OWElement.BASE_FIELDS.has(k) else \
+			(script.FIELDS[k][0] if script != null and script.FIELDS.has(k) else "")
+		if kind == "scalar_str":
+			body[k] = ""   # string-empty-is-unset: "" is the wire's unset, and keel has no null to store
+	return body
+
+## True when a body carries no id to keep: absent, null or "".
+static func _no_id(body: Dictionary) -> bool:
+	var id = body.get("id")
+	return id == null or (id is String and id == "")
+
+static func _element_path(type: String, id: String) -> String:
+	return "/%s/%s/" % [type, id.uri_encode()]
+
+## A reply whose value is an element, typed as [param type]'s model.
+func _element(type: String, r: Reply) -> Reply:
+	r = _object(r)
+	if r.ok:
+		r.value = OWTypes.make(type, r.value)
+	return r
+
 # -- The one request path -----------------------------------------------------------------------------------------------
 
 ## Every call's request: the credential rules, then the send, then keel's envelope on a non-2xx. [param query] is
@@ -459,8 +774,12 @@ func _changes_page(r: Reply) -> Reply:
 ## token, or no key, with [code]world=<id>[/code]), [code]account_token[/code] ([code]"world"[/code]: a route keel
 ## declares the account token on beside the world key, naming its world with [code]world=[/code]),
 ## [code]auth[/code] (false: no credential at all), [code]if_none_match[/code], [code]not_modified[/code] (a 304 is
-## answered, not an error). The value is the parsed body. The rule is the Unity SDK's
-## [code]RequestWithResponseAsync[/code] and the TypeScript SDK's [code]request()[/code].
+## answered, not an error), [code]body[/code] (sent as compact JSON with [code]Content-Type[/code]),
+## [code]idempotency_key[/code], [code]if_match[/code] (a [code]change_seq[/code], sent quoted), [code]write[/code] (an
+## element write: [code]X-OW-Client[/code], and [code]X-OW-Agent[/code] on an agent client, the operations keel's
+## document declares both on), [code]proposable[/code] (a 202 is a proposal, never the element) and
+## [code]allow_empty[/code] (an empty 2xx body answers null). The value is the parsed body. The rule is the Unity
+## SDK's [code]RequestWithResponseAsync[/code] and the TypeScript SDK's [code]request()[/code].
 func _request(method: String, path: String, query: Array, how: Dictionary = {}) -> Reply:
 	if error != "":
 		return _refused("OWClient was not built: %s Nothing was sent." % error)
@@ -498,10 +817,27 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 		var me_route := path == "/me/" or path == "/me"
 		if _api_pin != "" and (method != "GET" or me_route or key_kind == KEY_LEGACY):
 			headers["API-Pin"] = _api_pin
+	var body = how.get("body")
+	if body != null:
+		headers["Content-Type"] = "application/json"
+	var key: String = how.get("idempotency_key", "")
+	if key != "":
+		headers["Idempotency-Key"] = key
+	# Presence is the declaration, the value is never stored; opt-in, and on the element writes alone, where keel's
+	# document declares it. The client's name goes on the same writes and never on a read.
+	var write: bool = how.get("write", false)
+	if agent and write:
+		headers["X-OW-Agent"] = "1"
+	if write:
+		headers["X-OW-Client"] = client_name
 	var tag: String = how.get("if_none_match", "")
 	if tag != "":
 		headers["If-None-Match"] = tag
-	var response: OWTransport.Response = await transport.send(OWTransport.Request.make(method, url, headers))
+	var if_match = how.get("if_match")
+	if if_match != null:
+		headers["If-Match"] = "\"%d\"" % int(if_match)
+	var response: OWTransport.Response = await transport.send(
+		OWTransport.Request.make(method, url, headers, _compact(body) if body != null else null))
 	if response == null or response.failure != "":
 		var why := "no response" if response == null else response.failure
 		return Reply.failed(OWApiError.of(OWApiError.TRANSPORT, "OnlyWorlds request failed: %s %s: %s" % [method, path, why]),
@@ -510,11 +846,65 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 		return Reply.of(null, response)
 	if not response.is_success():
 		return Reply.failed(OWApiError.from_response(response.status, response.body, response.headers), response)
+	if how.get("proposable", false) and response.status == 202:
+		return Reply.failed(_proposed(response, method, path), response)
+	if how.get("allow_empty", false) and response.body.strip_edges() == "":
+		return Reply.of(null, response)
 	var json := JSON.new()
 	if response.body.strip_edges() == "" or json.parse(response.body) != OK:
 		return Reply.failed(OWApiError.of(OWApiError.ANSWER, "%s %s answered %d with a body that is not JSON"
 			% [method, path, response.status], response.status, response.body), response)
 	return Reply.of(json.data, response)
+
+## A 202 on a write that may become a proposal: kind [constant OWApiError.PROPOSED] carrying the row; a 202 whose body
+## holds none is kind [constant OWApiError.ANSWER]: never the element, never a made-up proposal.
+static func _proposed(response: OWTransport.Response, method: String, path: String) -> OWApiError:
+	var json := JSON.new()
+	var body = json.data if json.parse(response.body) == OK else null
+	var row = body.get("proposal") if body is Dictionary else null
+	if not (row is Dictionary):
+		return OWApiError.of(OWApiError.ANSWER, ("%s %s answered 202 without a proposal: the write was not applied, and "
+			+ "the answer is not an element") % [method, path], 202, response.body)
+	var e := OWApiError.of(OWApiError.PROPOSED, ("%s %s became a proposal (202): this world takes an agent seat's writes "
+		+ "as proposals, so the element did not change. error.proposal is the row; the owner or a co-builder accepts or "
+		+ "declines it.") % [method, path], 202, response.body)
+	e.proposal = row
+	return e
+
+## A JSON value as JavaScript's [code]JSON.stringify[/code] writes it, compact: keys in order, a number as
+## [method OWJson.number] writes it (an integral float as an integer: Godot reads every JSON number as a float),
+## a string escaped as [method OWJson.quote] escapes it. [method OWJson.stringify] is the folder spec's indented form.
+static func _compact(v: Variant) -> String:
+	match typeof(v):
+		TYPE_DICTIONARY:
+			var parts := PackedStringArray()
+			for k in v:
+				parts.append(OWJson.quote(str(k)) + ":" + _compact(v[k]))
+			return "{" + ",".join(parts) + "}"
+		TYPE_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT64_ARRAY:
+			var parts := PackedStringArray()
+			for x in v:
+				parts.append(_compact(x))
+			return "[" + ",".join(parts) + "]"
+		TYPE_INT:
+			return str(v)
+		TYPE_FLOAT:
+			return OWJson.number(v)
+		TYPE_BOOL:
+			return "true" if v else "false"
+		TYPE_NIL:
+			return "null"
+	return OWJson.quote(str(v))   # a String, or a value that is no JSON written as its text, as OWJson writes it
+
+## keel's rule for [code]X-OW-Client[/code], exact: lower case letters, digits and hyphens, 1 to 32 characters. Checked
+## by hand, as the Unity SDK checks it, so nothing past the name (a trailing newline) gets through.
+static func _is_client_name(s: String) -> bool:
+	if s.length() < 1 or s.length() > 32:
+		return false
+	for ch in s:
+		if not ((ch >= "a" and ch <= "z") or (ch >= "0" and ch <= "9") or ch == "-"):
+			return false
+	return true
 
 ## The account routes, [code]/account[/code] and under it, which an account token sends with or without a world.
 static func _is_account_route(path: String) -> bool:
@@ -545,10 +935,19 @@ static func _check(options: Dictionary, keys: Array, call: String) -> String:
 			"limit":
 				if not (v is int):
 					return "%s: limit is an int; got %s. Nothing was sent." % [call, type_string(typeof(v))]
-			"expand", "fields", "ids":
+			"expand", "fields", "ids", "add", "remove":
 				var names_ok: bool = v is PackedStringArray or (v is Array and v.all(func(x): return x is String))
 				if not names_ok:
 					return "%s: %s is an Array of Strings; got %s. Nothing was sent." % [call, k, var_to_str(v)]
+			"if_match":
+				# A change_seq: an int, or a whole float as Godot's JSON reads one; never negative.
+				var whole: bool = (v is int and v >= 0) or (v is float and v == floorf(v) and v >= 0.0 and v < 9007199254740992.0)
+				if not whole:
+					return ("%s: if_match is a whole number (an element's change_seq, as read); got %s. Nothing was "
+						+ "sent.") % [call, var_to_str(v)]
+			"atomic":
+				if not (v is bool):
+					return "%s: atomic is a bool; got %s. Nothing was sent." % [call, type_string(typeof(v))]
 			"filter":
 				if not (v is Dictionary):
 					return "%s: filter is a Dictionary of field name to id; got %s. Nothing was sent." % [call, type_string(typeof(v))]

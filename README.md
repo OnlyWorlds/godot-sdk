@@ -1,8 +1,8 @@
 # OnlyWorlds SDK for Godot (spike)
 
 A GDScript addon that reads OnlyWorlds world folders and `.owworld` files into typed elements, and writes them back
-in the format's own bytes; it reads an onlyworlds.com world over the API too. Godot 4.7, the standard build (no C#).
-Not released; private at `OnlyWorlds/godot-sdk`.
+in the format's own bytes; it reads and writes an onlyworlds.com world over the API too. Godot 4.7, the standard
+build (no C#). Not released; private at `OnlyWorlds/godot-sdk`.
 
 ```gdscript
 var world := OWWorld.read_folder("C:/worlds/moppetopia")
@@ -37,10 +37,11 @@ var r := await client.list_all("character")                    # r.value, or r.e
 
 ## The API client
 
-`OWClient` reads an onlyworlds.com world over keel's v2 API into the same typed models a folder gives. It reads only,
-so far: `health`, `get_world`, `me`, `members`, `list` (one page), `list_all` (every page), `get_element`, `changes`
-(a page of the change feed) and `changes_head` (its tip, conditional on the last ETag). Each returns through `await`
-and answers an `OWClient.Reply`: `value` on success, else `error`.
+`OWClient` reads an onlyworlds.com world over keel's v2 API into the same typed models a folder gives, and writes its
+elements back. The reads: `health`, `get_world`, `me`, `members`, `list` (one page), `list_all` (every page),
+`get_element`, `changes` (a page of the change feed) and `changes_head` (its tip, conditional on the last ETag). The
+writes: `create`, `upsert`, `patch`, `delete`, `edit_links` (the one way to change a link array) and `bulk`. Each
+returns through `await` and answers an `OWClient.Reply`: `value` on success, else `error`.
 
 ```gdscript
 var client := OWClient.new({"api_key": "ow_w_...", "api_pin": "1234"})   # a world key; its PIN goes on GET /me only
@@ -52,6 +53,12 @@ var aids := OWCharter.served(me)                                  # the Charter,
 var tip: OWClient.ChangesPage = (await client.changes_head()).value   # tip.unchanged: keel answered 304
 var public := OWClient.new({"world": world_id})                  # no key: a public world, as the public reads it
 var mine := OWClient.new({"api_key": "ow_a_...", "world": world_id})  # an account token reads the world it names
+
+var made := await client.create("character", {"name": "Ana"}, {"idempotency_key": key})  # the id minted from the key
+var r2 := await client.patch("character", made.value.id, {"level": 4}, {"if_match": seq})  # seq: its change_seq
+if r2.error and r2.error.is_precondition_failed(): print(r2.error.current())               # someone wrote first
+await client.edit_links("character", made.value.id, "friends", {"add": [bo_id]})
+var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true})).value     # done.failed(): the slots
 ```
 
 - **Credentials**, as the Unity and TypeScript SDKs send them: a world key (`ow_w_`, `ow_r_`, a 10-digit legacy key)
@@ -60,9 +67,19 @@ var mine := OWClient.new({"api_key": "ow_a_...", "world": world_id})  # an accou
   on the world reads with `world=<id>`. The health pulse carries no credential. Anything else a client could not
   send (`me` on an account token, the roster with no key, a world read on an account token without `world`) is
   refused before sending, and nothing is sent.
+- **Writes**: an element is an `OWElement` (its data is sent) or a Dictionary, and is never changed: the body is a
+  copy cleaned as the Unity SDK cleans it (`world`, `type`, `created_at`, `updated_at`, `change_seq` and `known_of`
+  left out; a null string field sent as `""`, the wire's one unset; `x_*` keys untouched), compact, its numbers as
+  JavaScript writes them (Godot reads every JSON number as a float; `3.0` goes as `3`). A create or a bulk item
+  without an id gets a UUIDv7 (`OWId`), or under an `idempotency_key` the id derived from the key and the position
+  (the id the Unity, TypeScript and Python clients derive), so a retry replays. Every write sends the PIN and
+  `X-OW-Client` (the config's `client`, `godot-sdk` by default), and `X-OW-Agent` when the config says `agent: true`;
+  an account token and a keyless client write nothing. Refused before sending: a known-of stub, a link array in a
+  patch (a PATCH replaces it whole: use `edit_links`), an `if_match` that is not a whole number.
 - **Errors**: one type, `OWApiError`, with a `kind`: `api` (keel's envelope: `status`, `code`, `message`, `param`,
   `doc_url`, `retry_after`), `transport` (no answer), `refused` (a caller's mistake, nothing sent: an unknown option, a
-  value of the wrong type, `world` beside a world key) and `answer` (a 2xx that is not what the route answers).
+  value of the wrong type, `world` beside a world key), `answer` (a 2xx that is not what the route answers) and
+  `proposed` (a 202: the write became a proposal, `error.proposal` is the row, the element did not change).
 - **Options** are Dictionaries, and an unknown key is refused, never dropped (a dropped filter lists everything).
 - **The cursor walk** is driven by `has_more`, never by a page's size; it stops at a page with no cursor and refuses a
   page that hands back the cursor it was sent.
@@ -70,9 +87,9 @@ var mine := OWClient.new({"api_key": "ow_a_...", "world": world_id})  # an accou
   `blocking` without yielding) by default; any `OWTransport` subclass goes in the config's `transport` (the tests use a
   fake that records each request). Inside a `SceneTree` script's `_init`, before its first frame, TLS does not start:
   await one `process_frame` first.
-- **The wire**: every request the read calls make is held to keel's document (`tests/data/keel-wire.json`, keel's
-  OpenAPI document as the Unity SDK reduces it, vendored byte for byte): every path, method, query parameter and
-  header one keel declares there; every key the models read one keel serves.
+- **The wire**: every request the read and write calls make is held to keel's document (`tests/data/keel-wire.json`,
+  keel's OpenAPI document as the Unity SDK reduces it, vendored byte for byte): every path, method, query parameter,
+  header and body key one keel declares there; every key the models and the bulk result read one keel serves.
 
 ## Layout
 
