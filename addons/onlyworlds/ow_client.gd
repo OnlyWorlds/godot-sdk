@@ -383,7 +383,7 @@ func list(type: String, options: Dictionary = {}) -> Reply:
 		query.append([field, filter[field] if filter[field] != null else ""])
 	if view_as != "":
 		query.append(["as", view_as])
-	var r := _object(await _request("GET", "/%s/" % type, query, {"world_read": true}))
+	var r := _object(await _request("GET", "/%s/" % type.uri_encode(), query, {"world_read": true}))
 	if not r.ok:
 		return r
 	var body: Dictionary = r.value
@@ -445,7 +445,7 @@ func get_element(type: String, id: String, options: Dictionary = {}) -> Reply:
 		["fields", ",".join(_names(options, "fields"))],
 		["as", _opt(options, "view_as")],
 	].filter(func(p): return p[1] != "")
-	var r := _object(await _request("GET", "/%s/%s/" % [type, id.uri_encode()], query, {"world_read": true}))
+	var r := _object(await _request("GET", "/%s/%s/" % [type.uri_encode(), id.uri_encode()], query, {"world_read": true}))
 	if r.ok:
 		r.value = OWTypes.make(type, r.value)
 	return r
@@ -572,7 +572,7 @@ func create(type: String, element: Variant, options: Dictionary = {}) -> Reply:
 	var key := _opt(options, "idempotency_key")
 	if _no_id(body):
 		body["id"] = OWId.mint(key, 0)
-	return _element(type, await _request("POST", "/%s/" % type, [], {"body": body, "idempotency_key": key, "write": true}))
+	return _element(type, await _request("POST", "/%s/" % type.uri_encode(), [], {"body": body, "idempotency_key": key, "write": true}))
 
 ## [code]PUT /{type}/{id}/[/code]: upsert by the caller's own id, creating the element under [param id] or writing it
 ## whole: the local-first write. keel's document declares no [code]Idempotency-Key[/code] or [code]If-Match[/code]
@@ -650,7 +650,7 @@ func edit_links(type: String, id: String, field: String, edit: Dictionary, optio
 	for k in _EDIT_KEYS:
 		if edit.get(k) != null:
 			body[k] = Array(_names(edit, k))
-	return _element(type, await _request("POST", "/%s/%s/links/%s" % [type, id.uri_encode(), field.uri_encode()], [],
+	return _element(type, await _request("POST", "/%s/%s/links/%s" % [type.uri_encode(), id.uri_encode(), field.uri_encode()], [],
 		{"body": body, "if_match": options.get("if_match"), "write": true, "proposable": true}))
 
 ## [code]POST /bulk/[/code]: write many elements of mixed types in one request, a [BulkResult]. [param items], in the
@@ -758,7 +758,7 @@ static func _no_id(body: Dictionary) -> bool:
 	return id == null or (id is String and id == "")
 
 static func _element_path(type: String, id: String) -> String:
-	return "/%s/%s/" % [type, id.uri_encode()]
+	return "/%s/%s/" % [type.uri_encode(), id.uri_encode()]
 
 ## A reply whose value is an element, typed as [param type]'s model.
 func _element(type: String, r: Reply) -> Reply:
