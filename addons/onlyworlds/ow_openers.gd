@@ -51,7 +51,8 @@ static func sign_in_first(name: String) -> String:
 ## The rows of the Open with menu for a world ([param kind] [code]"world"[/code]) or one element of it
 ## ([code]"element"[/code]), in order: first the site's own row (id [code]onlyworlds[/code], name
 ## [code]onlyworlds.com[/code], the world's or the element's page on www.onlyworlds.com, for every audience, its one
-## word "Needs a connection" when offline), then one row per [param tools] row, in the list's order, that is [code]listed[/code] and has a door for
+## word "You are here" when the surface's tool is [code]onlyworlds[/code] (the site itself), else "Needs a connection"
+## when offline), then one row per [param tools] row, in the list's order, that is [code]listed[/code] and has a door for
 ## this kind. [param tools] is [constant OWTools.ALL] or the list as served (its [code]tools[/code] array);
 ## [param address] is an [OWAddress.Reading] from [method OWAddress.parse_link] or a Dictionary of the parts
 ## [method OWAddress.element_address_from] takes, with the world's id. A lens and a moment on it ride on no href.
@@ -149,7 +150,7 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		return _mistake(out, "surface online is a boolean")
 
 	var site: String = page.address if kind == ELEMENT else OWAddress.element_address(OWAddress.HUMAN, world).address
-	var site_state: Variant = NEEDS_A_CONNECTION if _offline(site, online) else null
+	var site_state: Variant = YOU_ARE_HERE if tool == SITE_ID else (NEEDS_A_CONNECTION if _offline(site, online) else null)
 	out.rows.append({"id": SITE_ID, "name": SITE_NAME, "href": site, "state": site_state})
 	for r in tools:
 		if not r is Dictionary or not r.get("id") is String or not r.get("name") is String:
