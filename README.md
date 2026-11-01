@@ -171,6 +171,11 @@ test whose world is missing is skipped, never passed.
   `x_strand` names, one of its events and that event's place, the story's protagonist and where the hero is now, and
   whether then and now are one place. Only the story is required; an empty slot is null, never filled from another
   slot; a story the reader only knows of fills its own slot alone. Every case of the profile's fixture.
+- **Records** (the record profile, serial 102): `OWRecord.records_of(character_id, elements)` is a Character's
+  record of game runs, read from the world: every Event marked `x_record` whose `characters` names them, newest
+  first, each `{event, tool, played_at, version, seed, outcome, seat, stories}` with the Narratives that tell it
+  about them or by them. `OWRecord.record_mark_of(element)` reads one mark; a broken mark is no record, a proposed
+  run or story is not read. Every case of the profile's fixture (32).
 - **The front door's packet** (serial 100): `OWCharter.served(answer)` reads `reading_aids` from a `GET /me` answer
   or an agent's join answer as the server serves it for that key: the Charter, the Guide, the Domains, then the
   strand (`strand`, an `OWStrand.Strand`, six null slots when the key sees none; null from a server that sends none).
