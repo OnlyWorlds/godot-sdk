@@ -237,6 +237,24 @@ func test_one_event_one_record(t) -> void:
 		"the protagonist's story alone")
 	t.done()
 
+## npm 4.124.1's test (test/record.test.mjs): a Narrative naming an Event twice is one story of it, other values in
+## events name none, and no two records share a story (a story is a Dictionary, shared by reference unless copied per
+## record). Kills: a story per mention, a non-String entry read as a name, one story Dictionary handed to two records.
+func test_a_narrative_naming_an_event_twice_is_one_story(t) -> void:
+	var c := "019a8000-0000-7000-8000-000000000101"
+	var mk := func(id: String, at: String) -> Dictionary:
+		return {"id": id, "type": "event", "name": id, "characters": [c], "x_record": {"tool": "tangle", "played_at": at}}
+	var world := [mk.call("e1", "2026-11-02T00:00:00Z"), mk.call("e2", "2026-11-01T00:00:00Z"),
+		{"id": "n1", "type": "narrative", "name": "One", "protagonist": c, "events": ["e1", "e1", "e2"]},
+		{"id": "n2", "type": "narrative", "name": "Two", "narrator": c, "events": [7, null, {}, ["e1"], "e1"]}]
+	var got := OWRecord.records_of(c, world)
+	t.eq(got.map(func(r): return [r["event"]["id"], r["stories"].map(func(s): return "%s:%s" % [s["id"], s["as"]])]),
+		[["e1", ["n1:protagonist", "n2:narrator"]], ["e2", ["n1:protagonist"]]], "one story per Narrative and Event")
+	if got.size() == 2:
+		got[0]["stories"][0]["name"] = "planted"
+		t.eq(got[1]["stories"][0]["name"], "One", "no two records share a story")
+	t.done()
+
 ## Reading never moves the world, and what it answers is the caller's own: a changed mark, seat or entry is not the
 ## element's, nor the next reading's.
 func test_a_reading_never_moves_the_world(t) -> void:

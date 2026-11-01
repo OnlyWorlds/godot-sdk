@@ -74,6 +74,24 @@ static func record_mark_of(element: Variant) -> Variant:
 static func records_of(character_id: Variant, elements: Variant) -> Array:
 	if not (character_id is String and elements is Array):
 		return []
+	# This Character's stories, by each Event they name (once per Narrative, however often it names it; a value in
+	# events that is not a String names nothing): one pass over the world, then a lookup per record (npm 4.124.1).
+	var stories_of := {}
+	for n in elements:
+		if not (n is Dictionary and n.get("type") == "narrative" and n.get("id") is String) or _proposed(n):
+			continue
+		var p := _names(n.get("protagonist"), character_id)
+		var r := _names(n.get("narrator"), character_id)
+		if not (p or r):
+			continue
+		var story := {"id": n["id"], "name": _name(n), "as": "both" if p and r else "protagonist" if p else "narrator"}
+		var seen := {}
+		for e in _list(n.get("events")):
+			if e is String and not seen.has(e):
+				seen[e] = true
+				if not stories_of.has(e):
+					stories_of[e] = []
+				stories_of[e].append(story)
 	var keyed := []
 	for ev in elements:
 		var mark: Variant = record_mark_of(ev)
@@ -83,15 +101,8 @@ static func records_of(character_id: Variant, elements: Variant) -> Array:
 			continue
 		var id: String = ev["id"]
 		var stories := []
-		for n in elements:
-			if not (n is Dictionary and n.get("type") == "narrative" and n.get("id") is String) or _proposed(n):
-				continue
-			if not _list(n.get("events")).has(id):
-				continue
-			var p := _names(n.get("protagonist"), character_id)
-			var r := _names(n.get("narrator"), character_id)
-			if p or r:
-				stories.append({"id": n["id"], "name": _name(n), "as": "both" if p and r else "protagonist" if p else "narrator"})
+		for s in stories_of.get(id, []):
+			stories.append(s.duplicate())   # every entry is the caller's own, never shared with another record
 		stories.sort_custom(func(a, b) -> bool: return a["id"] < b["id"])   # Godot's String order is by code point
 		var seat: Variant = mark["seats"].get(character_id)
 		var entry := {"event": {"id": id, "name": _name(ev)}, "tool": mark["tool"], "played_at": mark["played_at"],
