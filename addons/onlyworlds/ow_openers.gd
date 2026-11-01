@@ -28,6 +28,12 @@ const OPENS_THE_WORLD := "Opens the world"
 ## The keys of a surface, as the fixture and the Python package spell them.
 const SURFACE_KEYS := ["tool", "audience", "signed_in", "browser", "phone", "online"]
 const _NEEDS := ["account", "device"]
+## The keys of the options, the fifth argument.
+const OPTION_KEYS := ["element"]
+## What an element door may skip ([code]open.element_skips[/code]), the lens profile's graph section's words for what a
+## lore view leaves an element out by, in its order: room, hidden, proposed, map space (a Map, Pin or Marker; a Zone is
+## content) and a reading aid.
+const ELEMENT_MARKS := ["room", "hidden", "proposed", "map_space", "reading_aid"]
 
 ## Schemes that open no app: a row whose link used one would run what it carries when pressed.
 const _NO_APP := ["javascript", "data", "vbscript", "file", "blob", "about"]
@@ -63,8 +69,12 @@ static func sign_in_first(name: String) -> String:
 ## [method OWAddress.element_address_from] takes, with the world's id. A lens and a moment on it ride on no href.
 ##
 ## A row with [code]open[/code] null, or with no door for this kind, is not there. On an element, a tool with only a
-## world door is a row to its world door that says "Opens the world". For the [code]public[/code] audience only rows
-## whose [code]open.needs[/code] is null are there: a row that needs anything does not exist for the public.
+## world door is a row to its world door that says "Opens the world". On an element given as [param options]'
+## [code]element[/code] (the element as served, the mark flat on it), a row whose [code]open.element_skips[/code] names a
+## mark the element carries ([constant ELEMENT_MARKS], each read as [method OWGraph.world_graph] reads it) is not there:
+## its door cannot open it. A world door alone opens the world, so it stays. Without [code]element[/code] every row is
+## there. For the [code]public[/code] audience only rows whose [code]open.needs[/code] is null are there: a row that
+## needs anything does not exist for the public.
 ##
 ## [param surface] is a Dictionary of what the surface knows, and nothing is guessed: [code]audience[/code]
 ## ([code]member[/code], a seat in the world, a guest included, or [code]public[/code], the signed-out reader;
@@ -87,11 +97,13 @@ static func sign_in_first(name: String) -> String:
 ## [code]bad_lens[/code]), and a slug or anything else for the world's id ([code]bad_world[/code]); and an address
 ## without a world ([code]no_world[/code]), the text form inside a world included.
 ## [member Result.message] names the rest: a [param kind] that is neither, an element's openers asked of an address
-## with no element, an unknown key on the address or the surface, a missing or unknown [code]audience[/code], a surface
-## value of the wrong type, a tools row that is not one (a [code]needs[/code] outside the list's format included, and an
-## [code]open[/code] template that does not begin with its scheme or whose scheme opens no app: [code]javascript[/code],
-## [code]data[/code], [code]vbscript[/code], [code]file[/code], [code]blob[/code] or [code]about[/code], in any case).
-static func openers_for(tools: Variant, kind: Variant, address: Variant, surface: Variant) -> Result:
+## with no element, an unknown key on the address, the surface or the options, a missing or unknown
+## [code]audience[/code], a surface value of the wrong type, an element given for a world's menu or naming another
+## element than the address, a tools row that is not one (a [code]needs[/code] or an [code]element_skips[/code] word
+## outside the list's format, or skips on a row with no element door, included, and an [code]open[/code] template that
+## does not begin with its scheme or whose scheme opens no app: [code]javascript[/code], [code]data[/code],
+## [code]vbscript[/code], [code]file[/code], [code]blob[/code] or [code]about[/code], in any case).
+static func openers_for(tools: Variant, kind: Variant, address: Variant, surface: Variant, options: Variant = {}) -> Result:
 	var out := Result.new()
 	if not tools is Array:
 		return _mistake(out, "tools is the tools list's rows, an array")
@@ -156,6 +168,23 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 	if not online is bool:
 		return _mistake(out, "surface online is a boolean")
 
+	if not options is Dictionary:
+		return _mistake(out, "the options are a Dictionary ({element})")
+	for key in options:
+		if not (key is String or key is StringName) or not OPTION_KEYS.has(String(key)):
+			return _mistake(out, "unknown key '%s' in the options. The keys are %s." % [key, ", ".join(OPTION_KEYS)])
+	var element: Variant = options.get("element")
+	var marks := []
+	if element != null:
+		if not element is Dictionary:
+			return _mistake(out, "options element is the element as served, a Dictionary, or null")
+		if kind != ELEMENT:
+			return _mistake(out, "options element is for an element's menu; a world's menu takes none")
+		var eid: Variant = element.get("id")
+		if not eid is String or eid.to_lower() != values["id"]:
+			return _mistake(out, "options element is the element the address names: its id differs")
+		marks = marks_of(element)
+
 	var site: String = page.address if kind == ELEMENT else OWAddress.element_address(OWAddress.HUMAN, world).address
 	var site_state: Variant = YOU_ARE_HERE if tool == SITE_ID else (NEEDS_A_CONNECTION if _offline(site, online) else null)
 	out.rows.append({"id": SITE_ID, "name": SITE_NAME, "href": site, "state": site_state})
@@ -179,6 +208,18 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		var needs: Variant = o.get("needs")
 		if needs != null and not (needs is String and _NEEDS.has(needs)):
 			return _mistake(out, "tool %s: open.needs is 'account', 'device' or null; got %s" % [rid, _show(needs)])
+		var skips: Variant = o.get("element_skips")
+		if skips == null:
+			skips = []
+		var words_ok: bool = skips is Array
+		if words_ok:
+			for s in skips:
+				if not (s is String and ELEMENT_MARKS.has(s)):
+					words_ok = false
+		if not words_ok:
+			return _mistake(out, "tool %s: open.element_skips is a list of %s; got %s" % [rid, ", ".join(ELEMENT_MARKS), _show(o.get("element_skips"))])
+		if element_door == null and not skips.is_empty():
+			return _mistake(out, "tool %s: open.element_skips names what an element door leaves out, and the row has none" % rid)
 		var rung: Variant = r.get("rung")
 		if not (rung is String and rung == "listed"):
 			continue
@@ -186,6 +227,9 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			continue
 		var template: Variant = world_door if kind == WORLD or element_door == null else element_door
 		if template == null:
+			continue
+		# An element door that cannot open this element is no door (a row with skips has one: refused above).
+		if kind == ELEMENT and marks.any(func(m): return skips.has(m)):
 			continue
 		# The first that holds. A word the row needs (it cannot open now) comes before "Opens the world" (it opens,
 		# somewhere else), so a world door alone that needs a sign-in says the sign-in. With no connection a web link
@@ -207,6 +251,25 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			state = OPENS_THE_WORLD
 		out.rows.append({"id": rid, "name": name, "href": href, "state": state})
 	out.ok = true
+	return out
+
+## The marks [param element] carries, in [constant ELEMENT_MARKS]' order, each read by the reader
+## [method OWGraph.world_graph] uses: [method OWLens._is_room_element], [method OWLens.is_hidden],
+## [method OWLens.is_proposed], the type folded among [constant OWGraph.MAP_SPACE], and
+## [method OWLens.is_charter_element]. [] for one a lore view keeps.
+static func marks_of(element: Dictionary) -> Array:
+	var out := []
+	if OWLens._is_room_element(element):
+		out.append("room")
+	if OWLens.is_hidden(element):
+		out.append("hidden")
+	if OWLens.is_proposed(element):
+		out.append("proposed")
+	var type: Variant = element.get("type")
+	if type is String and OWGraph.MAP_SPACE.has(OWUnicode.profile_fold(type)):
+		out.append("map_space")
+	if OWLens.is_charter_element(element):
+		out.append("reading_aid")
 	return out
 
 ## What is wrong with one open template, or "" when it is null or a good link: not a string, not beginning with its

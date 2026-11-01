@@ -8,6 +8,20 @@ the git log.
 
 ### Added
 
+- `OWOpeners.openers_for(tools, kind, address, surface, {"element": body})`: no row for a tool that cannot open the
+  element. The tools list's `open.element_skips` says what a tool's element door does not open, in the lens profile's
+  graph section's words (`OWOpeners.ELEMENT_MARKS`: `room`, `hidden`, `proposed`, `map_space`, a Map, Pin or Marker,
+  a Zone being content, and `reading_aid`). Given the element as served, a row whose door skips a mark it carries is
+  left out, each mark read by the reader `OWGraph.world_graph` uses (`OWLens._is_room_element`, `OWLens.is_hidden`,
+  new and now the lens view's own reader, `OWLens.is_proposed`, the type folded among `OWGraph.MAP_SPACE`,
+  `OWLens.is_charter_element`; `OWOpeners.marks_of`); a test holds the menu and the graph equal on every element of
+  the lens fixture's worlds. Without the element every row is there, as before. Refused by name: an unknown options
+  key, an element for a world's menu or naming another id than the address, a skip word outside the list's, and skips
+  on a row with no element door. Parity with the TypeScript SDK 4.126.0 and the Python package 0.101.0, their test
+  vector ported: the shared openers fixture at 90 cases, the same bytes. `OWTools` repinned at the tools list's
+  `6da4d55` (Little Lens skips room, hidden, proposed and map space; Atlas and Lantern none); `generate_tools.py`
+  bakes a list of words.
+
 - `OWRecord`: the record profile's reader (schema-dist `profiles/record.md`, serial 102), parity with the TypeScript
   SDK 4.124.0 and the Python package 0.100.0. `record_mark_of(element)` reads an Event's `x_record` mark
   (`{tool, played_at, version, seed, outcome, seats}`, unset members null, or null for any other shape and on any
