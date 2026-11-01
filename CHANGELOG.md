@@ -8,6 +8,15 @@ the git log.
 
 ### Added
 
+- `OWRecord`: the record profile's reader (schema-dist `profiles/record.md`, serial 102), parity with the TypeScript
+  SDK 4.124.0 and the Python package 0.100.0. `record_mark_of(element)` reads an Event's `x_record` mark
+  (`{tool, played_at, version, seed, outcome, seats}`, unset members null, or null for any other shape and on any
+  element but an Event); `records_of(character_id, elements)` reads a Character's records, newest first by
+  `played_at` as an instant to the millisecond, a tie by the Event's id in code point order, each with the stories
+  that name the Character as `protagonist`, `narrator` or `both`. Who took part is the Event's `characters` alone;
+  a run or a story still proposed is not read. `played_at` is checked by its parts (ASCII digits, the calendar's
+  month lengths and Gregorian leap years, hour, minute and second), never by a date parser. `OWRecord.MARK` is the
+  field's name. Every case of the profile's fixture (32), held by its sha256.
 - `OWClient`'s element writes: `create` (`POST /{type}/`), `upsert` (`PUT`), `patch` (`PATCH`, with `if_match`),
   `delete` (with `if_match`), `edit_links` (`POST /{type}/{id}/links/{field}` with `{add, remove}`, the one way to
   change a link array: a patch carrying one is refused) and `bulk` (`POST /bulk/`, `atomic`, a typed
@@ -45,6 +54,9 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.102`: the record profile, new (`profiles/record.md` and its 32-case fixture): a game's
+  run kept in the world its Characters live in, an Event marked `x_record`. The strand profile's ruled line moved;
+  no schema field moved, and the generated headers move with the serial.
 - Parity with the TypeScript SDK 4.123.2: `OWOpeners.openers_for` refuses a tools row whose `open.world` or
   `open.element` template does not begin with its scheme, or whose scheme (in any case) is `javascript`, `data`,
   `vbscript`, `file`, `blob` or `about`, which open no app. The refusal is a mistake with a message naming the tool
