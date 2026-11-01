@@ -45,6 +45,9 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.33.0-dist.102`: the record profile, new (`profiles/record.md` and its 32-case fixture): a game's
+  run kept in the world its Characters live in, an Event marked `x_record`. The strand profile's ruled line moved;
+  no schema field moved, and the generated headers move with the serial.
 - Parity with the TypeScript SDK 4.123.2: `OWOpeners.openers_for` refuses a tools row whose `open.world` or
   `open.element` template does not begin with its scheme, or whose scheme (in any case) is `javascript`, `data`,
   `vbscript`, `file`, `blob` or `about`, which open no app. The refusal is a mistake with a message naming the tool
