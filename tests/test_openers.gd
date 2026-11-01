@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "0cbd1de0daa3535fbf36dcd502a611c6d960db827cfe88f5045f0a1a49d65ea0"
-const CASES := 61
+const FIXTURE_SHA256 := "1e84a613a1bca3795ef7ef09bf0c3b8f7e60d2156b185441d60a10933f49a05d"
+const CASES := 65
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"

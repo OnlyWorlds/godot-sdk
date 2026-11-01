@@ -68,6 +68,9 @@ the git log.
   `create`, `upsert`, `patch`, `delete` and `edit_links` answer an `OWApiError` of kind `refused` naming the value
   (`id "..." is not one path segment. Nothing was sent.`). The server decodes an escaped slash before it routes, so
   the escape the client already applied could not hold one; what passes is still escaped.
+- The shared openers fixture is re-vendored at 65 cases, in parity with the TypeScript SDK: one refused case for each
+  scheme that opens no app (`vbscript:`, `file:`, `blob:`, `about:` beside `javascript:` and `data:`), so a reader that
+  forgot one of the six no longer passes. No reader changed; the six were already refused.
 - Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
   the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
   shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated headers move
