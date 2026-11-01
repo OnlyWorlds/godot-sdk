@@ -83,6 +83,24 @@ func test_ids_order_by_code_point(t) -> void:
 	t.eq(stories.map(func(s): return s["id"]), [low, high], "the stories, by code point")
 	t.done()
 
+## The npm SDK 4.124.2's vector (test/record.test.mjs): ties order by code point, never UTF-16. U+FF00 is below
+## U+1F600 by code point, and above it in UTF-16 (the surrogate pair starts at 0xD83D), for the Events' tie and for
+## the stories. Kills: an order by UTF-16 code unit.
+func test_ties_order_by_code_point_npm_vector(t) -> void:
+	var emoji := String.chr(0x1F600)
+	var bmp := String.chr(0xFF00)
+	var at := "2026-11-01T00:00:00Z"
+	var els := [
+		{"id": "e" + emoji, "type": "event", "name": "hi", "characters": ["c"], "x_record": {"tool": "tangle", "played_at": at}},
+		{"id": "e" + bmp, "type": "event", "name": "bmp", "characters": ["c"], "x_record": {"tool": "tangle", "played_at": at}},
+		{"id": "n" + emoji, "type": "narrative", "name": "a", "protagonist": "c", "events": ["e" + emoji]},
+		{"id": "n" + bmp, "type": "narrative", "name": "b", "protagonist": "c", "events": ["e" + emoji]}]
+	var got := OWRecord.records_of("c", els)
+	t.eq(_ids(got), ["e" + bmp, "e" + emoji], "the records, a tie by code point")
+	var stories: Array = got[1]["stories"] if got.size() == 2 else []
+	t.eq(stories.map(func(s): return s["id"]), ["n" + bmp, "n" + emoji], "the second record's stories, by code point")
+	t.done()
+
 ## played_at's digits are ASCII (RFC 3339's): Arabic-Indic and fullwidth digits are no mark, though Python's \d and
 ## int() read the first. Kills: a digit test by Unicode category.
 func test_played_at_digits_are_ascii(t) -> void:
