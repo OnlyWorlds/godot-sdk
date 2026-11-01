@@ -513,6 +513,15 @@ static func _has_mark(el: Dictionary, field: String) -> bool:
 	var v: Variant = el[field]
 	return not (v is String) or OWUnicode.trim_white_space(v) != ""
 
+## True when [param element] carries the hidden mark on its own body (folder spec §4.8): [code]hidden[/code] present
+## and not null or false, so a doubt counts as hidden. The lens and graph readers read it (with the world's hidden list
+## beside it); the npm SDK's [code]isHiddenMark[/code], the Python package's [code]folder.is_hidden[/code].
+static func is_hidden(element: Variant) -> bool:
+	if not (element is Dictionary):
+		return false
+	var mark: Variant = element.get("hidden")
+	return mark != null and not (mark is bool and mark == false)
+
 ## True when [param element] is proposed as a reader reads it (schema-dist [code]profiles/review.md[/code] rule 1,
 ## serial 87): its [code]x_review_proposed[/code] is present as a mark counts by presence, and for this mark an empty
 ## Array or Dictionary is absent too, so an empty mark ([code]""[/code], White_Space only, [code][][/code],
@@ -613,8 +622,7 @@ class View:
 			by_id[id] = el
 			type_of[id] = type
 			order.append(id)
-			var mark: Variant = el.get("hidden")
-			if mark != null and not (mark is bool and mark == false):
+			if OWLens.is_hidden(el):
 				hidden[id] = true
 			if OWLens._is_room_element(el):
 				room[id] = true

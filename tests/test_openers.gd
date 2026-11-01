@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "1e84a613a1bca3795ef7ef09bf0c3b8f7e60d2156b185441d60a10933f49a05d"
-const CASES := 65
+const FIXTURE_SHA256 := "381b3ab03bbb19187a74e830c7236306f9ba1f6128020c8855515ce7a63bb6cc"
+const CASES := 90
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -35,7 +35,9 @@ func _want(c: Dictionary) -> Dictionary:
 
 ## One case's answer in the fixture's own shape: {expect} or {refuse}.
 func _answer(c: Dictionary) -> Dictionary:
-	var r := OWOpeners.openers_for(_fixture()["lists"][c["tools"]], c["kind"], c["address"], c["surface"])
+	# The fixture's options, when present, are the fifth argument as written ({element}).
+	var r := OWOpeners.openers_for(_fixture()["lists"][c["tools"]], c["kind"], c["address"], c["surface"], c["options"]) if c.has("options") \
+		else OWOpeners.openers_for(_fixture()["lists"][c["tools"]], c["kind"], c["address"], c["surface"])
 	if r.ok:
 		return {"expect": r.rows}
 	if r.reason != "":
@@ -187,4 +189,87 @@ func test_a_template_must_begin_with_its_scheme_and_a_null_one_is_still_null(t) 
 		"open": {"world": "https://skiff.example/{world}", "element": null, "needs": null}}]
 	var ok := OWOpeners.openers_for(none, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
 	t.ok(ok.ok and ok.rows.size() == 2, "a null element template is still null")
+	t.done()
+
+# -- element_skips beside the fixture ------------------------------------------------------------------
+
+func test_the_baked_list_little_lens_skips_four_marks_atlas_and_lantern_none(t) -> void:
+	var by_id := {}
+	for row in OWTools.ALL:
+		by_id[row["id"]] = row
+	t.eq(by_id["little-lens"]["open"]["element_skips"], ["room", "hidden", "proposed", "map_space"], "Little Lens")
+	t.eq(by_id["atlas"]["open"]["element_skips"], [], "Atlas")
+	t.eq(by_id["lantern"]["open"]["element_skips"], [], "Lantern")
+	var pin := {"id": ELEMENT, "type": "pin", "name": "A pin"}
+	var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": "pin", "id": ELEMENT}, {"audience": "member"}, {"element": pin})
+	t.ok(r.ok, "read: " + r.message)
+	t.eq(r.rows.map(func(x): return x["id"]), ["onlyworlds", "atlas", "lantern"], "a Pin's menu leaves Little Lens out")
+	t.done()
+
+func test_a_skip_outside_the_words_is_refused_even_without_an_element(t) -> void:
+	for skips in [["private"], "hidden", [7]]:
+		var tools := [{"id": "thorn", "name": "Thorn", "url": "https://thorn.example", "client": null, "rung": "listed",
+			"open": {"world": "https://thorn.example/{world}", "element": "https://thorn.example/{world}/{id}", "needs": null, "element_skips": skips}}]
+		var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
+		t.ok(not r.ok and r.reason == "" and r.message.contains("tool thorn: open.element_skips"), "refused: %s gave %s" % [var_to_str(skips), r.message])
+	t.done()
+
+func test_options_that_are_not_a_dictionary_are_refused(t) -> void:
+	var r := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, {"audience": "member"}, null)
+	t.ok(not r.ok and r.message.contains("the options are a Dictionary"), "refused: " + r.message)
+	t.done()
+
+## The menu reads an element's marks as OWGraph.world_graph does: on every element of the lens fixture's worlds, a door
+## that skips one word is left out exactly when the graph reader, asked about that element alone, says it carries that
+## mark: room, hidden and proposed from a node's marks with every flag on, map space from the cut with that one flag
+## off, a reading aid from the one kind no flag brings back. An element under the world's hidden list carries
+## hidden: true, as the owner is served it. The npm SDK's openers-marks.test.mjs, ported.
+func test_every_skip_word_leaves_a_door_out_exactly_when_the_graph_reads_that_mark(t) -> void:
+	var lens: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(P.LENS))
+	var door_id := func(word: String) -> String: return "skip-" + word.replace("_", "-")
+	var tools := []
+	for word in OWOpeners.ELEMENT_MARKS:
+		tools.append({"id": door_id.call(word), "name": word, "url": "https://x.example", "client": null, "rung": "listed",
+			"open": {"world": "https://x.example/#/w/{world}", "element": "https://x.example/#/w/{world}/e/{id}", "needs": null, "element_skips": [word]}})
+	var all := {"rooms": true, "hidden": true, "proposed": true, "map_space": true}
+	var no_map := {"rooms": true, "hidden": true, "proposed": true, "map_space": false}
+	var owner := {"rung": "owner"}
+	var n := 0
+	var seen := {}
+	var wrong := []
+	for w in lens["worlds"].values():
+		var hidden: Array = w.get("hidden", []) if w.get("hidden") is Array else []
+		for raw in w["elements"]:
+			var el: Dictionary = raw.duplicate(true)
+			if hidden.has(el["id"]):
+				el["hidden"] = true
+			var full := OWGraph.world_graph({"elements": [el]}, owner, all)
+			var want := {}
+			if full.nodes.size() == 1:
+				for m in full.nodes[0].get("marks", []):
+					want[m] = true
+			var less_map := OWGraph.world_graph({"elements": [el]}, owner, no_map)
+			if full.nodes.size() == 1 and less_map.nodes.size() == 0 and less_map.cut.get("map_space") == 1:
+				want["map_space"] = true
+			if full.nodes.size() == 0 and full.cut.get("reading_aid") == 1:
+				want["reading_aid"] = true
+			seen.merge(want)
+			var r := OWOpeners.openers_for(tools, "element", {"form": "human", "world": w["id"], "type": str(el["type"]).to_lower(), "id": el["id"]},
+				{"audience": "member"}, {"element": el})
+			if not r.ok:
+				wrong.append("%s %s: refused, %s" % [w.get("name"), el.get("name"), r.message])
+				continue
+			for word in OWOpeners.ELEMENT_MARKS:
+				var gone: bool = not r.rows.any(func(x): return x["id"] == door_id.call(word))
+				if gone != want.has(word):
+					wrong.append("%s %s %s: %s %s, the graph %s" % [w.get("name"), el["type"], el.get("name", el["id"]), word,
+						"skipped" if gone else "kept", "marks it" if want.has(word) else "does not"])
+			n += 1
+	t.eq(wrong, [], "the menu and the graph agree")
+	t.ok(n >= 100, "read %d elements" % n)
+	var met: Array = seen.keys()
+	met.sort()
+	var words: Array = OWOpeners.ELEMENT_MARKS.duplicate()
+	words.sort()
+	t.eq(met, words, "every word met at least once")
 	t.done()
