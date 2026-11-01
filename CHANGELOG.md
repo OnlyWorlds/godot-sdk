@@ -68,6 +68,13 @@ the git log.
   `create`, `upsert`, `patch`, `delete` and `edit_links` answer an `OWApiError` of kind `refused` naming the value
   (`id "..." is not one path segment. Nothing was sent.`). The server decodes an escaped slash before it routes, so
   the escape the client already applied could not hold one; what passes is still escaped.
+- The shared openers fixture is re-vendored at 65 cases, in parity with the TypeScript SDK: one refused case for each
+  scheme that opens no app (`vbscript:`, `file:`, `blob:`, `about:` beside `javascript:` and `data:`), so a reader that
+  forgot one of the six no longer passes. No reader changed; the six were already refused.
+- `OWTools.ALL` carries Little Lens, in parity with the TypeScript SDK 4.123.5. The tools list is repinned at `a1573ac`
+  (from `86208c8`): Little Lens, a world as a web of its elements and links, read only, is a listed row, so
+  `OWOpeners.openers_for` offers it in the Open with menu for a world and for an element, to anyone (it needs no account).
+  No type or function changed.
 - Schema pin to `v0.33.0-dist.101`: the strand profile's Where it shows says what a reader draws. An empty slot as
   the next thing to make is a writer's rule; a surface that only reads may draw the filled slots alone, and still
   shows a half-built strand as the strand. No fixture, schema or reader rule moved; the generated headers move

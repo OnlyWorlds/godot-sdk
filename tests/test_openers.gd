@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "0cbd1de0daa3535fbf36dcd502a611c6d960db827cfe88f5045f0a1a49d65ea0"
-const CASES := 61
+const FIXTURE_SHA256 := "1e84a613a1bca3795ef7ef09bf0c3b8f7e60d2156b185441d60a10933f49a05d"
+const CASES := 65
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -95,6 +95,29 @@ func test_the_baked_list_gives_the_sites_row_then_each_listed_tool_with_a_door(t
 	var public_ids := ["onlyworlds"]
 	public_ids.append_array(offered.filter(func(x): return x["open"]["needs"] == null).map(func(x): return x["id"]))
 	t.eq(open.rows.map(func(x): return x["id"]), public_ids, "the public's rows")
+	t.done()
+
+func test_the_baked_list_has_little_lens_and_the_menu_offers_it_to_anyone(t) -> void:
+	var lens = OWTools.ALL.filter(func(x): return x["id"] == "little-lens")
+	t.eq(lens.size(), 1, "Little Lens is a row of the baked list")
+	if lens.size() == 1:
+		t.eq(lens[0]["rung"], "listed", "listed")
+		t.eq(lens[0]["open"]["needs"], null, "it needs no account")
+	var world := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, {"audience": "public"})
+	t.ok(world.ok, "read")
+	var wr: Array = world.rows.filter(func(x): return x["id"] == "little-lens")
+	t.eq(wr.size(), 1, "offered for a world")
+	if wr.size() == 1:
+		t.eq(wr[0]["href"], "https://little-lens.onlyworlds.com/#/open/" + WORLD, "the world's door")
+	var element := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}, {"audience": "public"})
+	t.ok(element.ok, "read")
+	var er: Array = element.rows.filter(func(x): return x["id"] == "little-lens")
+	t.eq(er.size(), 1, "offered for an element")
+	if er.size() == 1:
+		t.eq(er[0]["href"], "https://little-lens.onlyworlds.com/#/open/%s/element/%s" % [WORLD, ELEMENT], "the element's door")
+	t.done()
+
+func test_the_baked_list_is_the_list_at_the_pinned_commit(t) -> void:
 	t.eq(OWTools.COMMIT.length(), 40, "the pinned commit")
 	t.eq(OWTools.SHA256.length(), 64, "the list's sha256")
 	t.done()
