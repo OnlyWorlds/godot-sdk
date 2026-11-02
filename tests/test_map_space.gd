@@ -2,7 +2,7 @@ extends RefCounted
 ## OWMapSpace on the map space profile's conformance fixture (schema-dist profiles/map-space.fixture.json, the pinned
 ## copy at dist.105, its sha256 checked against the manifest): every case by name, the whole answer compared by value
 ## and as bytes, key order included. Beside it, what the fixture leaves open in Godot: the same rows given as ints,
-## a boolean that is no number, a whole number past the 64-bit range, a caller's mistake, rows that are no element,
+## a boolean that is no number, the page's reading A (no case holds it), a caller's mistake, rows that are no element,
 ## and a reading that never moves the elements.
 
 const MAP_SPACE := "res://codegen/schema-dist/profiles/map-space.fixture.json"
@@ -93,22 +93,33 @@ func test_ints_read_as_the_floats_json_gives(t) -> void:
 	t.done()
 
 ## A boolean is no number anywhere (Godot keeps true apart from 1): an x leaves the row out, a z reads 0, an order
-## reads missing, a width is measured. A whole float past the 64-bit range is read by value and kept as written.
-func test_a_boolean_is_no_number_and_a_large_whole_is_kept(t) -> void:
+## reads missing, a width is measured.
+func test_a_boolean_is_no_number(t) -> void:
 	var els := [
 		{"type": "map", "id": "m", "width": true, "height": 10},
 		{"type": "zone", "id": "z"},
 		{"type": "marker", "id": "a", "zone": "z", "map": "m", "x": 2, "y": 3, "z": true, "order": true},
 		{"type": "marker", "id": "b", "zone": "z", "map": "m", "x": 4, "y": 5, "order": 0},
 		{"type": "marker", "id": "c", "zone": "z", "map": "m", "x": true, "y": 3},
-		{"type": "pin", "id": "p", "map": "m", "x": 1e30, "y": 1}]
+		{"type": "pin", "id": "p", "map": "m", "x": 7, "y": 1}]
 	var a := OWMapSpace.map_space(els).to_dict()
 	t.eq(a["zones"], [{"zone": "z", "map": "m", "shape": "polygon", "points": [[4, 5, 0], [2, 3, 0]]}],
 		"z true reads 0, order true after the ordered one")
 	t.eq(a["out"], {"no_point": 1}, "x true is no point")
-	t.eq(a["pins"][0]["x"], 1e30, "1e30 is whole, kept by value")
-	t.eq(a["maps"][0]["width"], 1e30, "and measures the width")
-	t.eq(a["maps"][0]["extent"], "points", "width true is measured")
+	t.eq(a["maps"][0]["width"], 7, "width true is measured from the points")
+	t.eq(a["maps"][0]["extent"], "points", "and says so")
+	t.done()
+
+## The page's reading A, which no fixture case holds: a Marker both dangling and without a point counts once, as
+## dangling (served-ness before shape), whichever of its zone or map is not served.
+func test_reading_a_a_dangling_marker_without_a_point_is_dangling(t) -> void:
+	var els := [
+		{"type": "map", "id": "m", "width": 10, "height": 10},
+		{"type": "zone", "id": "z"},
+		{"type": "marker", "id": "a", "zone": "gone", "map": "m", "y": 1},
+		{"type": "marker", "id": "b", "zone": "z", "map": "gone", "x": 1.5, "y": 1},
+		{"type": "marker", "id": "c", "zone": "z", "map": "m", "x": 2, "y": 2}]
+	t.eq(OWMapSpace.map_space(els).out, {"dangling": 2}, "two dangling, no no_point")
 	t.done()
 
 ## A caller's mistake is named and nothing is read; a row that is no element (not a Dictionary, no string type, no

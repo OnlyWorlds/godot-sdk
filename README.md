@@ -22,6 +22,7 @@ var seen := OWLens.resolve(world, lens_id, {"rung": "guest", "whole": ids}, {"as
 for row in seen.rows: print(row["name"])                         # seen.cut: what was left out, by reason
 var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # nodes, edges, edges_cut
 var land := OWLanding.landing_of(g, {"heads": 5})                         # mode, size, clusters, unclustered, gaps
+var space := OWMapSpace.map_space(bodies)                                  # maps, zones, pins, out: in the Map's pixels
 
 var cal := OWCalendar.read_value(element.get(OWCalendar.FIELD))   # null: not a calendar, show bare numbers
 print(OWCalendar.format_step(cal, 1200))                           # the step in the world's words, or "1200"
@@ -175,6 +176,14 @@ test whose world is missing is skipped, never passed.
   by code point. `orphan` and `near_orphan` go by the page's own degree (`OWGraph.degree_of`: a link to itself once,
   each place in a list once), and a whole number too large to hold reads as the largest. Every case of the profile's
   fixture (33).
+- **Map space** (the map space profile, serial 105): `OWMapSpace.map_space(elements)` reads a world's Maps, Zones,
+  Markers and Pins, as the reader is served them, into `{maps, zones, pins, out}`, whole numbers in the Map's pixels:
+  each Map's frame (`width` and `height` its own, or measured from its points with `extent: "points"`; `depth`,
+  `z_max` beside it, `scale` from `x_metres_per_pixel`), each Zone's outline per Map from its Markers (by `order`, a
+  Marker without a whole order after the ordered ones, then by id; `shape` `polygon` or `line`), each Pin's point and
+  its element as both keys or neither, and what was left out by reason (`no_point`, `no_markers`, `dangling`,
+  `no_map`). `z` is an elevation, never a height, and a `z` past `depth` is kept; `2.0` is 2, a boolean is no number;
+  ids compare by code point. Every case of the profile's fixture (24).
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,

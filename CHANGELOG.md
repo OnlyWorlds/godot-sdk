@@ -8,6 +8,19 @@ the git log.
 
 ### Added
 
+- `OWMapSpace.map_space(elements)`: the map space profile's reader (schema-dist `profiles/map-space.md`, serial 105),
+  how a world's Maps, Zones, Markers and Pins, as the reader is served them, are read as geometry. The answer,
+  `OWMapSpace.MapSpace`, always holds its four parts (`to_dict()` in the profile's order): `maps` (each Map's
+  `{id, width, height, depth, z_max, scale, location, parent_map}`, a missing or non-whole `width` or `height`
+  measured from the Map's own outline and Pin points with `extent: "points"`, `scale` the Map's
+  `x_metres_per_pixel` when a positive number), `zones` (one `{zone, map, shape, points}` per Zone and Map, the
+  Markers by `order`, a Marker without a whole order after every ordered one, then by id; `shape` `polygon` or
+  `line`, anything else `polygon`), `pins` (`{pin, map, element_type, element_id, x, y, z}`, the element both keys or
+  neither) and `out` (what was left out, counted `no_point`, `no_markers`, `dangling`, `no_map`; a Marker both
+  dangling and without a point is dangling). `z` is an elevation, 0 when absent or not whole, kept past `depth`. A
+  whole number is read by value (`2.0` is 2), a boolean is no number; a row without a non-empty String id is no
+  element. Ids compare by code point. Parity with the TypeScript SDK's `mapSpace` and the Python package's
+  `map_space`; the profile's 24 cases pass by name.
 - `OWGraph.world_graph` takes `reading_aids` (the lens profile's fifth graph flag, schema-dist serial 104), a boolean,
   false by default: the reading aids (the charter, its guide and its domains, by the pair and the mark
   `x_charter_of`) come back into an unlensed graph, each node marked `reading_aid`. Any signed reader may ask it; a
