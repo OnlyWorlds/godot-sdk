@@ -101,6 +101,9 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.0-dist.106`; the standard stays at 00.34.00, no model change. The serial adds the map space
+  page's readings I to K and four rulings from the first engine ports (the fixture at 34 cases, the 24 of 105
+  unchanged).
 - Schema pin to `v0.34.0-dist.105`; the standard stays at 00.34.00, no model change. The serial adds the map space
   profile (`profiles/map-space.md`, 24 cases): how a world's Maps, Zones, Pins and what is left out are read. The
   landing page's door sentence changes words only: the landing fixture is unchanged and passes as before.

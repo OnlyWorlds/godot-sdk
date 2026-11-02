@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWMapSpace on the map space profile's conformance fixture (schema-dist profiles/map-space.fixture.json, the pinned
-## copy at dist.105, its sha256 checked against the manifest): every case by name, the whole answer compared by value
+## copy at dist.106, its sha256 checked against the manifest): every case by name, the whole answer compared by value
 ## and as bytes, key order included. Beside it, what the fixture leaves open in Godot: the same rows given as ints,
 ## a boolean that is no number, the page's reading A (no case holds it), a caller's mistake, rows that are no element,
 ## and a reading that never moves the elements.
@@ -53,11 +53,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "map-space", "the profile")
 	t.eq(f["profile_page"], "profiles/map-space.md", "its page")
-	t.eq(f["cases"].size(), 24, "24 cases")
+	t.eq(f["cases"].size(), 34, "34 cases")
 	var names := {}
 	for c in f["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 24, "each case named once")
+	t.eq(names.size(), 34, "each case named once")
 	t.done()
 
 ## Every answer holds its four keys in order, a Map row its eight (and extent only when measured), every coordinate
