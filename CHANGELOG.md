@@ -8,6 +8,17 @@ the git log.
 
 ### Added
 
+- `OWLanding.landing_of(graph, options)`: the landing profile's reader (schema-dist `profiles/landing.md`, serial
+  103), a world's first picture at a door, read from the graph `OWGraph.world_graph` answers (a `Graph`, or its
+  `to_dict()` shape), so it sees only what that reader sees. The answer, `OWLanding.Landing`, always holds its five
+  parts (`to_dict()` in the profile's order): `mode` (`gaps` under `size` nodes, `graph` at it and above), `size`,
+  `clusters` (the most-linked Characters as heads, never a known-of node, each with the nodes within `hops` steps that
+  are nearest to it, a tie to the higher-ranked head, as `{id, hops, degree}`), `unclustered` (the rest, by degree)
+  and `gaps` (orphans, near-orphans, a Character whose `location` reaches no Location, a Location no Character's
+  `location` names). Degree is `OWGraph.degree_of`'s. Options `heads` (5), `hops` (1) and `size` (24) are whole
+  numbers of 1 or more, null their default; an unknown key or any other value is refused by name, nothing read.
+  Counts are ints, ids compare by code point. Parity with the TypeScript SDK's `landingOf` and the Python package's
+  `landing_of`; the profile's 30 cases pass by name.
 - `OWOpeners.openers_for(tools, kind, address, surface, {"element": body})`: no row for a tool that cannot open the
   element. The tools list's `open.element_skips` says what a tool's element door does not open, in the lens profile's
   graph section's words (`OWOpeners.ELEMENT_MARKS`: `room`, `hidden`, `proposed`, `map_space`, a Map, Pin or Marker,

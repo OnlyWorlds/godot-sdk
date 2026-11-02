@@ -21,6 +21,7 @@ var world := {"elements": bodies, "now": 1200}                 # bodies as the o
 var seen := OWLens.resolve(world, lens_id, {"rung": "guest", "whole": ids}, {"as_of": 1195})
 for row in seen.rows: print(row["name"])                         # seen.cut: what was left out, by reason
 var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # nodes, edges, edges_cut
+var land := OWLanding.landing_of(g, {"heads": 5})                         # mode, size, clusters, unclustered, gaps
 
 var cal := OWCalendar.read_value(element.get(OWCalendar.FIELD))   # null: not a calendar, show bare numbers
 print(OWCalendar.format_step(cal, 1200))                           # the step in the world's words, or "1200"
@@ -140,11 +141,11 @@ test whose world is missing is skipped, never passed.
 - **Lenses** (the lens profile, serial 83, with its graph section): `OWLens` reads a saved way of reading a world
   (`is_lens`, `is_template`, `check_keys`, `lenses_in_use`, `resolve`, `date_of`, `is_charter_element` for the
   reading aids) and `OWGraph` the world as nodes and edges (`world_graph`, `degree_of`, `out_degree_of`), as the npm
-  and Python packages do: every case of the profile's fixture (152, the graph kind's 38 included), the room profile's
-  32, their shared edge file (15) and their shared row cases (20: a row is the body as keel serves that reader, a link
-  only to an element it sees of the field's type, a lens's notes never keyed to what it cannot see, the owner's as
-  stored). Where the platform's own reader reads otherwise, this reads as it does: nothing
-  hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
+  and Python packages do: every case of the profile's fixture (196, the graph kind's 49 and the degree kind's 5
+  included), the room profile's 32, their shared edge file (15) and their shared row cases (20: a row is the body as
+  keel serves that reader, a link only to an element it sees of the field's type, a lens's notes never keyed to what
+  it cannot see, the owner's as stored). Where the platform's own reader reads otherwise, this reads as it does:
+  nothing hops out of an element dated after `as_of`, `hops_not_served` never counts a room element or reading aid `types`
   would cut, a mark (`x_room_of`, `x_charter_of`) counts by presence, and an umbrella's union drops an element only by
   id. Ahead of the profile's next serial, its owner's rulings on readings no case decided yet: a link reaches only an
   element of its field's type (a generic pair only when its type key is one of the 22 slugs exactly as stored), an anchor id no such
@@ -161,6 +162,13 @@ test whose world is missing is skipped, never passed.
   with no node, and `codegen/generate.py` refuses a sidecar that carries one (serial 87). A JSON number
   with no fraction is whole (`7.0` reads as 7), in `x_lens` too (the owner's ruling 13); past 64 bits it is not. The
   one case that needs the text (`text_only`) is skipped, as the fixture allows; the ruling retires it.
+- **The landing** (the landing profile, serial 103): `OWLanding.landing_of(graph, options)` is a world's first picture
+  at a door, read from the graph `OWGraph.world_graph` answers (a `Graph` or its `to_dict()`), so it sees only what
+  that reader sees: `{mode, size, clusters, unclustered, gaps}`. The most-linked Characters are the heads (never a
+  known-of node), each node within `hops` joins its nearest head (a tie to the higher-ranked), and the gaps are the
+  orphans, near-orphans, a Character with no place and a Location nobody's in. `heads`, `hops` and `size` are whole
+  numbers of 1 or more (`2.0` is 2), an unknown key or a bad value refused by name; counts are ints and ids compare
+  by code point. Every case of the profile's fixture (30).
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
@@ -171,11 +179,12 @@ test whose world is missing is skipped, never passed.
   `x_strand` names, one of its events and that event's place, the story's protagonist and where the hero is now, and
   whether then and now are one place. Only the story is required; an empty slot is null, never filled from another
   slot; a story the reader only knows of fills its own slot alone. Every case of the profile's fixture.
-- **Records** (the record profile, serial 102): `OWRecord.records_of(character_id, elements)` is a Character's
+- **Records** (the record profile, serials 102 and 103): `OWRecord.records_of(character_id, elements)` is a Character's
   record of game runs, read from the world: every Event marked `x_record` whose `characters` names them, newest
   first, each `{event, tool, played_at, version, seed, outcome, seat, stories}` with the Narratives that tell it
   about them or by them. `OWRecord.record_mark_of(element)` reads one mark; a broken mark is no record, a proposed
-  run or story is not read. Every case of the profile's fixture (32).
+  run or story (as the review profile reads it: an empty mark is settled) is not read. Every case of the profile's
+  fixture (40).
 - **The front door's packet** (serial 100): `OWCharter.served(answer)` reads `reading_aids` from a `GET /me` answer
   or an agent's join answer as the server serves it for that key: the Charter, the Guide, the Domains, then the
   strand (`strand`, an `OWStrand.Strand`, six null slots when the key sees none; null from a server that sends none).
