@@ -97,7 +97,9 @@ the git log.
 - `OWLens.whole` (every profile reader's whole number) reads a float as whole only within 2^53 - 1, the range a double
   holds exactly, as the TypeScript SDK's `Number.isSafeInteger`: Godot's JSON reads every number as a float, so past
   2^53 a parse may have rounded it (`-9223372036854775809` arrived as exactly -2^63 and read as whole). An int is whole
-  at any 64-bit value. Outside every fixture's range, which stays within 2^53.
+  at any 64-bit value. Outside every fixture's range, which stays within 2^53. The TypeScript SDK 4.129.2's map space
+  vector, read from JSON text, holds it in `OWMapSpace.map_space`: 2^53 - 1 is whole, -9223372036854775809 and
+  2^53 + 1 (rounded by the parse) and 2^53 are not.
 - The Open with menu's own site row says "You are here" when the surface's `tool` is `onlyworlds` (the site itself),
   where before it said "Needs a connection" offline or nothing. Parity with the TypeScript SDK 4.123.0, the shared
   openers fixture re-vendored at 57 cases.
