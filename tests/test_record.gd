@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWRecord on the record profile's conformance fixture (schema-dist profiles/record.fixture.json, the pinned copy at
-## dist.102, its sha256 checked against the manifest): every mark case through record_mark_of and every records case
+## dist.103, its sha256 checked against the manifest): every mark case through record_mark_of and every records case
 ## through records_of, by name. Beside it, what the fixture leaves open: ids ordered by code point where UTF-16 order
 ## differs, played_at's digits ASCII and its form the whole value, the calendar's edges, the order by the instant past
 ## the fixture's pairs, each optional member's kind, a name that is not text, a caller's mistake, an element without a
@@ -46,9 +46,9 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(FileAccess.get_sha256(RECORD), manifest["profiles/record.fixture.json"], "the fixture's bytes are the dist's")
 	var f := _fixture()
 	t.eq(f["profile"], "record", "the profile")
-	t.eq(f["cases"].size(), 32, "32 cases")
-	t.eq(f["cases"].filter(func(c): return c["kind"] == "mark").size(), 25, "25 mark cases")
-	t.eq(f["cases"].filter(func(c): return c["kind"] == "records").size(), 7, "7 records cases")
+	t.eq(f["cases"].size(), 40, "40 cases")
+	t.eq(f["cases"].filter(func(c): return c["kind"] == "mark").size(), 29, "29 mark cases")
+	t.eq(f["cases"].filter(func(c): return c["kind"] == "records").size(), 11, "11 records cases")
 	t.eq(f["mark"]["field"], OWRecord.MARK, "the mark's field")
 	t.eq(f["mark"]["members"], OWRecord.MEMBERS, "the mark's members, in order")
 	t.done()
@@ -211,15 +211,21 @@ func test_an_element_without_a_string_id_is_skipped(t) -> void:
 	t.eq(got[0]["stories"] if got.size() == 1 else null, [], "no story without an id")
 	t.done()
 
-## The review mark: any value but null is proposed (false, "", 0 and {} too), on the run and on the story; absent or
-## null is settled. The type is the served "event" and "narrative" exactly, as the three readers read it.
+## The review mark as the review profile's proposedMarkOf reads it (serial 103, reader rule 1): a Dictionary with a key
+## is proposed, on the run and on the story; null, an empty mark ({}, "", White_Space only, []) and a value that is not
+## a Dictionary (false, 0, a word, a list with an entry) are settled, as the npm and Python readers read them. The type
+## is the served "event" and "narrative" exactly, as the three readers read it.
 func test_what_is_proposed_and_what_is_an_event(t) -> void:
-	for v in [false, "", 0, {}, []]:
+	for v in [{"by": "k"}, {"x": null}]:
 		t.eq(OWRecord.records_of("c", [_ev("e", "2026-11-01T00:30Z", {"x_review_proposed": v})]), [], var_to_str(v) + " on the run")
 		var story := {"id": "n", "type": "narrative", "protagonist": "c", "events": ["e"], "x_review_proposed": v}
 		var got := OWRecord.records_of("c", [_ev("e", "2026-11-01T00:30Z"), story])
 		t.eq(got[0]["stories"] if got.size() == 1 else null, [], var_to_str(v) + " on the story")
-	t.eq(_ids(OWRecord.records_of("c", [_ev("e", "2026-11-01T00:30Z", {"x_review_proposed": null})])), ["e"], "null is settled")
+	for v in [null, {}, "", " \t", [], false, 0, "yes", ["k"], true]:
+		var story := {"id": "n", "type": "narrative", "protagonist": "c", "events": ["e"], "x_review_proposed": v}
+		var got := OWRecord.records_of("c", [_ev("e", "2026-11-01T00:30Z", {"x_review_proposed": v}), story])
+		t.eq(_ids(got), ["e"], var_to_str(v) + " on the run is settled")
+		t.eq(got[0]["stories"].size() if got.size() == 1 else null, 1, var_to_str(v) + " on the story is settled")
 	t.eq(OWRecord.record_mark_of(_ev("e", "2026-11-01T00:30Z", {"type": "Event"})), null, "Event is not the served type")
 	t.eq(OWRecord.record_mark_of(_ev("e", "2026-11-01T00:30Z", {"type": "character"})), null, "a Character's mark")
 	t.done()
