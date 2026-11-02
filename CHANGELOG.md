@@ -97,7 +97,9 @@ the git log.
 - `OWLens.whole` (every profile reader's whole number) reads a float as whole only within 2^53 - 1, the range a double
   holds exactly, as the TypeScript SDK's `Number.isSafeInteger`: Godot's JSON reads every number as a float, so past
   2^53 a parse may have rounded it (`-9223372036854775809` arrived as exactly -2^63 and read as whole). An int is whole
-  at any 64-bit value. Outside every fixture's range, which stays within 2^53.
+  at any 64-bit value. Outside every fixture's range, which stays within 2^53. The TypeScript SDK 4.129.2's map space
+  vector, read from JSON text, holds it in `OWMapSpace.map_space`: 2^53 - 1 is whole, -9223372036854775809 and
+  2^53 + 1 (rounded by the parse) and 2^53 are not.
 - The Open with menu's own site row says "You are here" when the surface's `tool` is `onlyworlds` (the site itself),
   where before it said "Needs a connection" offline or nothing. Parity with the TypeScript SDK 4.123.0, the shared
   openers fixture re-vendored at 57 cases.
@@ -105,6 +107,13 @@ the git log.
 
 ### Changed
 
+- `OWOpeners.openers_for` with `audience: "public"` (the signed-out reader) now gives a row for a tool whose
+  `open.needs` is `account` (Atlas and Lantern today), its word the new `OWOpeners.NEEDS_AN_ACCOUNT`, "Needs an
+  account", whatever `signed_in` says; the href stays in the row, and a menu draws it as one that opens nothing
+  (disabled, still reachable). Before, the public saw no such row. A tool that needs the device is still not there for
+  the public. The word comes after "You are here" and "Needs a connection", and before the sign-in, browser and phone
+  words. Parity with the TypeScript SDK 4.130.0 and the Python package 0.105.0; the shared openers fixture
+  re-vendored at 92 cases (from 90), every case by name green.
 - `OWMapSpace.map_space` reads serial 106's map space page: two rows of one type with one id read as the last one
   served, Markers and Pins as Maps and Zones already were, even when the last row reads less (an unplaced Marker, a
   Pin on a Map not served); a whole value past the 64-bit int reads as not whole, as the page's platform sentence

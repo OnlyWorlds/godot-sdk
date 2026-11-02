@@ -161,7 +161,7 @@ test whose world is missing is skipped, never passed.
   is one of `colors.order`'s four words (`OWPresentation.ORDER`); a word not among them fails loudly, naming it:
   `OWPresentation.use` refuses the table and keeps the one in use, `world_graph` answers it as a caller's mistake
   with no node, and `codegen/generate.py` refuses a sidecar that carries one (serial 87). A JSON number
-  with no fraction is whole (`7.0` reads as 7), in `x_lens` too (the owner's ruling 13); past 64 bits it is not. The
+  with no fraction is whole (`7.0` reads as 7), in `x_lens` too (the owner's ruling 13); a float past 2^53 - 1 is not. The
   one case that needs the text (`text_only`) is skipped, as the fixture allows; the ruling retires it. The graph's
   flags, each a boolean, false by default: `rooms`, `hidden`, `proposed`, `map_space` and `reading_aids` (serial 104:
   the charter, its guide and its domains back into an unlensed graph, each marked `reading_aid`; any signed reader's,
@@ -183,7 +183,7 @@ test whose world is missing is skipped, never passed.
   Marker without a whole order after the ordered ones, then by id; `shape` `polygon` or `line`), each Pin's point and
   its element as both keys or neither, and what was left out by reason (`no_point`, `no_markers`, `dangling`,
   `no_map`). `z` is an elevation, never a height, and a `z` past `depth` is kept; `2.0` is 2, a boolean is no number,
-  a whole value past the 64-bit int is not whole; two rows of one type with one id read as the last one served;
+  a float past 2^53 - 1 (a value the parse may have rounded) is not whole; two rows of one type with one id read as the last one served;
   `type` and `shape` are read as written; ids compare by code point. Every case of the profile's fixture (34).
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
@@ -227,7 +227,9 @@ test whose world is missing is skipped, never passed.
   `openers_for` do: the site's page first, then each listed tool with a door for that kind in the list's order, each
   `{id, name, href, state}` with its word in sentence case or null. `OWTools.ALL` is the OnlyWorlds tools list as
   of this release (a tool listed after it is offered from the next). The surface says what the game knows and
-  nothing is guessed: `audience` (`member` or `public`), `signed_in` (null when unknown: no word), `browser` (false
+  nothing is guessed: `audience` (`member` or `public`, the signed-out reader: a tool that needs an account is a row
+  that says "Needs an account" and opens nothing, so draw it disabled; a tool that needs the device is not there),
+  `signed_in` (null when unknown: no word), `browser` (false
   in a game: an account tool says "Opens in your browser"), `phone`, `online` (false with no connection: every row
   whose link is a web address says "Needs a connection" and keeps its href), `tool` (your client name: "You are
   here"). On an element's menu, pass the element as you were served it (`{"element": body}`, a fifth argument): a

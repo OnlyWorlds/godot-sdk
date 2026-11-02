@@ -150,9 +150,10 @@ static func map_space(elements: Variant) -> MapSpace:
 			a.out[k] = out[k]
 	return a
 
-## A whole number by value, or null: an int, or a float with no fraction inside the 64-bit range ([method OWLens.whole]:
-## [code]2.0[/code] is 2, as Godot's JSON reads every number as a float). A whole value past the 64-bit range is past
-## this reader's integer range and reads as not whole, as the page says (the fixture keeps every number within 2^53).
+## A whole number by value, or null: an int, or a float with no fraction within 2^53 - 1, the range a double holds
+## exactly ([method OWLens.whole]: [code]2.0[/code] is 2, as Godot's JSON reads every number as a float). A float past
+## it may be a value the parse had to round, so it is past this reader's integer range and reads as not whole, as the
+## page says (the fixture keeps every number within 2^53).
 ## A bool, NaN, an infinity, a fraction or a string is not one.
 static func _whole(v: Variant) -> Variant:
 	return OWLens.whole(v)

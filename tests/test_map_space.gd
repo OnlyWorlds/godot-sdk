@@ -110,9 +110,9 @@ func test_a_boolean_is_no_number(t) -> void:
 	t.eq(a["maps"][0]["extent"], "points", "and says so")
 	t.done()
 
-## A whole value past Godot's 64-bit int is past this reader's integer range and reads as not whole (the page's
-## platform sentence, serial 106; the fixture keeps every number within 2^53, so no case holds it): as x it leaves the
-## row out, as z it reads 0, as order it reads missing, as width the width is measured.
+## A whole value past this reader's integer range, the range a double holds exactly (2^53 - 1), reads as not whole
+## (the page's platform sentence, serial 106; the fixture keeps every number within 2^53, so no case holds it): as x it
+## leaves the row out, as z it reads 0, as order it reads missing, as width the width is measured.
 func test_a_whole_value_past_the_int_range_is_not_whole(t) -> void:
 	var els := [
 		{"type": "map", "id": "m", "width": 1e30, "height": 10},
@@ -129,6 +129,28 @@ func test_a_whole_value_past_the_int_range_is_not_whole(t) -> void:
 	t.eq(a["maps"][0]["width"], 7, "width 1e30 is measured from the points")
 	t.eq(a["maps"][0]["extent"], "points", "and says so")
 	t.eq(a["maps"][0]["z_max"], 0, "no z past the range is kept")
+	t.done()
+
+## The TypeScript SDK 4.129.2's vector (test/map-space.test.mjs), read from JSON text, as a reader is served it: a
+## number the parse had to round is not whole; a reader holds whole numbers only where a double holds them exactly.
+## -9223372036854775809 parses to exactly -2^63, 2^53 + 1 to 2^53; 2^53 - 1 is the largest a double holds exactly.
+func test_a_number_the_parse_had_to_round_is_not_whole(t) -> void:
+	var elements: Variant = JSON.parse_string("""[
+		{"type": "map", "id": "m", "width": 10, "height": 10},
+		{"type": "zone", "id": "z"},
+		{"type": "marker", "id": "k1", "map": "m", "zone": "z", "x": 1, "y": 1, "z": 9007199254740991},
+		{"type": "marker", "id": "k2", "map": "m", "zone": "z", "x": -9223372036854775809, "y": 2},
+		{"type": "marker", "id": "k3", "map": "m", "zone": "z", "x": 3, "y": 3, "z": 9007199254740993},
+		{"type": "pin", "id": "p1", "map": "m", "x": 9007199254740992, "y": 1}
+	]""")
+	t.ok(elements is Array and elements.size() == 6, "the text parses")
+	var a := OWMapSpace.map_space(elements).to_dict()
+	# k2's x and p1's x are past 2^53 - 1: no point. k3's z is past it: read as 0, as any z that is not a whole
+	# number, and the point stays placed.
+	t.eq(a["zones"], [{"zone": "z", "map": "m", "shape": "polygon", "points": [[1, 1, 9007199254740991], [3, 3, 0]]}], "the zone")
+	t.eq(a["pins"], [], "no pin")
+	t.eq(a["out"], {"no_point": 2}, "two without a point")
+	t.eq(a["maps"][0]["z_max"], 9007199254740991, "2^53 - 1 is whole")
 	t.done()
 
 ## The page's reading A (the fixture's marker-dangling-before-no-point since serial 106): a Marker both dangling and
