@@ -1,8 +1,8 @@
 extends RefCounted
 ## OWGraph on the lens fixture's graph kind (schema-dist profiles/lens.fixture.json at dist.84, the pinned copy): each
-## of the 37 cases carries its own small world, reader and options, and the want (nodes in order with their marks,
+## of its cases carries its own small world, reader and options, and the want (nodes in order with their marks,
 ## edges in order, edges_cut, the lens's cut and unreadable, or refused naming a flag). Then the profile's graph tables
-## held to the fixture and the presentation defaults, degree_of and out_degree_of.
+## held to the fixture and the presentation defaults, degree_of and out_degree_of, and the degree kind's cases.
 
 const P = preload("res://tests/paths.gd")
 
@@ -18,7 +18,24 @@ func get_cases() -> Array:
 	for c in _fixture()["cases"]:
 		if c["kind"] == "graph":
 			out.append(["graph:" + c["name"], _case.bind(c)])
+		elif c["kind"] == "degree":
+			out.append(["degree:" + c["name"], _degree.bind(c)])
 	return out
+
+## The degree kind (serial 103): a small graph as world_graph gives it, and both counts, every node a key in the
+## graph's node order.
+func _degree(t, c: Dictionary) -> void:
+	var g := OWGraph.Graph.new()
+	g.nodes = c["graph"]["nodes"]
+	g.edges = c["graph"]["edges"]
+	var want: Dictionary = _ints(c["want"])
+	var d := OWGraph.degree_of(g)
+	var out := OWGraph.out_degree_of(g)
+	t.eq(d, want["degree"], "degree")
+	t.eq(out, want["out_degree"], "out_degree")
+	t.eq(d.keys(), want["degree"].keys(), "degree's keys in the node order")
+	t.eq(out.keys(), want["out_degree"].keys(), "out_degree's keys in the node order")
+	t.done()
 
 static func _ints(v: Variant) -> Variant:
 	match typeof(v):
