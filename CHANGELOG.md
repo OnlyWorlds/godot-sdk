@@ -68,6 +68,11 @@ the git log.
 
 ### Changed
 
+- `OWGraph.world_graph` without a lens takes about a second less on a large world: the lens view builds its reverse
+  link index (who links to each element) on the first lens reading that asks for it, not in its constructor. Over a
+  world of 20,570 elements (8,896 nodes, 32,215 edges), one read went from 2.6 to 3.6 s to 1.0 to 2.4 s (headless
+  Godot 4.7.2, two alternating rounds of five). No answer changes: the index is built in the same order as before,
+  and the suite is unchanged (1,184 passed, 4 skipped). The same change as the Unity SDK's 0.31.0.
 - Schema pin to `v0.33.0-dist.102`: the record profile, new (`profiles/record.md` and its 32-case fixture): a game's
   run kept in the world its Characters live in, an Event marked `x_record`. The strand profile's ruled line moved;
   no schema field moved, and the generated headers move with the serial.

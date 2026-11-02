@@ -605,6 +605,7 @@ class View:
 	var _full := {}
 	var _in_view := {}
 	var _in_full := {}
+	var _reverse_built := false
 
 	func _init(world: Dictionary, reader: Dictionary, p_as_of: Variant) -> void:
 		var listed_hidden: Variant = world.get("hidden")
@@ -662,6 +663,14 @@ class View:
 				scoped[id] = true
 		members = world["members"] if world.get("members") is Array else null
 		as_of = p_as_of
+
+	## Who links to each element, in the view and in the whole world, built on the first ask: only a lens reading
+	## ([method reach], [method unseen]) reads it, never a graph reading without a lens. The same order as when it was
+	## built in the constructor.
+	func _ensure_reverse() -> void:
+		if _reverse_built:
+			return
+		_reverse_built = true
 		for id in order:
 			for t in full_links(id):
 				if by_id.has(t):
@@ -851,6 +860,7 @@ class View:
 	## Relation's parties: [reached (an ordered set), the Relations crossed]. Nothing hops out of a stub or a room
 	## element, nor out of an element [param stops] names.
 	func reach(from: Array, excluded: Callable, stops: Callable = Callable()) -> Array:
+		_ensure_reverse()
 		var landed := {}
 		for f in from:
 			if stubs.has(f) or room.has(f) or (stops.is_valid() and stops.call(f)):
@@ -874,6 +884,7 @@ class View:
 
 	## What one hop from [param from] would reach in the owner's world that this reader's view leaves out.
 	func unseen(from: Array, landed_relations: Array, excluded: Callable) -> Array:
+		_ensure_reverse()
 		var out := {}
 		for f in from:
 			if stubs.has(f) or room.has(f):
