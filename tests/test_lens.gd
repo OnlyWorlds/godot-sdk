@@ -114,7 +114,8 @@ func test_profile_fold_is_trim_and_simple_fold(t) -> void:
 	t.eq(OWUnicode.profile_fold("ẞ"), "ß", "capital sharp s folds to sharp s (S row), never ss (F row)")
 	t.done()
 
-## A whole number: an int, or a float with no fraction inside 64 bits. Godot's JSON reads 7 as 7.0.
+## A whole number: an int, or a float with no fraction that a double holds exactly (within 2^53 - 1, JavaScript's
+## isSafeInteger). Godot's JSON reads every number as a float, so past 2^53 a parse may have rounded it.
 func test_whole(t) -> void:
 	t.eq(OWLens.whole(7), 7, "an int")
 	t.eq(OWLens.whole(7.0), 7, "7.0 is whole")
@@ -124,7 +125,14 @@ func test_whole(t) -> void:
 	t.eq(OWLens.whole(JSON.parse_string("[7.0]")[0]), 7, "a JSON 7.0")
 	for v in [1.5, NAN, INF, -INF, 9223372036854775808.0, -9223372036854775808.0 * 2.0, 1e300, true, false, "12", null, [3], {"year": 3}]:
 		t.eq(OWLens.whole(v), null, "not whole: %s" % var_to_str(v))
-	t.eq(OWLens.whole(-9223372036854775808.0), -9223372036854775807 - 1, "-2^63 is the last 64-bit whole number")
+	# float(int), not a float literal: GDScript's parser reads the literal 9007199254740991.0 as ...990 (Godot 4.7.2).
+	t.eq(OWLens.whole(float(9007199254740991)), 9007199254740991, "2^53 - 1 is the last float a double holds exactly")
+	t.eq(OWLens.whole(float(-9007199254740991)), -9007199254740991, "and its negative")
+	for v in [float(9007199254740992), float(-9007199254740992), -9223372036854775808.0]:
+		t.eq(OWLens.whole(v), null, "past 2^53 - 1 a float is not whole: %s" % var_to_str(v))
+	for s in ["-9223372036854775809", "9223372036854775807", "9007199254740993"]:
+		t.eq(OWLens.whole(JSON.parse_string("[" + s + "]")[0]), null, "a JSON %s, rounded by the parse, is not whole" % s)
+	t.eq(OWLens.whole(9223372036854775807), 9223372036854775807, "an int is exact at any 64-bit value")
 	t.done()
 
 # -- the date table and date_of (the npm SDK 4.96.0's DATE_FIELD and dateOf, the Python package 0.79.0's date_of) ----

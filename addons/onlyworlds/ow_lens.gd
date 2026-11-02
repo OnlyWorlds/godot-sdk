@@ -63,7 +63,7 @@ const MAIL_DAYS := 30
 const _UNDATED := ["include", "exclude"]
 const _SHOW := ["full", "first_line", "name"]
 const _MAIL := ["unread_full_read_titles", "all", "none"]
-const _I64_EDGE := 9223372036854775808.0   # 2^63: a float at or past it (or below -2^63) is no 64-bit whole number
+const _SAFE_MAX := 9007199254740991   # 2^53 - 1, an int (GDScript reads the float literal 9007199254740991.0 as ...990): past it a double may hold a rounded value
 
 ## The date table: each dated type's date field. The ten types not in it are timeless and never fenced. The fence,
 ## [code]undated[/code], [code]window[/code], [code]from[/code] and [code]to[/code] all read it, and so does
@@ -1057,14 +1057,15 @@ static func lenses_in_use(membership: Variant, x_lens_uses: Variant) -> PackedSt
 			out.append(String(id))
 	return out
 
-## A whole number as an int, or null: an int, or a float with no fraction, not NaN or infinite, inside the 64-bit
-## range (7.0 reads as 7, as JavaScript and Python read it). A boolean, a string or anything else is not.
+## A whole number as an int, or null: an int, or a float with no fraction, not NaN or infinite, that a double holds
+## exactly (within 2^53 - 1, as JavaScript's isSafeInteger; Godot's JSON reads every number as a float, and past 2^53 a
+## parse may have rounded it). 7.0 reads as 7, as JavaScript and Python read it. A boolean, a string or anything else is not.
 static func whole(v: Variant) -> Variant:
 	match typeof(v):
 		TYPE_INT:
 			return v
 		TYPE_FLOAT:
-			if is_nan(v) or is_inf(v) or floor(v) != v or v >= _I64_EDGE or v < -_I64_EDGE:
+			if is_nan(v) or is_inf(v) or floor(v) != v or absf(v) > _SAFE_MAX:
 				return null
 			return int(v)
 	return null
