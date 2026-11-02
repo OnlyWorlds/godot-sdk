@@ -227,7 +227,9 @@ test whose world is missing is skipped, never passed.
   `openers_for` do: the site's page first, then each listed tool with a door for that kind in the list's order, each
   `{id, name, href, state}` with its word in sentence case or null. `OWTools.ALL` is the OnlyWorlds tools list as
   of this release (a tool listed after it is offered from the next). The surface says what the game knows and
-  nothing is guessed: `audience` (`member` or `public`), `signed_in` (null when unknown: no word), `browser` (false
+  nothing is guessed: `audience` (`member` or `public`, the signed-out reader: a tool that needs an account is a row
+  that says "Needs an account" and opens nothing, so draw it disabled; a tool that needs the device is not there),
+  `signed_in` (null when unknown: no word), `browser` (false
   in a game: an account tool says "Opens in your browser"), `phone`, `online` (false with no connection: every row
   whose link is a web address says "Needs a connection" and keeps its href), `tool` (your client name: "You are
   here"). On an element's menu, pass the element as you were served it (`{"element": body}`, a fifth argument): a

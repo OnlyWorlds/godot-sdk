@@ -21,6 +21,9 @@ const SITE_NAME := "onlyworlds.com"
 ## The words a row says, sentence case, exactly; "Sign in to <name> first" is [method sign_in_first].
 const YOU_ARE_HERE := "You are here"
 const NEEDS_A_CONNECTION := "Needs a connection"
+## The public's word on a row that needs an account: a signed-out visitor has no seat in the world, so the row opens
+## nothing (a menu draws it as it draws a row that needs a connection: disabled, still reachable).
+const NEEDS_AN_ACCOUNT := "Needs an account"
 const OPENS_IN_YOUR_BROWSER := "Opens in your browser"
 const NEEDS_THE_WORLD_ON_THIS_PHONE := "Needs the world on this phone"
 const OPENS_THE_WORLD := "Opens the world"
@@ -73,8 +76,9 @@ static func sign_in_first(name: String) -> String:
 ## [code]element[/code] (the element as served, the mark flat on it), a row whose [code]open.element_skips[/code] names a
 ## mark the element carries ([constant ELEMENT_MARKS], each read as [method OWGraph.world_graph] reads it) is not there:
 ## its door cannot open it. A world door alone opens the world, so it stays. Without [code]element[/code] every row is
-## there. For the [code]public[/code] audience only rows whose [code]open.needs[/code] is null are there: a row that
-## needs anything does not exist for the public.
+## there. For the [code]public[/code] audience (the signed-out reader) a row whose [code]open.needs[/code] is
+## [code]device[/code] is not there, since a visitor's device holds no world of this one's, and a row whose
+## [code]needs[/code] is [code]account[/code] is there and says it needs one.
 ##
 ## [param surface] is a Dictionary of what the surface knows, and nothing is guessed: [code]audience[/code]
 ## ([code]member[/code], a seat in the world, a guest included, or [code]public[/code], the signed-out reader;
@@ -86,8 +90,10 @@ static func sign_in_first(name: String) -> String:
 ## Each row's [code]state[/code], the first that holds: "You are here" for the surface's own tool (its
 ## [code]client[/code] is [code]tool[/code]); then, when [code]online[/code] is false, "Needs a connection" for a row
 ## whose href is a web address (scheme [code]http:[/code] or [code]https:[/code]; a row whose link opens an app on the
-## device is unaffected, and the href stays in the row either way); then what [code]needs[/code] asks of this
-## surface: [code]account[/code] outside a browser "Opens in your browser", in a browser signed out "Sign in to <name>
+## device is unaffected, and the href stays in the row either way); then, for the [code]public[/code] audience,
+## "Needs an account" ([constant NEEDS_AN_ACCOUNT]) for a row whose [code]needs[/code] is [code]account[/code], whatever
+## [code]signed_in[/code] says (the href stays in the row; a menu draws it as a row that opens nothing); then what
+## [code]needs[/code] asks of this surface: [code]account[/code] outside a browser "Opens in your browser", in a browser signed out "Sign in to <name>
 ## first" (none when [code]signed_in[/code] is null: a word shows only when the surface knows it is true),
 ## [code]device[/code] on a phone "Needs the world on this phone"; then "Opens the world" (a world door on an element:
 ## a sign-in the row needs is the more urgent word); else null.
@@ -223,7 +229,7 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		var rung: Variant = r.get("rung")
 		if not (rung is String and rung == "listed"):
 			continue
-		if audience == PUBLIC and needs != null:
+		if audience == PUBLIC and needs == "device":
 			continue
 		var template: Variant = world_door if kind == WORLD or element_door == null else element_door
 		if template == null:
@@ -241,6 +247,8 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			state = YOU_ARE_HERE
 		elif _offline(href, online):
 			state = NEEDS_A_CONNECTION
+		elif audience == PUBLIC and needs == "account":
+			state = NEEDS_AN_ACCOUNT
 		elif needs == "account" and not browser:
 			state = OPENS_IN_YOUR_BROWSER
 		elif needs == "account" and signed_in is bool and signed_in == false:

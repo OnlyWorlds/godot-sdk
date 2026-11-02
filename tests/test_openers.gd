@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "381b3ab03bbb19187a74e830c7236306f9ba1f6128020c8855515ce7a63bb6cc"
-const CASES := 90
+const FIXTURE_SHA256 := "b5c6afb76bf1ab2b95ee50641e2fd36344320d12fe0fd293d4f09fcf8cde7027"
+const CASES := 92
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -94,9 +94,37 @@ func test_the_baked_list_gives_the_sites_row_then_each_listed_tool_with_a_door(t
 		var href: String = row["href"]
 		t.ok(href.begins_with("https://") and href.contains(WORLD) and not href.contains("{"), href)
 	var open := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, {"audience": "public"})
+	# The public: a tool that needs the device is not there; one that needs an account says so.
+	var shown := offered.filter(func(x): return x["open"]["needs"] != "device")
 	var public_ids := ["onlyworlds"]
-	public_ids.append_array(offered.filter(func(x): return x["open"]["needs"] == null).map(func(x): return x["id"]))
+	public_ids.append_array(shown.map(func(x): return x["id"]))
 	t.eq(open.rows.map(func(x): return x["id"]), public_ids, "the public's rows")
+	for row in open.rows.slice(1):
+		var needs: Variant = OWTools.ALL.filter(func(x): return x["id"] == row["id"])[0]["open"]["needs"]
+		t.eq(row["state"], OWOpeners.NEEDS_AN_ACCOUNT if needs == "account" else null, row["id"])
+	t.done()
+
+func test_a_visitor_sees_atlas_and_lantern_saying_needs_an_account_whatever_signed_in_says(t) -> void:
+	var address := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
+	var want := [["onlyworlds", null], ["atlas", OWOpeners.NEEDS_AN_ACCOUNT], ["lantern", OWOpeners.NEEDS_AN_ACCOUNT], ["little-lens", null]]
+	for signed_in in [null, false, true]:
+		for browser in [true, false]:
+			var r := OWOpeners.openers_for(OWTools.ALL, "element", address, {"audience": "public", "signed_in": signed_in, "browser": browser})
+			t.ok(r.ok, "read: " + r.message)
+			t.eq(r.rows.map(func(x): return [x["id"], x["state"]]), want, "signed_in %s, browser %s" % [signed_in, browser])
+			for row in r.rows:
+				t.ok(row["href"].begins_with("https://"), "the href stays: %s" % row["id"])
+	t.done()
+
+func test_a_visitor_never_sees_a_tool_that_needs_the_device(t) -> void:
+	var tools := [{"id": "keep", "name": "Keep", "url": "https://keep.example", "client": "keep", "rung": "listed",
+		"open": {"world": "keep://open/{world}", "element": null, "needs": "device"}}]
+	var address := {"form": "human", "world": WORLD}
+	var visitor := OWOpeners.openers_for(tools, "world", address, {"audience": "public", "phone": true})
+	t.ok(visitor.ok, "read: " + visitor.message)
+	t.eq(visitor.rows.map(func(x): return x["id"]), ["onlyworlds"], "the device row is not there")
+	var member := OWOpeners.openers_for(tools, "world", address, {"audience": "member", "phone": true})
+	t.eq(member.rows.map(func(x): return [x["id"], x["state"]]), [["onlyworlds", null], ["keep", OWOpeners.NEEDS_THE_WORLD_ON_THIS_PHONE]], "a member's")
 	t.done()
 
 func test_the_baked_list_has_little_lens_and_the_menu_offers_it_to_anyone(t) -> void:
