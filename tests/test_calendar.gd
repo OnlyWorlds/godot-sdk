@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCalendar on the calendar profile's conformance fixture (schema-dist profiles/calendar.fixture.json, the pinned copy
-## at dist.102, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
+## at dist.103, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
 ## calendar's every step read to the fixture's words and breakdown; then what the fixture leaves open, as the profile's
 ## text and the npm and Python packages answer it, and where Godot's one number type could change an answer.
 

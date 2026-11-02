@@ -68,6 +68,10 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.0-dist.103`, the standard at 00.34.00: `OWLocation` gains `vehicle`, a single link to the
+  Object a place is the inside of (a ship, a train, a walking city), generated. The serial adds the landing profile
+  (`profiles/landing.md`, 30 cases), cases degree and out-degree on the lens profile's graph section (the lens
+  fixture at 196 cases), and seven readings on the record profile (its fixture at 40 cases).
 - `OWGraph.world_graph` without a lens takes about a second less on a large world: the lens view builds its reverse
   link index (who links to each element) on the first lens reading that asks for it, not in its constructor. Over a
   world of 20,570 elements (8,896 nodes, 32,215 edges), one read went from 2.6 to 3.6 s to 1.0 to 2.4 s (headless

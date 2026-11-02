@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWRecord on the record profile's conformance fixture (schema-dist profiles/record.fixture.json, the pinned copy at
-## dist.102, its sha256 checked against the manifest): every mark case through record_mark_of and every records case
+## dist.103, its sha256 checked against the manifest): every mark case through record_mark_of and every records case
 ## through records_of, by name. Beside it, what the fixture leaves open: ids ordered by code point where UTF-16 order
 ## differs, played_at's digits ASCII and its form the whole value, the calendar's edges, the order by the instant past
 ## the fixture's pairs, each optional member's kind, a name that is not text, a caller's mistake, an element without a
@@ -46,9 +46,9 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(FileAccess.get_sha256(RECORD), manifest["profiles/record.fixture.json"], "the fixture's bytes are the dist's")
 	var f := _fixture()
 	t.eq(f["profile"], "record", "the profile")
-	t.eq(f["cases"].size(), 32, "32 cases")
-	t.eq(f["cases"].filter(func(c): return c["kind"] == "mark").size(), 25, "25 mark cases")
-	t.eq(f["cases"].filter(func(c): return c["kind"] == "records").size(), 7, "7 records cases")
+	t.eq(f["cases"].size(), 40, "40 cases")
+	t.eq(f["cases"].filter(func(c): return c["kind"] == "mark").size(), 29, "29 mark cases")
+	t.eq(f["cases"].filter(func(c): return c["kind"] == "records").size(), 11, "11 records cases")
 	t.eq(f["mark"]["field"], OWRecord.MARK, "the mark's field")
 	t.eq(f["mark"]["members"], OWRecord.MEMBERS, "the mark's members, in order")
 	t.done()
