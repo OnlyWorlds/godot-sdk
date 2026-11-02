@@ -80,6 +80,10 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.0-dist.104`; the standard stays at 00.34.00, no model change. The serial adds the lens
+  profile's `reading_aids` graph flag (five cases; the lens fixture at 201) and two landing rulings, `orphan` and
+  `near_orphan` by the page's own degree and a `heads` past the reader's range read as the largest (three cases, the
+  landing fixture at 33). `OWLanding` already read both: the three cases pass with no reader change.
 - Schema pin to `v0.34.0-dist.103`, the standard at 00.34.00: `OWLocation` gains `vehicle`, a single link to the
   Object a place is the inside of (a ship, a train, a walking city), generated. The serial adds the landing profile
   (`profiles/landing.md`, 30 cases), cases degree and out-degree on the lens profile's graph section (the lens
