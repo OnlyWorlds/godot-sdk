@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWLanding on the landing profile's conformance fixture (schema-dist profiles/landing.fixture.json, the pinned copy at
-## dist.105, its sha256 checked against the manifest): every case by name, the keys its want holds compared value and
+## dist.106, its sha256 checked against the manifest): every case by name, the keys its want holds compared value and
 ## key order, a whole case the entire answer, a refusal naming its option. Beside it, what the fixture leaves open: the
 ## five keys always there in order, every node in one place, the graph world_graph answers read as its Dictionary is,
 ## Godot's float options, a caller's mistake, and a reading that never moves the graph.

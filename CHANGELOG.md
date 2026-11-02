@@ -19,8 +19,8 @@ the git log.
   neither) and `out` (what was left out, counted `no_point`, `no_markers`, `dangling`, `no_map`; a Marker both
   dangling and without a point is dangling). `z` is an elevation, 0 when absent or not whole, kept past `depth`. A
   whole number is read by value (`2.0` is 2), a boolean is no number; a row without a non-empty String id is no
-  element. Ids compare by code point. Parity with the TypeScript SDK's `mapSpace` and the Python package's
-  `map_space`; the profile's 24 cases pass by name.
+  element. Ids compare by code point. Parity with the TypeScript SDK 4.129.1's `mapSpace` and the Python package
+  0.104.1's `map_space`; the profile's 34 cases pass by name (serial 106's readings below, under Changed).
 - `OWGraph.world_graph` takes `reading_aids` (the lens profile's fifth graph flag, schema-dist serial 104), a boolean,
   false by default: the reading aids (the charter, its guide and its domains, by the pair and the mark
   `x_charter_of`) come back into an unlensed graph, each node marked `reading_aid`. Any signed reader may ask it; a
@@ -101,6 +101,16 @@ the git log.
 
 ### Changed
 
+- `OWMapSpace.map_space` reads serial 106's map space page: two rows of one type with one id read as the last one
+  served, Markers and Pins as Maps and Zones already were, even when the last row reads less (an unplaced Marker, a
+  Pin on a Map not served); a whole value past the 64-bit int reads as not whole, as the page's platform sentence
+  says (before, a whole float past it was kept as written). The other new readings (a frame measured from placed
+  points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
+  served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
+  4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.106`; the standard stays at 00.34.00, no model change. The serial adds the map space
+  page's readings I to K and four rulings from the first engine ports (the fixture at 34 cases, the 24 of 105
+  unchanged).
 - Schema pin to `v0.34.0-dist.105`; the standard stays at 00.34.00, no model change. The serial adds the map space
   profile (`profiles/map-space.md`, 24 cases): how a world's Maps, Zones, Pins and what is left out are read. The
   landing page's door sentence changes words only: the landing fixture is unchanged and passes as before.

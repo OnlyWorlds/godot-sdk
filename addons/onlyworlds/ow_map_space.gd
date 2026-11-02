@@ -1,6 +1,6 @@
 class_name OWMapSpace
 extends RefCounted
-## The map space profile (schema-dist [code]profiles/map-space.md[/code], serial 105): how a reader turns a world's
+## The map space profile (schema-dist [code]profiles/map-space.md[/code], serial 106): how a reader turns a world's
 ## Maps, Zones, Markers and Pins into geometry, a Map's frame, a Zone's outline from its Markers, a Pin's point. It
 ## adds nothing to the world: structure and coordinates in the Map's own pixels; looks, cameras, walls, doors and units
 ## are a drawing tool's. The npm SDK's [code]mapSpace[/code] and the Python package's [code]map_space[/code], ported;
@@ -46,28 +46,32 @@ class MapSpace:
 ## [code]width[/code] or [code]height[/code] that is not whole is the largest x or y among its own outline and Pin
 ## points ([code]extent: "points"[/code]); [code]z_max[/code] is their largest z, kept past [code]depth[/code];
 ## [code]scale[/code] is [code]x_metres_per_pixel[/code] when a positive number, as given. A row without a non-empty
-## String id or a String type is no element: ignored, never counted. Ids compare by code point (Godot's String
-## order), so the same elements give the same answer.
+## String id or a String type is no element: ignored, never counted; two rows of one type with one id read as the last
+## one served, even when it reads less. [code]type[/code] and [code]shape[/code] are read as written
+## ([code]Map[/code] is no Map, [code]Line[/code] a polygon). Ids compare by code point (Godot's String order), so
+## the same elements give the same answer.
 static func map_space(elements: Variant) -> MapSpace:
 	var a := MapSpace.new()
 	if not elements is Array:
 		a.error = "map_space: elements is an Array of element Dictionaries; got %s" % var_to_str(elements)
 		return a
-	var by_type := {}
+	# One row per id within a type, the last served (reading I): an element is its id. The type is read as written
+	# (reading K: "Map" is no Map).
+	var by_type := {}   # type -> {id -> row}
 	for e in elements:
 		# A row without a non-empty String id is no element: ignored, never counted.
 		if not (e is Dictionary and e.get("type") is String and _id_of(e.get("id")) != null):
 			continue
 		if not by_type.has(e["type"]):
-			by_type[e["type"]] = []
-		by_type[e["type"]].append(e)
-	var maps := _indexed(by_type.get("map", []))
-	var zones := _indexed(by_type.get("zone", []))
+			by_type[e["type"]] = {}
+		by_type[e["type"]][_id_of(e["id"])] = e
+	var maps: Dictionary = by_type.get("map", {})
+	var zones: Dictionary = by_type.get("zone", {})
 	var out := {"no_point": 0, "no_markers": 0, "dangling": 0, "no_map": 0}
 
 	# Markers: dangling first, then no_point; a Marker counts once.
 	var placed := {}   # JSON of [zone, map] -> {zone, map, markers}
-	for mk in by_type.get("marker", []):
+	for mk in by_type.get("marker", {}).values():
 		var z: Variant = _id_of(mk.get("zone"))
 		var m: Variant = _id_of(mk.get("map"))
 		if z == null or m == null or not zones.has(z) or not maps.has(m):
@@ -96,7 +100,7 @@ static func map_space(elements: Variant) -> MapSpace:
 			var points := markers.map(func(mk): return _point(mk))
 			a.zones.append({"zone": zid, "map": g["map"], "shape": shape, "points": points})
 
-	var pin_rows: Array = by_type.get("pin", []).duplicate()
+	var pin_rows: Array = by_type.get("pin", {}).values()
 	pin_rows.sort_custom(func(x, y) -> bool: return _id_of(x["id"]) < _id_of(y["id"]))
 	for p in pin_rows:
 		var m: Variant = _id_of(p.get("map"))
@@ -146,29 +150,18 @@ static func map_space(elements: Variant) -> MapSpace:
 			a.out[k] = out[k]
 	return a
 
-## A whole number by value, or null: an int, or a float with no fraction ([method OWLens.whole]: [code]2.0[/code] is 2,
-## as Godot's JSON reads every number as a float). A whole float past the 64-bit range is kept as written, the value
-## read, never refused. A bool, NaN, an infinity, a fraction or a string is not one.
+## A whole number by value, or null: an int, or a float with no fraction inside the 64-bit range ([method OWLens.whole]:
+## [code]2.0[/code] is 2, as Godot's JSON reads every number as a float). A whole value past the 64-bit range is past
+## this reader's integer range and reads as not whole, as the page says (the fixture keeps every number within 2^53).
+## A bool, NaN, an infinity, a fraction or a string is not one.
 static func _whole(v: Variant) -> Variant:
-	var w: Variant = OWLens.whole(v)
-	if w != null:
-		return w
-	if typeof(v) == TYPE_FLOAT and not is_nan(v) and not is_inf(v) and floor(v) == v:
-		return v
-	return null
+	return OWLens.whole(v)
 
 ## An id: a non-empty String (a StringName read as its String); anything else reads as none.
 static func _id_of(v: Variant) -> Variant:
 	if (v is String or v is StringName) and String(v) != "":
 		return String(v)
 	return null
-
-## The rows by id (a later row with the same id replaces an earlier one).
-static func _indexed(rows: Array) -> Dictionary:
-	var out := {}
-	for r in rows:
-		out[_id_of(r["id"])] = r
-	return out
 
 ## A scale: a positive number as given (never a bool), else null.
 static func _scale(v: Variant) -> Variant:

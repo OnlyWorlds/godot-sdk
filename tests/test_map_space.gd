@@ -1,9 +1,9 @@
 extends RefCounted
 ## OWMapSpace on the map space profile's conformance fixture (schema-dist profiles/map-space.fixture.json, the pinned
-## copy at dist.105, its sha256 checked against the manifest): every case by name, the whole answer compared by value
+## copy at dist.106, its sha256 checked against the manifest): every case by name, the whole answer compared by value
 ## and as bytes, key order included. Beside it, what the fixture leaves open in Godot: the same rows given as ints,
-## a boolean that is no number, the page's reading A (no case holds it), a caller's mistake, rows that are no element,
-## and a reading that never moves the elements.
+## a boolean that is no number, a whole value past the reader's int range, the page's reading A, a caller's mistake,
+## rows that are no element, and a reading that never moves the elements.
 
 const MAP_SPACE := "res://codegen/schema-dist/profiles/map-space.fixture.json"
 
@@ -53,11 +53,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "map-space", "the profile")
 	t.eq(f["profile_page"], "profiles/map-space.md", "its page")
-	t.eq(f["cases"].size(), 24, "24 cases")
+	t.eq(f["cases"].size(), 34, "34 cases")
 	var names := {}
 	for c in f["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 24, "each case named once")
+	t.eq(names.size(), 34, "each case named once")
 	t.done()
 
 ## Every answer holds its four keys in order, a Map row its eight (and extent only when measured), every coordinate
@@ -110,8 +110,29 @@ func test_a_boolean_is_no_number(t) -> void:
 	t.eq(a["maps"][0]["extent"], "points", "and says so")
 	t.done()
 
-## The page's reading A, which no fixture case holds: a Marker both dangling and without a point counts once, as
-## dangling (served-ness before shape), whichever of its zone or map is not served.
+## A whole value past Godot's 64-bit int is past this reader's integer range and reads as not whole (the page's
+## platform sentence, serial 106; the fixture keeps every number within 2^53, so no case holds it): as x it leaves the
+## row out, as z it reads 0, as order it reads missing, as width the width is measured.
+func test_a_whole_value_past_the_int_range_is_not_whole(t) -> void:
+	var els := [
+		{"type": "map", "id": "m", "width": 1e30, "height": 10},
+		{"type": "zone", "id": "z"},
+		{"type": "marker", "id": "a", "zone": "z", "map": "m", "x": -1e30, "y": 1},
+		{"type": "marker", "id": "b", "zone": "z", "map": "m", "x": 2, "y": 3, "z": 1e30, "order": 5},
+		{"type": "marker", "id": "c", "zone": "z", "map": "m", "x": 4, "y": 5, "order": 1e30},
+		{"type": "marker", "id": "d", "zone": "z", "map": "m", "x": 6, "y": 6, "order": 9},
+		{"type": "pin", "id": "p", "map": "m", "x": 7, "y": 1}]
+	var a := OWMapSpace.map_space(els).to_dict()
+	t.eq(a["zones"], [{"zone": "z", "map": "m", "shape": "polygon", "points": [[2, 3, 0], [6, 6, 0], [4, 5, 0]]}],
+		"z 1e30 reads 0, order 1e30 after the ordered ones")
+	t.eq(a["out"], {"no_point": 1}, "x -1e30 is no point")
+	t.eq(a["maps"][0]["width"], 7, "width 1e30 is measured from the points")
+	t.eq(a["maps"][0]["extent"], "points", "and says so")
+	t.eq(a["maps"][0]["z_max"], 0, "no z past the range is kept")
+	t.done()
+
+## The page's reading A (the fixture's marker-dangling-before-no-point since serial 106): a Marker both dangling and
+## without a point counts once, as dangling (served-ness before shape), whichever of its zone or map is not served.
 func test_reading_a_a_dangling_marker_without_a_point_is_dangling(t) -> void:
 	var els := [
 		{"type": "map", "id": "m", "width": 10, "height": 10},

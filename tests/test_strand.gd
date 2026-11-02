@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWStrand on the strand profile's conformance fixture (schema-dist profiles/strand.fixture.json, the pinned copy at
-## dist.105, its sha256 checked against the manifest): every case's six slots by name, and the mark held equal to the
+## dist.106, its sha256 checked against the manifest): every case's six slots by name, and the mark held equal to the
 ## fixture's. Beside it, what the fixture leaves open: the public rung on a closed and an open world, the mark shapes
 ## that are no mark (an empty-string member among them), a story alone, a non-list multi-link, a nameless slot, a
 ## caller's mistake, and a reading that never moves the world.
