@@ -88,6 +88,9 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.0-dist.105`; the standard stays at 00.34.00, no model change. The serial adds the map space
+  profile (`profiles/map-space.md`, 24 cases): how a world's Maps, Zones, Pins and what is left out are read. The
+  landing page's door sentence changes words only: the landing fixture is unchanged and passes as before.
 - Schema pin to `v0.34.0-dist.104`; the standard stays at 00.34.00, no model change. The serial adds the lens
   profile's `reading_aids` graph flag (five cases; the lens fixture at 201) and two landing rulings, `orphan` and
   `near_orphan` by the page's own degree and a `heads` past the reader's range read as the largest (three cases, the
