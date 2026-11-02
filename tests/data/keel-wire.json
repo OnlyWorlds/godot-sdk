@@ -5,7 +5,7 @@
     "X-Session-Token",
     "Authorization"
   ],
-  "document_sha256": "25d8b44bec5e10a72c5b97a82b2d5963ff481fa3aa02292f7e6d65d5eb56e3e7",
+  "document_sha256": "b6dc08eaa934e0961dc5ddd654dc9ab4a09abbdd4893a39ada9a64f49f304389",
   "error_codes": {
     "already_member": 409,
     "already_reported": 409,
@@ -87,7 +87,7 @@
     "write_failed": 502,
     "wrong_audience": 401
   },
-  "fetched": "2026-10-31T04:18+01:00",
+  "fetched": "2026-11-02T10:54+01:00",
   "openapi_version": "2.0",
   "paths": {
     "/api/v2/ability": {
@@ -745,11 +745,37 @@
     "/api/v2/account": {
       "GET": {
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "date_joined",
+          "email",
+          "id",
+          "only_world",
+          "only_world.id",
+          "only_world.name",
+          "only_world.slug",
+          "only_world_chosen",
+          "username"
+        ]
       },
       "PATCH": {
+        "body": [
+          "only_world",
+          "username"
+        ],
         "header": [],
-        "query": []
+        "query": [],
+        "response": [
+          "date_joined",
+          "email",
+          "id",
+          "only_world",
+          "only_world.id",
+          "only_world.name",
+          "only_world.slug",
+          "only_world_chosen",
+          "username"
+        ]
       }
     },
     "/api/v2/account/allowance": {
@@ -905,6 +931,9 @@
         ]
       },
       "POST": {
+        "body": [
+          "name"
+        ],
         "header": [],
         "query": [],
         "response": [
@@ -968,6 +997,9 @@
           "source",
           "source.world"
         ],
+        "body_patterns": [
+          "^(atlas_|shadow_|x_)"
+        ],
         "header": [],
         "query": [],
         "response": [
@@ -1016,6 +1048,16 @@
           "world.name",
           "world.public_read",
           "world.role"
+        ]
+      }
+    },
+    "/api/v2/account/worlds/holding/{narrative_id}": {
+      "GET": {
+        "header": [],
+        "query": [],
+        "response": [
+          "door",
+          "world_id"
         ]
       }
     },
@@ -1098,6 +1140,7 @@
           "data[].id",
           "data[].inviter_name",
           "data[].label",
+          "data[].lands_on",
           "data[].last4",
           "data[].max_uses",
           "data[].minted_by",
@@ -1117,6 +1160,7 @@
           "for_email",
           "inviter_name",
           "label",
+          "lands_on",
           "max_uses",
           "preview",
           "reader",
@@ -1139,6 +1183,7 @@
           "id",
           "inviter_name",
           "label",
+          "lands_on",
           "last4",
           "line",
           "link",
@@ -7888,6 +7933,7 @@
           "data[].id",
           "data[].inviter_name",
           "data[].label",
+          "data[].lands_on",
           "data[].last4",
           "data[].max_uses",
           "data[].minted_by",
@@ -7907,6 +7953,7 @@
           "for_email",
           "inviter_name",
           "label",
+          "lands_on",
           "max_uses",
           "preview",
           "reader",
@@ -7929,6 +7976,7 @@
           "id",
           "inviter_name",
           "label",
+          "lands_on",
           "last4",
           "line",
           "link",
@@ -7969,6 +8017,7 @@
           "rival",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "zone"
         ],
@@ -8021,6 +8070,7 @@
           "data[].supertype",
           "data[].type",
           "data[].updated_at",
+          "data[].vehicle",
           "data[].zone",
           "has_more",
           "next_cursor"
@@ -8070,6 +8120,7 @@
           "secondary_powers",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "x_served_trimmed",
           "zone"
@@ -8131,6 +8182,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -8200,6 +8252,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       },
@@ -8247,6 +8300,7 @@
           "secondary_powers",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "x_served_trimmed",
           "zone"
@@ -8308,6 +8362,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       },
@@ -8355,6 +8410,7 @@
           "secondary_powers",
           "subtype",
           "supertype",
+          "vehicle",
           "world",
           "x_served_trimmed",
           "zone"
@@ -8415,6 +8471,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -8477,6 +8534,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -8615,6 +8673,7 @@
           "supertype",
           "type",
           "updated_at",
+          "vehicle",
           "zone"
         ]
       }
@@ -15770,6 +15829,7 @@
           "data[].name",
           "data[].reading",
           "data[].retired",
+          "data[].skipped",
           "data[].template",
           "data[].title_seats",
           "data[].titles",
