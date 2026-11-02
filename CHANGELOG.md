@@ -8,6 +8,14 @@ the git log.
 
 ### Added
 
+- `OWGraph.world_graph` takes `reading_aids` (the lens profile's fifth graph flag, schema-dist serial 104), a boolean,
+  false by default: the reading aids (the charter, its guide and its domains, by the pair and the mark
+  `x_charter_of`) come back into an unlensed graph, each node marked `reading_aid`. Any signed reader may ask it; a
+  public reader is refused by name, last in the refusal order (`hidden`, `proposed`, `rooms`, `map_space`,
+  `reading_aids`). A flag never widens a lens. A reading aid a lens keeps now carries the `reading_aid` mark too, as
+  a room element a lens keeps carries `room`; marks come in the order `room`, `hidden`, `proposed`, `reading_aid`.
+  Parity with the TypeScript SDK's `readingAids` and the Python package's `reading_aids`; the fixture's five new
+  graph cases pass by name.
 - `OWLanding.landing_of(graph, options)`: the landing profile's reader (schema-dist `profiles/landing.md`, serial
   103), a world's first picture at a door, read from the graph `OWGraph.world_graph` answers (a `Graph`, or its
   `to_dict()` shape), so it sees only what that reader sees. The answer, `OWLanding.Landing`, always holds its five

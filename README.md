@@ -141,7 +141,7 @@ test whose world is missing is skipped, never passed.
 - **Lenses** (the lens profile, serial 83, with its graph section): `OWLens` reads a saved way of reading a world
   (`is_lens`, `is_template`, `check_keys`, `lenses_in_use`, `resolve`, `date_of`, `is_charter_element` for the
   reading aids) and `OWGraph` the world as nodes and edges (`world_graph`, `degree_of`, `out_degree_of`), as the npm
-  and Python packages do: every case of the profile's fixture (196, the graph kind's 49 and the degree kind's 5
+  and Python packages do: every case of the profile's fixture (201, the graph kind's 54 and the degree kind's 5
   included), the room profile's 32, their shared edge file (15) and their shared row cases (20: a row is the body as
   keel serves that reader, a link only to an element it sees of the field's type, a lens's notes never keyed to what
   it cannot see, the owner's as stored). Where the platform's own reader reads otherwise, this reads as it does:
@@ -161,14 +161,20 @@ test whose world is missing is skipped, never passed.
   `OWPresentation.use` refuses the table and keeps the one in use, `world_graph` answers it as a caller's mistake
   with no node, and `codegen/generate.py` refuses a sidecar that carries one (serial 87). A JSON number
   with no fraction is whole (`7.0` reads as 7), in `x_lens` too (the owner's ruling 13); past 64 bits it is not. The
-  one case that needs the text (`text_only`) is skipped, as the fixture allows; the ruling retires it.
+  one case that needs the text (`text_only`) is skipped, as the fixture allows; the ruling retires it. The graph's
+  flags, each a boolean, false by default: `rooms`, `hidden`, `proposed`, `map_space` and `reading_aids` (serial 104:
+  the charter, its guide and its domains back into an unlensed graph, each marked `reading_aid`; any signed reader's,
+  refused for a public one, last in the refusal order). A flag never widens a lens; a reading aid a lens keeps is
+  marked `reading_aid` too, as a room element a lens keeps is marked `room`.
 - **The landing** (the landing profile, serial 103): `OWLanding.landing_of(graph, options)` is a world's first picture
   at a door, read from the graph `OWGraph.world_graph` answers (a `Graph` or its `to_dict()`), so it sees only what
   that reader sees: `{mode, size, clusters, unclustered, gaps}`. The most-linked Characters are the heads (never a
   known-of node), each node within `hops` joins its nearest head (a tie to the higher-ranked), and the gaps are the
   orphans, near-orphans, a Character with no place and a Location nobody's in. `heads`, `hops` and `size` are whole
   numbers of 1 or more (`2.0` is 2), an unknown key or a bad value refused by name; counts are ints and ids compare
-  by code point. Every case of the profile's fixture (30).
+  by code point. `orphan` and `near_orphan` go by the page's own degree (`OWGraph.degree_of`: a link to itself once,
+  each place in a list once), and a whole number too large to hold reads as the largest. Every case of the profile's
+  fixture (33).
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
