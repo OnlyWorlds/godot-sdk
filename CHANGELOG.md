@@ -72,6 +72,13 @@ the git log.
   Object a place is the inside of (a ship, a train, a walking city), generated. The serial adds the landing profile
   (`profiles/landing.md`, 30 cases), cases degree and out-degree on the lens profile's graph section (the lens
   fixture at 196 cases), and seven readings on the record profile (its fixture at 40 cases).
+- `OWRecord.records_of` reads a run or a story as proposed exactly when the review profile's reader does (the record
+  profile's reader rule 1 at serial 103): `x_review_proposed` a Dictionary with a key. An empty mark (`{}`, `""` or
+  White_Space only, `[]`) and a value that is not a Dictionary are settled, so the run and its stories are read;
+  before, any value but null hid them. Parity with the TypeScript SDK's and the Python package's readers. The serial's
+  other readings (`played_at` upper-case `T` and `Z`, ASCII digits, seconds and a fraction optional; ties and stories
+  by code point; an Event or a Narrative whose `id` is not a string never read; a name that is not a string read as
+  `""`) were this reader's already; the 40 cases pass.
 - `OWGraph.world_graph` without a lens takes about a second less on a large world: the lens view builds its reverse
   link index (who links to each element) on the first lens reading that asks for it, not in its constructor. Over a
   world of 20,570 elements (8,896 nodes, 32,215 edges), one read went from 2.6 to 3.6 s to 1.0 to 2.4 s (headless

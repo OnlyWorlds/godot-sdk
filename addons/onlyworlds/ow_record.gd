@@ -1,6 +1,6 @@
 class_name OWRecord
 extends RefCounted
-## The record profile (schema-dist [code]profiles/record.md[/code], serial 102): one run of a game a world's
+## The record profile (schema-dist [code]profiles/record.md[/code], serials 102 and 103): one run of a game a world's
 ## Characters took part in (a battle, a crossing, a match), kept in that world on kinds the standard already has. The
 ## run is an Event carrying the mark [code]x_record[/code]; its chronicle and each Character's stories are Narratives
 ## that list the Event in [code]events[/code]. A Character's experience is the list [method records_of] reads, never a
@@ -60,9 +60,9 @@ static func record_mark_of(element: Variant) -> Variant:
 ## [code]{event: {id, name}, tool, played_at, version, seed, outcome, seat, stories: [{id, name, as}]}[/code].
 ## Pure: nothing is stored or written, and every entry is the caller's own.
 ##
-## A record is an Event with a mark ([method record_mark_of]), not proposed (the review profile's
-## [code]x_review_proposed[/code] any value but null), whose [code]characters[/code] list names the Character: who
-## took part is that list alone, never [code]seats[/code] (a seat for a Character not listed makes no record, and
+## A record is an Event with a mark ([method record_mark_of]), not proposed (as the review profile reads it: an
+## [code]x_review_proposed[/code] Dictionary with a key; an empty mark is settled), whose [code]characters[/code]
+## list names the Character: who took part is that list alone, never [code]seats[/code] (a seat for a Character not listed makes no record, and
 ## [code]seat[/code] is the mark's seat for this Character, null when none). Its stories are the Narratives, not
 ## proposed, whose [code]events[/code] list names the Event and that name the Character as [code]protagonist[/code],
 ## [code]narrator[/code] or both ([code]as[/code]), in code point order of their ids; a chronicle naming no one is no
@@ -210,9 +210,12 @@ static func _seats_ok(v: Variant) -> bool:
 			return false
 	return true
 
-## Proposed while [code]x_review_proposed[/code] holds any value but null; absent or null is settled.
+## Proposed exactly when the review profile's reader that shows a world says so (record reader rule 1, serial 103;
+## the packages' [code]proposedMarkOf[/code] / [code]proposed_mark_of[/code]): [code]x_review_proposed[/code] a
+## Dictionary with a key. Absent, null, an empty mark ([code]{}[/code], [code]""[/code] or White_Space only,
+## [code][][/code]) and a value that is not a Dictionary are settled.
 static func _proposed(el: Dictionary) -> bool:
-	return el.get(OWLens.PROPOSED_MARK) != null
+	return OWLens.is_proposed(el) and el[OWLens.PROPOSED_MARK] is Dictionary
 
 ## A multi-link's ids: the list itself, or nothing when the value is not a list.
 static func _list(v: Variant) -> Array:
