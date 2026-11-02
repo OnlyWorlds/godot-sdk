@@ -8,7 +8,7 @@ extends SceneTree
 ## a call the reader refuses {threw: "refused", names, msg}, names being the flags its message names (npm's TypeError).
 ## A call that dies in a script error answers {threw: "error"}.
 
-const FLAGS := ["hidden", "proposed", "rooms", "map_space"]
+const FLAGS := ["hidden", "proposed", "rooms", "map_space", "reading_aids"]
 
 func _init() -> void:
 	var args := OS.get_cmdline_user_args()

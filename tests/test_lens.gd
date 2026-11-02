@@ -70,8 +70,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 196, "196 cases")
-	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 102, "invariant": 4, "uses": 5, "graph": 49, "degree": 5}, "by kind")
+	t.eq(_fixture()["cases"].size(), 201, "201 cases")
+	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 102, "invariant": 4, "uses": 5, "graph": 54, "degree": 5}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
@@ -498,14 +498,22 @@ func test_a_marked_domain_a_hop_reaches_is_cut_unless_its_pair_is_named(t) -> vo
 	t.eq(deep.cut, {"types": 3}, "no second hop out of an unnamed aid")
 	var through := OWLens.resolve(_aids(), _lens_on({"institutions": ["desk"]}, {"depth": 2, "types": ["construct/guide", "institution"]}), OWNER)
 	t.eq(through.cut, {"types": 3, "hops_not_served": 1}, "a named Guide is hopped out of")
-	# In an unlensed graph the aids are out, whatever flag is asked; a lens naming the pair keeps them as nodes.
+	# In an unlensed graph the aids are out whatever other flag is asked, and reading_aids brings them back, marked
+	# (serial 104); a lens naming the pair keeps them as nodes, marked too.
 	var g := OWGraph.world_graph(_aids(), OWNER, {"rooms": true, "hidden": true, "proposed": true, "map_space": true})
 	t.eq(g.nodes.map(func(n): return n["id"]), ["charter", "desk", "ledger"], "the graph's nodes")
 	t.eq(g.cut, {"reading_aid": 3}, "the graph's cut")
 	t.eq(g.edges_cut, {"reading_aid": 2}, "the Desk's links to the Domain and the Guide")
 	t.eq(g.edges, [{"source": "charter", "field": "author", "target": "desk", "index": 0}], "the one edge")
+	var back := OWGraph.world_graph(_aids(), OWNER, {"reading_aids": true})
+	t.eq(back.nodes.map(func(n): return [n["id"], n.get("marks")]),
+		[["charter", null], ["desk", null], ["domain", ["reading_aid"]], ["guide", ["reading_aid"]], ["ledger", null],
+		["rules", ["reading_aid"]]], "reading_aids: the three aids back, each marked, the lore Charter unmarked")
+	t.eq(back.cut, {}, "nothing cut")
+	t.eq(back.edges_cut, {}, "no edge cut")
 	var lensed := OWGraph.world_graph(_aids(), OWNER, {"lens": _lens_on({"institutions": ["desk"]}, {"types": ["construct/domain", "institution"]})})
-	t.eq(lensed.nodes.map(func(n): return [n["id"], n.get("marks")]), [["desk", null], ["domain", null]], "a lens naming the pair")
+	t.eq(lensed.nodes.map(func(n): return [n["id"], n.get("marks")]), [["desk", null], ["domain", ["reading_aid"]]],
+		"a lens naming the pair keeps the Domain, marked")
 	t.done()
 
 func test_an_anchor_that_is_a_marked_guide_is_kept_and_followed(t) -> void:

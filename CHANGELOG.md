@@ -8,6 +8,14 @@ the git log.
 
 ### Added
 
+- `OWGraph.world_graph` takes `reading_aids` (the lens profile's fifth graph flag, schema-dist serial 104), a boolean,
+  false by default: the reading aids (the charter, its guide and its domains, by the pair and the mark
+  `x_charter_of`) come back into an unlensed graph, each node marked `reading_aid`. Any signed reader may ask it; a
+  public reader is refused by name, last in the refusal order (`hidden`, `proposed`, `rooms`, `map_space`,
+  `reading_aids`). A flag never widens a lens. A reading aid a lens keeps now carries the `reading_aid` mark too, as
+  a room element a lens keeps carries `room`; marks come in the order `room`, `hidden`, `proposed`, `reading_aid`.
+  Parity with the TypeScript SDK's `readingAids` and the Python package's `reading_aids`; the fixture's five new
+  graph cases pass by name.
 - `OWLanding.landing_of(graph, options)`: the landing profile's reader (schema-dist `profiles/landing.md`, serial
   103), a world's first picture at a door, read from the graph `OWGraph.world_graph` answers (a `Graph`, or its
   `to_dict()` shape), so it sees only what that reader sees. The answer, `OWLanding.Landing`, always holds its five
@@ -80,6 +88,10 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.0-dist.104`; the standard stays at 00.34.00, no model change. The serial adds the lens
+  profile's `reading_aids` graph flag (five cases; the lens fixture at 201) and two landing rulings, `orphan` and
+  `near_orphan` by the page's own degree and a `heads` past the reader's range read as the largest (three cases, the
+  landing fixture at 33). `OWLanding` already read both: the three cases pass with no reader change.
 - Schema pin to `v0.34.0-dist.103`, the standard at 00.34.00: `OWLocation` gains `vehicle`, a single link to the
   Object a place is the inside of (a ship, a train, a walking city), generated. The serial adds the landing profile
   (`profiles/landing.md`, 30 cases), cases degree and out-degree on the lens profile's graph section (the lens

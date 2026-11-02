@@ -10,7 +10,7 @@ extends RefCounted
 ## The extension fields a published profile declares a link, each a list of ids: the lens profile's and the spine's.
 const DECLARED_LINKS := ["x_lens_leads_to", "x_spine_depends_on"]
 ## The flags, each bringing back one kind of element that is out by default.
-const FLAGS := ["rooms", "hidden", "proposed", "map_space"]
+const FLAGS := ["rooms", "hidden", "proposed", "map_space", "reading_aids"]
 ## The flags only the owner may ask (judged by the rung it reads as).
 const OWNER_ONLY_FLAGS := ["hidden", "proposed"]
 ## Map space: out by default for size, not for standing (a node it brings back carries no mark). A Zone is not map
@@ -25,13 +25,14 @@ const OWNER_ONLY_REASONS := ["anchor_not_visible", "not_visible", "hidden", "pro
 
 ## A node's family and icon are [OWPresentation]'s (schema-dist presentation.json); colour stays the tool's. A family
 ## word not in [constant OWPresentation.ORDER] makes the graph a caller's mistake naming the word, with no node.
-const _OPTION_KEYS := ["lens", "as_of", "clock", "rooms", "hidden", "proposed", "map_space"]
+const _OPTION_KEYS := ["lens", "as_of", "clock", "rooms", "hidden", "proposed", "map_space", "reading_aids"]
 
 ## What [method world_graph] answers. [member refused] names a flag asked from the wrong rung (nothing read);
 ## [member error] names a caller's mistake (nothing read); both "" otherwise.
 class Graph:
 	## The nodes, by id in code point order: {id, type, name, family, icon} (the type and the name as stored, null when
-	## absent), with marks (room, hidden, proposed) when any applies and known_of true on a guest's stub.
+	## absent), with marks (room, hidden, proposed, reading_aid, in that order) when any applies and known_of true on a
+	## guest's stub.
 	var nodes := []
 	## The edges, by source id, then field name (both by code point), then index: {source, field, target, index}.
 	var edges := []
@@ -56,11 +57,13 @@ class Graph:
 ## [param world] and [param reader] are what [method OWLens.resolve] takes. [param options]: [code]lens[/code] (a lens
 ## body or id: the nodes are exactly what it kept, its cut rides along, and no flag adds to them), [code]as_of[/code]
 ## and [code]clock[/code] (the lens's reading), and the flags [code]rooms[/code], [code]hidden[/code],
-## [code]proposed[/code], [code]map_space[/code] (booleans, false by default). Without a lens, room, hidden, proposed
-## and map-space elements are out unless their flag brings them back, marked, and so are the reading aids
-## ([method OWLens.is_charter_element]), counted [code]reading_aid[/code], which no flag brings back. [code]hidden[/code] or
-## [code]proposed[/code] from any rung but the owner's, or any flag from a public reader, is refused by name before
-## anything is read (the first in the order hidden, proposed, rooms, map_space).
+## [code]proposed[/code], [code]map_space[/code], [code]reading_aids[/code] (booleans, false by default). Without a
+## lens, room, hidden, proposed and map-space elements and the reading aids ([method OWLens.is_charter_element],
+## counted [code]reading_aid[/code]) are out unless their flag brings them back, marked (map space carries no mark). A
+## reading aid a lens keeps is marked [code]reading_aid[/code] too, as a room element a lens keeps is marked
+## [code]room[/code] (serial 104). [code]hidden[/code] or [code]proposed[/code] from any rung but the owner's, or any
+## flag from a public reader, is refused by name before anything is read (the first in the order hidden, proposed,
+## rooms, map_space, reading_aids).
 static func world_graph(world: Variant, reader: Variant, options: Variant = null) -> Graph:
 	var g := Graph.new()
 	if options == null:
@@ -87,7 +90,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			g.refused = f
 			return _mistake(g, "world_graph: %s is the owner's alone; a %s reader may not ask it" % [f, seen_rung])
 	if seen_rung == "public":
-		for f in ["rooms", "map_space"]:
+		for f in ["rooms", "map_space", "reading_aids"]:
 			if flags[f]:
 				g.refused = f
 				return _mistake(g, "world_graph: a public reader takes no flag; it asked %s" % f)
@@ -119,14 +122,13 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		if MAP_SPACE.has(r.type_of[id]):
 			out.append("map_space")
 		if r.aid.has(id):
-			out.append("reading_aid")
+			out.append("reading_aids")
 		return out
 	# What the reader could see as a node: its view, and for the owner what is written as proposed too.
 	var candidate := func(id: String) -> bool: return r.view.has(id) or (seen_owner and r.proposed.has(id))
 	var out_by := func(id: String) -> Variant:
 		for k in kinds.call(id):
-			# A reading aid has no flag: only a lens that names its pair keeps one.
-			if k == "reading_aid" or not flags[k]:
+			if not flags[k]:
 				return _reason_of_kind(k)
 		return null
 
@@ -170,7 +172,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			"family": OWPresentation.family_of(type), "icon": OWPresentation.icon_of(type)}
 		var marks := []
 		for k in kinds.call(id):
-			if k != "map_space" and k != "reading_aid":
+			if k != "map_space":
 				marks.append(_reason_of_kind(k))
 		if not marks.is_empty():
 			node["marks"] = marks
@@ -258,9 +260,15 @@ static func out_degree_of(graph: Graph) -> Dictionary:
 		count[id] = targets[id].size()
 	return count
 
-## The flag's word as a reason and a mark: rooms brings back what is out as room.
+## The flag's word as a reason and a mark: rooms brings back what is out as room, reading_aids what is out as
+## reading_aid.
 static func _reason_of_kind(kind: String) -> String:
-	return "room" if kind == "rooms" else kind
+	match kind:
+		"rooms":
+			return "room"
+		"reading_aids":
+			return "reading_aid"
+	return kind
 
 ## Counts in the reasons' one order, a reason with no count left out, the owner's reasons kept for the owner.
 static func _tally(counts: Dictionary, owner: bool) -> Dictionary:

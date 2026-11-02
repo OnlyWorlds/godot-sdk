@@ -225,6 +225,31 @@ func test_a_callers_mistake_and_a_refusal(t) -> void:
 	t.eq(OWGraph.world_graph(world, {"rung": "owner"}, {"hidden": true, "proposed": true}).refused, "", "the owner may ask both")
 	t.done()
 
+## reading_aids (serial 104) where the fixture's five cases leave it unpinned: last in the refusal order (no fixture case
+## asks map_space and reading_aids together below hidden), a boolean like the other flags, any signed rung's, and a
+## node's marks in the packages' order (room, hidden, proposed, reading_aid), an aid the owner hid carrying both.
+func test_reading_aids_order_kind_and_marks(t) -> void:
+	var world := {"elements": []}
+	t.eq(OWGraph.world_graph(world, {"rung": "public"}, {"reading_aids": true, "map_space": true}).refused, "map_space",
+		"map_space before reading_aids")
+	t.eq(OWGraph.world_graph(world, {"rung": "public"}, {"reading_aids": true, "rooms": true}).refused, "rooms",
+		"rooms before reading_aids")
+	t.ok(OWGraph.world_graph(world, {"rung": "owner"}, {"reading_aids": 1}).error.contains("reading_aids"), "a boolean")
+	t.eq(OWGraph.world_graph(world, {"rung": "owner"}, {"reading_aids": null}).error, "", "null is the default")
+	for rung in ["owner", "contributor", "guest"]:
+		t.eq(OWGraph.world_graph(world, {"rung": rung}, {"reading_aids": true}).refused, "", "%s may ask it" % rung)
+	t.eq(OWGraph.world_graph(world, {"rung": "owner", "as": {"rung": "public"}}, {"reading_aids": true}).refused,
+		"reading_aids", "the owner as a public reader is judged by the public rung")
+	var hid := {"elements": [{"id": "ch", "type": "law", "name": "House Rules", "supertype": "Charter",
+		"x_charter_of": "w1", "hidden": true}]}
+	var both := OWGraph.world_graph(hid, {"rung": "owner"}, {"hidden": true, "reading_aids": true})
+	t.eq(both.nodes.map(func(n): return n.get("marks")), [["hidden", "reading_aid"]], "hidden, then reading_aid")
+	t.eq(OWGraph.world_graph(hid, {"rung": "owner"}, {"reading_aids": true}).cut, {"hidden": 1},
+		"a hidden aid needs both flags: hidden, its first reason, counts it")
+	t.eq(OWGraph.world_graph(hid, {"rung": "owner"}, {"hidden": true}).cut, {"reading_aid": 1},
+		"and with hidden alone it is out as a reading aid")
+	t.done()
+
 # -- the profile owner's rulings on the graph section's silences (each a case in the fixture's next serial) -----------
 
 ## G1: an edge to an anchor the reader cannot see carries the lens's own reason, anchor_not_visible, not not_visible.

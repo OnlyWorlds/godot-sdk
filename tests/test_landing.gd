@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWLanding on the landing profile's conformance fixture (schema-dist profiles/landing.fixture.json, the pinned copy at
-## dist.103, its sha256 checked against the manifest): every case by name, the keys its want holds compared value and
+## dist.104, its sha256 checked against the manifest): every case by name, the keys its want holds compared value and
 ## key order, a whole case the entire answer, a refusal naming its option. Beside it, what the fixture leaves open: the
 ## five keys always there in order, every node in one place, the graph world_graph answers read as its Dictionary is,
 ## Godot's float options, a caller's mistake, and a reading that never moves the graph.
@@ -64,7 +64,7 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "landing", "the profile")
 	t.eq(f["profile_page"], "profiles/landing.md", "its page")
-	t.eq(f["cases"].size(), 30, "30 cases")
+	t.eq(f["cases"].size(), 33, "33 cases")
 	t.eq(f["cases"].filter(func(c): return c["want"].has("refused")).size(), 7, "7 refusals")
 	t.done()
 
