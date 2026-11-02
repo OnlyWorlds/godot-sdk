@@ -131,6 +131,9 @@ func test_options_as_godot_holds_them(t) -> void:
 	t.eq(OWLanding.landing_of(g, {"heads": 1.0}).clusters.size(), 1, "1.0 is 1")
 	t.eq(OWLanding.landing_of(g, {"size": 3.0}).mode, "graph", "3.0 is 3")
 	t.eq(OWLanding.landing_of(g, {"size": 3.0}).size, 3, "and is answered as the int")
+	t.eq(OWLanding.landing_of(g, {"heads": 1e30}).clusters.size(), 2, "a whole number too large to hold is the largest")
+	t.eq(OWLanding.landing_of(g, {"size": 1e30}).size, OWLanding.I64_MAX, "and is answered as the largest int")
+	t.eq(OWLanding.landing_of(g, {"size": 1e30}).refused, "", "and is no refusal")
 	for v in [true, false, 1.5, "2", -1, 0, -0.0, [2], {"n": 2}, INF, NAN]:
 		t.eq(OWLanding.landing_of(g, {"hops": v}).refused, "hops", "hops " + var_to_str(v))
 	t.eq(OWLanding.landing_of(g, {"heads": 0, "lens": "x"}).refused, "lens", "an unknown key before a bad value")

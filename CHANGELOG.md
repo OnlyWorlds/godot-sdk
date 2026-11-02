@@ -16,7 +16,8 @@ the git log.
   are nearest to it, a tie to the higher-ranked head, as `{id, hops, degree}`), `unclustered` (the rest, by degree)
   and `gaps` (orphans, near-orphans, a Character whose `location` reaches no Location, a Location no Character's
   `location` names). Degree is `OWGraph.degree_of`'s. Options `heads` (5), `hops` (1) and `size` (24) are whole
-  numbers of 1 or more, null their default; an unknown key or any other value is refused by name, nothing read.
+  numbers of 1 or more, null their default; an unknown key or any other value is refused by name, nothing read. A
+  whole number too large for a 64-bit int (`1e30`) reads as the largest, since a count past the nodes means all.
   Counts are ints, ids compare by code point. Parity with the TypeScript SDK's `landingOf` and the Python package's
   `landing_of`; the profile's 30 cases pass by name.
 - `OWOpeners.openers_for(tools, kind, address, surface, {"element": body})`: no row for a tool that cannot open the

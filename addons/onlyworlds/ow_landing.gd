@@ -9,6 +9,8 @@ extends RefCounted
 
 ## The options, each a whole number of 1 or more, null its default.
 const OPTIONS := {"heads": 5, "hops": 1, "size": 24}
+## What a whole number too large for a 64-bit int reads as (1e30 is whole, as the packages take it).
+const I64_MAX := 9223372036854775807
 ## The gap kinds, in the order the answer lists them.
 const GAP_KINDS := ["orphan", "near_orphan", "no_place", "nobody_here"]
 
@@ -77,6 +79,8 @@ static func landing_of(graph: Variant, options: Variant = null) -> Landing:
 			opt[k] = OPTIONS[k]
 			continue
 		var n: Variant = OWLens.whole(v)
+		if n == null and v is float and not is_inf(v) and not is_nan(v) and floor(v) == v and v >= 1.0:
+			n = I64_MAX   # a whole number too large to hold reads as the largest: a count past the nodes means all of them
 		if n == null or n < 1:
 			l.refused = k
 			l.error = "landing_of: %s is a whole number, 1 or more; got %s" % [k, var_to_str(v)]
@@ -106,7 +110,7 @@ static func landing_of(graph: Variant, options: Variant = null) -> Landing:
 		if n.get("type") == "character" and not _known_of(n) and degree[n["id"]] > 0:
 			heads.append(n["id"])
 	heads.sort_custom(func(a, b) -> bool: return degree[a] > degree[b] if degree[a] != degree[b] else a < b)
-	heads = heads.slice(0, opt["heads"])
+	heads = heads.slice(0, mini(opt["heads"], heads.size()))   # slice's end is 32-bit: a larger count wraps negative
 
 	# Each node's least [hops, rank] over every head's own walk, so no visiting order ever decides a tie.
 	var best := {}
