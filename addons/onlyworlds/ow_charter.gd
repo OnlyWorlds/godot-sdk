@@ -79,6 +79,9 @@ static func is_charter_element(element: Variant) -> bool:
 ##
 ## [param world] is what [method OWLens.resolve] takes: [code]elements[/code] (the bodies as the owner is served
 ## them), [code]hidden[/code] (the ids the hidden mark keeps), and [code]open[/code]: true for a world open to anyone.
+## [code]open[/code] is the World's [code]public_read[/code], the standard's field on world.yaml (whether anyone can
+## read the world without a credential; the charter page, serial 107): pass [member OWWorldInfo.public_read], read
+## from a folder's [code]world.json[/code] or the world GET, as it is; the fixture's [code]open[/code] is the same value.
 ## [param reader] is a lens reader ([code]rung[/code] owner, contributor, guest with its [code]whole[/code] and
 ## [code]known_of[/code], or public; on an owner, [code]as[/code]). A public reader of a world not open to anyone reads
 ## nothing.
@@ -137,7 +140,8 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 	return out
 
 ## The Domains alone, as [method charter_of] lists them for [param reader] (the profile's [code]domainsOf[/code]); an
-## empty list on a caller's mistake.
+## empty list on a caller's mistake. [param world]'s [code]open[/code] is the World's [code]public_read[/code], as
+## there.
 static func domains_of(world: Variant, reader: Variant) -> Array:
 	return charter_of(world, reader).domains
 

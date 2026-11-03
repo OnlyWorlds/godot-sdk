@@ -153,6 +153,11 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.107` (`1d774b9`); the standard stays at 00.34.00, no model, fixture or reader change. The
+  serial changes two profile pages' prose: the charter page names a reader's `open` as the World's `public_read`, the
+  standard's field on world.yaml, and the map space page dates its exact-range sentence. Only the generated headers
+  and `OWSchemaPin` moved. `OWCharter.charter_of` and `domains_of` now say in their doc comments that the world's
+  `open` key is `OWWorldInfo.public_read`, read from a folder's `world.json` or the world GET.
 - Schema pin to `v0.34.0-dist.106`; the standard stays at 00.34.00, no model change. The serial adds the map space
   page's readings I to K and four rulings from the first engine ports (the fixture at 34 cases, the 24 of 105
   unchanged).
