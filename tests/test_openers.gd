@@ -1,12 +1,12 @@
 extends RefCounted
 ## OWOpeners.openers_for on every case of the npm SDK's and the Python package's shared fixture
 ## (tests/data/openers.fixture.json, the same bytes, held by its sha256): each expected row compared whole, each
-## refusal by the address refusal's reason or by the key its message names. Then OWTools.ALL, the baked tools list,
-## through the same function.
+## refusal by the address refusal's reason or by the key its message names and its kind (an unknown key, worded
+## "unknown key 'k'", or a refused value). Then OWTools.ALL, the baked tools list, through the same function.
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "b5c6afb76bf1ab2b95ee50641e2fd36344320d12fe0fd293d4f09fcf8cde7027"
+const FIXTURE_SHA256 := "6b1911bd207220c6679ee9ac2e927e6b93f8cf54178aff115c60923ca5707eae"
 const CASES := 92
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
@@ -44,7 +44,9 @@ func _answer(c: Dictionary) -> Dictionary:
 		return {"refuse": {"error": "address", "reason": r.reason}}
 	var refuse: Variant = c.get("refuse")
 	if refuse is Dictionary and refuse["error"] == "type" and r.message.contains(refuse["names"]):
-		return {"refuse": refuse}
+		# This package's own words for a key the object does not take; any other refusal is of a value.
+		var kind := "unknown_key" if r.message.contains("unknown key '%s'" % refuse["names"]) else "bad_value"
+		return {"refuse": {"error": "type", "names": refuse["names"], "kind": kind}}
 	return {"refuse": {"error": "type", "message": r.message}}
 
 func test_the_fixture_is_the_shared_bytes(t) -> void:

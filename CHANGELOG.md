@@ -114,6 +114,12 @@ the git log.
   the public. The word comes after "You are here" and "Needs a connection", and before the sign-in, browser and phone
   words. Parity with the TypeScript SDK 4.130.0 and the Python package 0.105.0; the shared openers fixture
   re-vendored at 92 cases (from 90), every case by name green.
+- Tests only: the shared openers fixture's 24 type refusals each name their kind beside the key: `unknown_key` (a key
+  the object does not take, refused by name) or `bad_value` (a key it takes whose value it refuses, a missing one
+  included). `test_openers.gd` tells the two apart by this package's own words ("unknown key 'k'"), so a reader that
+  refuses a known key as unknown, or the other way round, now fails the case where before the name alone passed it.
+  Still 92 cases, the same bytes as the TypeScript SDK's (`85ef7dd`) and the Python package's (`b1a4a45`); nothing
+  shipped changes.
 - `OWMapSpace.map_space` reads serial 106's map space page: two rows of one type with one id read as the last one
   served, Markers and Pins as Maps and Zones already were, even when the last row reads less (an unplaced Marker, a
   Pin on a Map not served); a whole value past the 64-bit int reads as not whole, as the page's platform sentence
