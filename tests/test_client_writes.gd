@@ -277,8 +277,6 @@ func test_refusals_send_nothing(t) -> void:
 		["upsert a stub", func(c): return await c.upsert("character", "c1", stub), "known-of stub"],
 		["patch a stub", func(c): return await c.patch("character", "c1", stub), "known-of stub"],
 		["bulk a stub", func(c): return await c.bulk([{"type": "character", "element": {}}, {"type": "character", "element": stub}]), "bulk: items[1]"],
-		["patch a link array", func(c): return await c.patch("character", "c1", {"name": "Bo", "traits": ["t1"]}), "edit_links"],
-		["patch a model's link array", func(c): return await c.patch("character", "c1", OWTypes.make("character", {"friends": []})), "'friends' is a link array"],
 		["create not an element", func(c): return await c.create("character", "Ana"), "a Dictionary or an OWElement"],
 		["upsert null", func(c): return await c.upsert("character", "c1", null), "a Dictionary or an OWElement"],
 		["create another type's model", func(c): return await c.create("location", OWTypes.make("character", {})), "is a character, not a location"],
@@ -318,10 +316,36 @@ func test_a_patch_takes_a_single_link_and_a_scalar(t) -> void:
 	t.eq(fake.last().body, "{\"birthplace\":\"l1\",\"level\":4,\"x_list\":[\"a\"]}", "")
 	t.done()
 
+## A link array in a patch is sent as given, as the Unity SDK's PatchAsync and the TypeScript SDK's patch send it: the
+## PATCH replaces the array whole, which the doc comment points to edit_links for. Never refused, never dropped.
+func test_a_patch_sends_a_link_array_as_given(t) -> void:
+	var cases := [
+		["a Dictionary's", {"name": "Bo", "traits": ["t1"]}, "{\"name\":\"Bo\",\"traits\":[\"t1\"]}"],
+		["a model's, emptied", OWTypes.make("character", {"friends": []}), "{\"friends\":[]}"],
+		["a typed list", {"species": PackedStringArray(["s1", "s2"])}, "{\"species\":[\"s1\",\"s2\"]}"],
+	]
+	for case in cases:
+		var fake = Fake.new()
+		fake.body = ELEMENT
+		var r: OWClient.Reply = await _make(fake).patch("character", "c1", case[1])
+		t.ok(r.ok, "%s link array is sent (%s)" % [case[0], r.error])
+		t.eq(fake.calls.size(), 1, "%s: one request" % case[0])
+		if fake.calls.size() != 1:
+			continue
+		t.eq([fake.last().method, fake.last().url], ["PATCH", BASE + "/character/c1/"], case[0])
+		t.eq(fake.last().body, case[2], "%s: the body as given" % case[0])
+	t.done()
+
 # -- The answers ------------------------------------------------------------------------------------------------------
 
+## A proposal is kind API with status 202 and the row, as the Unity SDK's OWProposedError (an OWApiError of status 202)
+## and the TypeScript SDK's OwProposedError are: no kind of its own, so a caller's switch over the kinds stays four.
 func test_a_202_is_a_proposal_not_an_element(t) -> void:
 	const PROPOSED := "{\"proposal\":{\"id\":\"pr1\",\"status\":\"open\",\"fields\":{\"name\":\"Bo\"}}}"
+	var kinds: Dictionary = (load("res://addons/onlyworlds/ow_api_error.gd") as Script).get_script_constant_map()
+	t.ok(not kinds.has("PROPOSED"), "no kind PROPOSED")
+	t.eq([OWApiError.API, OWApiError.TRANSPORT, OWApiError.REFUSED, OWApiError.ANSWER], ["api", "transport", "refused", "answer"],
+		"the four kinds")
 	var calls := [
 		["upsert", func(c): return await c.upsert("character", "c1", {"name": "Bo"})],
 		["patch", func(c): return await c.patch("character", "c1", {"name": "Bo"})],
@@ -332,17 +356,26 @@ func test_a_202_is_a_proposal_not_an_element(t) -> void:
 		fake.then(202, PROPOSED)
 		var r: OWClient.Reply = await call[1].call(_make(fake, "ow_w_seat", "ow_s_x", {"agent": true}))
 		var e: OWApiError = r.error
-		t.ok(e != null and e.kind == OWApiError.PROPOSED and e.is_proposed(), "%s: a proposal (%s)" % [call[0], e])
+		t.ok(e != null and e.kind == OWApiError.API and e.is_proposed(), "%s: a proposal, kind api (%s)" % [call[0], e])
 		if e == null:
 			continue
 		t.eq([e.status, e.proposal], [202, {"id": "pr1", "status": "open", "fields": {"name": "Bo"}}], "%s: the row" % call[0])
 		t.ok(e.message.contains("became a proposal"), e.message)
+		t.ok(str(e).begins_with("OnlyWorlds API 202: "), "%s: printed as keel's answer (%s)" % [call[0], e])
+		t.ok(not e.is_retryable() and not e.is_validation_error(), "%s: not a failure to retry" % call[0])
 		t.eq(r.value, null, "%s: no element" % call[0])
 		t.ok(r.response != null and r.response.status == 202, "")
 		fake.then(202, "{}")
 		e = (await call[1].call(_make(fake))).error
 		t.ok(e != null and e.kind == OWApiError.ANSWER and e.status == 202 and not e.is_proposed(),
 			"%s: a 202 without a proposal is no element and no made-up proposal (%s)" % [call[0], e])
+	# is_proposed is the status and the row together, as Unity's (202 and an OWProposedError) and Unreal's core
+	# (202 and a proposal) read it: neither alone.
+	var only_status := OWApiError.of(OWApiError.API, "", 202)
+	t.ok(not only_status.is_proposed(), "a 202 without a row is no proposal")
+	var only_row := OWApiError.of(OWApiError.API, "", 409)
+	only_row.proposal = {"id": "pr1"}
+	t.ok(not only_row.is_proposed(), "a row on another status is no proposal")
 	t.done()
 
 func test_conflicts_and_their_helpers(t) -> void:
