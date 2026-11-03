@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "6b1911bd207220c6679ee9ac2e927e6b93f8cf54178aff115c60923ca5707eae"
-const CASES := 92
+const FIXTURE_SHA256 := "7c84e4f624fb7ecc7eca1e56b1d9807196a5055e359e0a1c26f2065c9808e0d5"
+const CASES := 100
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -242,6 +242,36 @@ func test_a_skip_outside_the_words_is_refused_even_without_an_element(t) -> void
 			"open": {"world": "https://thorn.example/{world}", "element": "https://thorn.example/{world}/{id}", "needs": null, "element_skips": skips}}]
 		var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
 		t.ok(not r.ok and r.reason == "" and r.message.contains("tool thorn: open.element_skips"), "refused: %s gave %s" % [var_to_str(skips), r.message])
+	t.done()
+
+# -- element_types beside the fixture ------------------------------------------------------------------
+
+## The fixture refuses an unknown word and an empty list; the reader also refuses a repeat, a word in another case, a
+## word that is no string and a list that is no list, each by the key's name, as the npm SDK and the Python package do.
+func test_element_types_outside_the_lists_format_is_refused_by_name_even_on_a_world(t) -> void:
+	for types in [["character", "character"], ["Character"], [7], "character", {"character": true}, []]:
+		var tools := [{"id": "lark", "name": "Lark", "url": "https://lark.example", "client": null, "rung": "listed",
+			"open": {"world": "https://lark.example/{world}", "element": "https://lark.example/{world}/{id}", "needs": null, "element_types": types}}]
+		var r := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
+		t.ok(not r.ok and r.reason == "" and r.message.contains("tool lark: open.element_types is null or a non-empty list"),
+			"refused: %s gave %s" % [var_to_str(types), r.message])
+	t.done()
+
+## The type is read from the address, not from an element given in the options, and a key the row lacks reads as null.
+func test_element_types_reads_the_addresss_type_and_an_absent_key_opens_every_type(t) -> void:
+	var tools := [
+		{"id": "lark", "name": "Lark", "url": "https://lark.example", "client": null, "rung": "listed",
+			"open": {"world": "https://lark.example/{world}", "element": "https://lark.example/{world}/{id}", "needs": null, "element_types": ["character"]}},
+		{"id": "wren", "name": "Wren", "url": "https://wren.example", "client": null, "rung": "listed",
+			"open": {"world": null, "element": "https://wren.example/{world}/{id}", "needs": null}},
+	]
+	var place := {"form": "human", "world": WORLD, "type": "location", "id": ELEMENT}
+	var body := {"id": ELEMENT, "type": "character", "name": "Served as a Character"}
+	var r := OWOpeners.openers_for(tools, "element", place, {"audience": "member"}, {"element": body})
+	t.ok(r.ok, "read: " + r.message)
+	t.eq(r.rows.map(func(x): return x["id"]), ["onlyworlds", "wren"], "a Location's menu: Lark's world door is not offered either")
+	var world := OWOpeners.openers_for(tools, "world", {"form": "human", "world": WORLD}, {"audience": "member"})
+	t.eq(world.rows.map(func(x): return x["id"]), ["onlyworlds", "lark"], "a world's menu reads no element types")
 	t.done()
 
 func test_options_that_are_not_a_dictionary_are_refused(t) -> void:

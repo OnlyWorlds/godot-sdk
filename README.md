@@ -236,9 +236,11 @@ test whose world is missing is skipped, never passed.
   whose link is a web address says "Needs a connection" and keeps its href), `tool` (your client name: "You are
   here"). On an element's menu, pass the element as you were served it (`{"element": body}`, a fifth argument): a
   tool whose element link cannot open it (a room element, a hidden or proposed one, a Map, Pin or Marker, a reading
-  aid: the tools list's `element_skips`) is left out, each mark read as `OWGraph` reads it. A refused address answers
+  aid: the tools list's `element_skips`) is left out, each mark read as `OWGraph` reads it. A tool that opens only
+  some kinds of element (the list's `element_types`, read from the address's type) is not on another kind's menu at
+  all, its world door included. A refused address answers
   `reason` as the address profile names it; any other mistake answers `reason` "" and a `message` naming the key.
-  Every case of the packages' shared fixture (90).
+  Every case of the packages' shared fixture (100).
 - **Names** (the names profile, `x_names`, serial 92): `OWNames.type_word(world, type, supertype, many)` is the
   world's own word for a type (Character shown as *Employee*), or null for the standard's name, as the npm SDK's
   `typeWord` and the Python package's `type_word` read it: the supertype's entry, trimmed and folded as the room

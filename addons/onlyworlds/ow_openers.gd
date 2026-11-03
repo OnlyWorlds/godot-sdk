@@ -76,7 +76,10 @@ static func sign_in_first(name: String) -> String:
 ## [code]element[/code] (the element as served, the mark flat on it), a row whose [code]open.element_skips[/code] names a
 ## mark the element carries ([constant ELEMENT_MARKS], each read as [method OWGraph.world_graph] reads it) is not there:
 ## its door cannot open it. A world door alone opens the world, so it stays. Without [code]element[/code] every row is
-## there. For the [code]public[/code] audience (the signed-out reader) a row whose [code]open.needs[/code] is
+## there. On an element's menu, a row whose [code]open.element_types[/code] is a list that does not hold the address's
+## type word is not there either, world door or not: the tool opens other kinds of element (read from the address, so
+## no element body is needed; a world's menu reads no element types). [code]element_types[/code] null or absent (a list
+## older than the key has none): the door opens every type. For the [code]public[/code] audience (the signed-out reader) a row whose [code]open.needs[/code] is
 ## [code]device[/code] is not there, since a visitor's device holds no world of this one's, and a row whose
 ## [code]needs[/code] is [code]account[/code] is there and says it needs one.
 ##
@@ -105,8 +108,9 @@ static func sign_in_first(name: String) -> String:
 ## [member Result.message] names the rest: a [param kind] that is neither, an element's openers asked of an address
 ## with no element, an unknown key on the address, the surface or the options, a missing or unknown
 ## [code]audience[/code], a surface value of the wrong type, an element given for a world's menu or naming another
-## element than the address, a tools row that is not one (a [code]needs[/code] or an [code]element_skips[/code] word
-## outside the list's format, or skips on a row with no element door, included, and an [code]open[/code] template that
+## element than the address, a tools row that is not one (a [code]needs[/code], an [code]element_skips[/code] or an
+## [code]element_types[/code] word outside the list's format, an empty or repeating [code]element_types[/code], or skips
+## or types on a row with no element door, included, and an [code]open[/code] template that
 ## does not begin with its scheme or whose scheme opens no app: [code]javascript[/code], [code]data[/code],
 ## [code]vbscript[/code], [code]file[/code], [code]blob[/code] or [code]about[/code], in any case).
 static func openers_for(tools: Variant, kind: Variant, address: Variant, surface: Variant, options: Variant = {}) -> Result:
@@ -226,6 +230,21 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			return _mistake(out, "tool %s: open.element_skips is a list of %s; got %s" % [rid, ", ".join(ELEMENT_MARKS), _show(o.get("element_skips"))])
 		if element_door == null and not skips.is_empty():
 			return _mistake(out, "tool %s: open.element_skips names what an element door leaves out, and the row has none" % rid)
+		# Absent and null read alike: a list older than the key has none, and its door opens every type.
+		var types: Variant = o.get("element_types")
+		if types != null:
+			var types_ok: bool = types is Array and not types.is_empty()
+			if types_ok:
+				var seen := {}
+				for ty in types:
+					if not (ty is String and OWTypes.SCRIPTS.has(ty)) or seen.has(ty):
+						types_ok = false
+						break
+					seen[ty] = true
+			if not types_ok:
+				return _mistake(out, "tool %s: open.element_types is null or a non-empty list of distinct type words (%s); got %s" % [rid, ", ".join(OWTypes.slugs()), _show(types)])
+		if element_door == null and types != null:
+			return _mistake(out, "tool %s: open.element_types names what an element door opens, and the row has none" % rid)
 		var rung: Variant = r.get("rung")
 		if not (rung is String and rung == "listed"):
 			continue
@@ -236,6 +255,9 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			continue
 		# An element door that cannot open this element is no door (a row with skips has one: refused above).
 		if kind == ELEMENT and marks.any(func(m): return skips.has(m)):
+			continue
+		# A tool that opens other kinds of element is no door for this one, and offers no world fallback either.
+		if kind == ELEMENT and types != null and not types.has(values["type"]):
 			continue
 		# The first that holds. A word the row needs (it cannot open now) comes before "Opens the world" (it opens,
 		# somewhere else), so a world door alone that needs a sign-in says the sign-in. With no connection a web link

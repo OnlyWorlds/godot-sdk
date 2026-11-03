@@ -8,6 +8,15 @@ the git log.
 
 ### Added
 
+- A tool that opens one kind of element is offered only on that kind. `OWOpeners.openers_for` reads the tools
+  list's `open.element_types`, the element types a tool's element door opens (type words such as `character`), or
+  null (or the key absent, as in a list older than it) for every type. On an element's menu a row whose
+  `element_types` does not hold the address's type word is not there, whether or not the row has a world door: the
+  tool opens other kinds, so its world is not offered from this element either. The type is read from the address,
+  so no element body is needed; a world's menu reads no element types. Refused by name, as a row that is not one: a
+  word outside the 22 (in another case included), an empty list, a repeat, and `element_types` on a row with no
+  element door. Parity with the TypeScript SDK 4.132.0 and the Python package 0.106.0; the shared openers fixture
+  re-vendored at 100 cases (from 92), the same bytes as theirs, every case by name green.
 - `OWMapSpace.map_space(elements)`: the map space profile's reader (schema-dist `profiles/map-space.md`, serial 105),
   how a world's Maps, Zones, Markers and Pins, as the reader is served them, are read as geometry. The answer,
   `OWMapSpace.MapSpace`, always holds its four parts (`to_dict()` in the profile's order): `maps` (each Map's
