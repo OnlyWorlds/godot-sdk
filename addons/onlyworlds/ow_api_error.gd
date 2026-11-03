@@ -4,16 +4,18 @@ extends RefCounted
 ## nothing was sent. GDScript has no exceptions, so a call answers an [OWClient.Reply] whose [member OWClient.Reply.error]
 ## is one of these, or null.
 ##
-## [member kind] says which of five it is, since each has another remedy: [constant API] (keel answered and said no:
+## [member kind] says which of four it is, since each has another remedy: [constant API] (keel answered and said no:
 ## branch on [member code], point a person at [member doc_url]), [constant TRANSPORT] (no answer came: offline, a
 ## timeout), [constant REFUSED] (the client refused the call before sending anything: a caller's mistake, the message
-## names it), [constant ANSWER] (a 2xx whose body is not the answer the route documents) and [constant PROPOSED] (a
-## write became a proposal: nothing was written, [member proposal] is the row a person decides). keel's envelope is
+## names it) and [constant ANSWER] (a 2xx whose body is not the answer the route documents). A write that became a
+## proposal is kind [constant API] with [member status] 202 and [member proposal] the row a person decides
+## ([method is_proposed]): nothing was written. keel's envelope is
 ## [code]{"error": {type, code, message, param, doc_url}}[/code]; a body without the wrapper is read as the envelope
 ## itself, and the upload host's [code]{"error": "<code>"}[/code] as its code, as the Unity and TypeScript SDKs read
 ## them. Mirrors the TypeScript SDK's [code]OwApiError[/code].
 
-## keel (or a proxy in front of it) answered with a status that is not a 2xx.
+## keel (or a proxy in front of it) answered with a status that is not a 2xx, or answered 202 with
+## [code]{proposal}[/code] to a write that may become one ([method is_proposed]).
 const API := "api"
 ## No answer came: [member status] is 0.
 const TRANSPORT := "transport"
@@ -21,10 +23,6 @@ const TRANSPORT := "transport"
 const REFUSED := "refused"
 ## A 2xx whose body is not what the route answers (not JSON, or not the documented shape).
 const ANSWER := "answer"
-## keel answered 202 with [code]{proposal}[/code] to a write that may become one (an upsert, a patch, a link edit by
-## an agent seat in a world that takes its writes as proposals): the element did not change. Not a failure to retry:
-## the write waits for a person.
-const PROPOSED := "proposed"
 
 var kind := API
 ## The HTTP status; 0 when no answer came or nothing was sent.
@@ -44,7 +42,8 @@ var raw_body := ""
 ## Seconds to wait before a retry, from [code]Retry-After[/code] (whole seconds, or an HTTP date read against the
 ## clock); null when it was absent or unreadable.
 var retry_after: Variant = null
-## On [constant PROPOSED]: the proposal row keel answered (a Dictionary, as served); null otherwise.
+## On a write that became a proposal ([method is_proposed]): the proposal row keel answered (a Dictionary, as
+## served); null otherwise.
 var proposal: Variant = null
 
 ## keel's answer as an error: the envelope read defensively (a gateway's HTML page is a message, never a parse
@@ -75,8 +74,10 @@ static func from_response(answer_status: int, body: String, headers: Dictionary)
 	e.doc_url = _text(error.get("doc_url"))
 	return e
 
-## The client's own error: [param what] is [constant TRANSPORT], [constant REFUSED] or [constant ANSWER]. Mirrors the
-## TypeScript SDK's [code]OwNetworkError[/code] (no answer) and the [code]TypeError[/code] it throws before sending.
+## The client's own error: [param what] is [constant TRANSPORT], [constant REFUSED] or [constant ANSWER], or
+## [constant API] for a 202 proposal (keel's answer, but a row and no envelope: the caller sets [member proposal]).
+## Mirrors the TypeScript SDK's [code]OwNetworkError[/code] (no answer) and the [code]TypeError[/code] it throws
+## before sending.
 static func of(what: String, text: String, answer_status := 0, body := "") -> OWApiError:
 	var e := OWApiError.new()
 	e.kind = what
@@ -175,10 +176,12 @@ func resync_reason() -> Variant:
 	var reason = inner.get("reason") if inner is Dictionary else null
 	return reason if reason is String and (reason == "role" or reason == "view") else null
 
-## A write became a proposal (202, kind [constant PROPOSED]): [member proposal] is the row; the element did not
-## change. Mirrors the TypeScript SDK's [code]isProposed[/code].
+## A write became a proposal (an upsert, a patch or a link edit by an agent seat, in a world that takes its writes as
+## proposals): kind [constant API], status 202, [member proposal] the row; the element did not change. Not a failure
+## to retry: the write waits for a person. Mirrors the TypeScript SDK's [code]isProposed[/code] and the Unity SDK's
+## [code]IsProposed[/code] (an [code]OWProposedError[/code], an [code]OWApiError[/code] of status 202).
 func is_proposed() -> bool:
-	return kind == PROPOSED
+	return kind == API and status == 202 and proposal is Dictionary
 
 ## A conditional write's [code]If-Match[/code] was stale (412 [code]precondition_failed[/code]: a patch, a link edit
 ## or a delete): the element changed since the [code]change_seq[/code] sent, and nothing was written. [method current]

@@ -582,7 +582,8 @@ func create(type: String, element: Variant, options: Dictionary = {}) -> Reply:
 ## [code]PUT /{type}/{id}/[/code]: upsert by the caller's own id, creating the element under [param id] or writing it
 ## whole: the local-first write. keel's document declares no [code]Idempotency-Key[/code] or [code]If-Match[/code]
 ## here, so none is sent. An agent seat's PUT on an existing element, in a world that takes its writes as proposals,
-## answers 202: an [OWApiError] of kind [constant OWApiError.PROPOSED], and the element did not change. Mirrors the
+## answers 202: an [OWApiError] of kind [constant OWApiError.API], status 202, its row in
+## [member OWApiError.proposal] ([method OWApiError.is_proposed]), and the element did not change. Mirrors the
 ## TypeScript SDK's [code]upsert[/code].
 func upsert(type: String, id: String, element: Variant) -> Reply:
 	if id == "":
@@ -594,13 +595,14 @@ func upsert(type: String, id: String, element: Variant) -> Reply:
 		{"body": body, "write": true, "proposable": true}))
 
 ## [code]PATCH /{type}/{id}/[/code]: a partial update. Destructive on the keys sent: whatever is in [param partial]
-## replaces what keel holds, so send only what changed; a key left out is left alone. A link array is refused here,
-## nothing sent: a PATCH replaces it whole, so a writer adding one id erases what another added since; change it with
-## [method edit_links]. [code]options.if_match[/code]: the element's [code]change_seq[/code] as read (an int, or a whole
-## float as JSON reads it), sent as [code]If-Match[/code]; the write lands only if nobody changed the element since,
-## else a 412 ([method OWApiError.is_precondition_failed]) whose [method OWApiError.current] is the element now. A 202
-## is a proposal, as on [method upsert]; a stale [code]If-Match[/code] is still a 412 first. Mirrors the TypeScript SDK's
-## [code]patch[/code].
+## replaces what keel holds, so send only what changed; a key left out is left alone. Never patch a link array to add
+## one id: a link array is sent as given and replaces the whole array, so a writer adding one id erases what another
+## added since; change it with [method edit_links], keel's merge. [code]options.if_match[/code]: the element's
+## [code]change_seq[/code] as read (an int, or a whole float as JSON reads it), sent as [code]If-Match[/code]; the
+## write lands only if nobody changed the element since, else a 412 ([method OWApiError.is_precondition_failed]) whose
+## [method OWApiError.current] is the element now. A 202 is a proposal, as on [method upsert]; a stale
+## [code]If-Match[/code] is still a 412 first. Mirrors the TypeScript SDK's [code]patch[/code] and the Unity SDK's
+## [code]PatchAsync[/code].
 func patch(type: String, id: String, partial: Variant, options: Dictionary = {}) -> Reply:
 	var refused := _check(options, _IF_MATCH_KEYS, "patch")
 	if refused != "":
@@ -610,12 +612,6 @@ func patch(type: String, id: String, partial: Variant, options: Dictionary = {})
 	var body = _element_body(type, partial, "patch")
 	if body is String:
 		return _refused(body)
-	var script = OWTypes.SCRIPTS.get(type)
-	if script != null:
-		for k in body:
-			if script.FIELDS.has(k) and script.FIELDS[k][0] == "multi":
-				return _refused(("patch: '%s' is a link array, which a PATCH replaces whole (an id another writer added "
-					+ "since is lost); change it with edit_links (POST /%s/{id}/links/%s). Nothing was sent.") % [k, type, k])
 	return _element(type, await _request("PATCH", _element_path(type, id), [],
 		{"body": body, "if_match": options.get("if_match"), "write": true, "proposable": true}))
 
@@ -636,11 +632,12 @@ func delete(type: String, id: String, options: Dictionary = {}) -> Reply:
 	return r
 
 ## [code]POST /{type}/{id}/links/{field}[/code] with [code]{add, remove}[/code]: change one link array, merged by keel
-## (ids already there or already gone are fine), answering the element whole in its type's model. The one way to change
-## a link array: [method patch] refuses one. [param edit] holds [code]add[/code] and [code]remove[/code], each an
-## Array of ids, each optional and sent only when given. [code]options.if_match[/code] as on [method patch]: a link
-## write moves the element too. A 202 is a proposal, as on [method upsert]. The type, the id and the field are each checked as one path
-## segment and escaped: a value that is not one is refused, nothing sent. Mirrors the TypeScript SDK's [code]editLinks[/code].
+## (ids already there or already gone are fine), answering the element whole in its type's model. The way to change
+## a link array: [method patch] sends one whole, erasing what another writer added since. [param edit] holds
+## [code]add[/code] and [code]remove[/code], each an Array of ids, each optional and sent only when given.
+## [code]options.if_match[/code] as on [method patch]: a link write moves the element too. A 202 is a proposal, as on
+## [method upsert]. The type, the id and the field are each checked as one path segment and escaped: a value that is
+## not one is refused, nothing sent. Mirrors the TypeScript SDK's [code]editLinks[/code].
 func edit_links(type: String, id: String, field: String, edit: Dictionary, options: Dictionary = {}) -> Reply:
 	var refused := _check(edit, _EDIT_KEYS, "edit_links")
 	if refused == "":
@@ -880,8 +877,9 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 			% [method, path, response.status], response.status, response.body), response)
 	return Reply.of(json.data, response)
 
-## A 202 on a write that may become a proposal: kind [constant OWApiError.PROPOSED] carrying the row; a 202 whose body
-## holds none is kind [constant OWApiError.ANSWER]: never the element, never a made-up proposal.
+## A 202 on a write that may become a proposal: kind [constant OWApiError.API], status 202, carrying the row (the Unity
+## SDK's [code]OWProposedError[/code]); a 202 whose body holds none is kind [constant OWApiError.ANSWER]: never the
+## element, never a made-up proposal.
 static func _proposed(response: OWTransport.Response, method: String, path: String) -> OWApiError:
 	var json := JSON.new()
 	var body = json.data if json.parse(response.body) == OK else null
@@ -889,7 +887,7 @@ static func _proposed(response: OWTransport.Response, method: String, path: Stri
 	if not (row is Dictionary):
 		return OWApiError.of(OWApiError.ANSWER, ("%s %s answered 202 without a proposal: the write was not applied, and "
 			+ "the answer is not an element") % [method, path], 202, response.body)
-	var e := OWApiError.of(OWApiError.PROPOSED, ("%s %s became a proposal (202): this world takes an agent seat's writes "
+	var e := OWApiError.of(OWApiError.API, ("%s %s became a proposal (202): this world takes an agent seat's writes "
 		+ "as proposals, so the element did not change. error.proposal is the row; the owner or a co-builder accepts or "
 		+ "declines it.") % [method, path], 202, response.body)
 	e.proposal = row

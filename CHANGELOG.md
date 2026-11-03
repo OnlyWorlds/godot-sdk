@@ -65,13 +65,13 @@ the git log.
   month lengths and Gregorian leap years, hour, minute and second), never by a date parser. `OWRecord.MARK` is the
   field's name. Every case of the profile's fixture (32), held by its sha256.
 - `OWClient`'s element writes: `create` (`POST /{type}/`), `upsert` (`PUT`), `patch` (`PATCH`, with `if_match`),
-  `delete` (with `if_match`), `edit_links` (`POST /{type}/{id}/links/{field}` with `{add, remove}`, the one way to
-  change a link array: a patch carrying one is refused) and `bulk` (`POST /bulk/`, `atomic`, a typed
+  `delete` (with `if_match`), `edit_links` (`POST /{type}/{id}/links/{field}` with `{add, remove}`, keel's merge of
+  one link array) and `bulk` (`POST /bulk/`, `atomic`, a typed
   `OWClient.BulkResult` whose slots carry their own status, error and proposal, and `was_replay` from keel's replay
   header). The body is cleaned as the Unity SDK cleans it (the read-only keys left out, a null string field sent as
   `""`, extension keys untouched) and written compact with JavaScript's number form. Every write sends the PIN and
   `X-OW-Client` (the new `client` config key, `godot-sdk` by default), and `X-OW-Agent` on a client the new `agent`
-  config key declares an AI agent. A 202 is an `OWApiError` of the new kind `proposed`, its row in `proposal`; new
+  config key declares an AI agent. A 202 is an `OWApiError` of kind `api` and status 202, its row in `proposal`; new
   helpers `is_proposed`, `is_precondition_failed` with `current()` (the element as it is now on a 412),
   `is_id_conflict`, `is_idempotency_conflict`, `is_known_of_not_writable`. The wire checks cover the writes: every
   body key one keel declares on that operation (a bulk item's element as its type's create declares it).
@@ -107,6 +107,15 @@ the git log.
 
 ### Changed
 
+- `OWClient`'s writes follow the Unity and TypeScript SDKs on two rules. A write that became a proposal (a 202 with
+  `{proposal}` to an upsert, a patch or a link edit) is now an `OWApiError` of kind `api`, `status` 202, its row in
+  `proposal`, `is_proposed()` true, as the Unity SDK's `OWProposedError` is; the kind `proposed` and
+  `OWApiError.PROPOSED` are gone, so the kinds are four. A caller that matched `OWApiError.PROPOSED` (or
+  `"proposed"`) calls `error.is_proposed()` instead, before any branch on kind `api`, since a proposal is not a failure
+  to retry; `error.proposal` is the same row. A 202 without a proposal row is still kind `answer`. And `patch` now
+  sends a link array as given, where it refused one with nothing sent: the PATCH replaces the whole array, so a
+  writer adding one id still uses `edit_links`, keel's merge. A caller that relied on the refusal to catch a link
+  array in a partial now sees it written.
 - `OWOpeners.openers_for` with `audience: "public"` (the signed-out reader) now gives a row for a tool whose
   `open.needs` is `account` (Atlas and Lantern today), its word the new `OWOpeners.NEEDS_AN_ACCOUNT`, "Needs an
   account", whatever `signed_in` says; the href stays in the row, and a menu draws it as one that opens nothing

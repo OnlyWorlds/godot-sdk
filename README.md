@@ -76,12 +76,14 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   without an id gets a UUIDv7 (`OWId`), or under an `idempotency_key` the id derived from the key and the position
   (the id the Unity, TypeScript and Python clients derive), so a retry replays. Every write sends the PIN and
   `X-OW-Client` (the config's `client`, `godot-sdk` by default), and `X-OW-Agent` when the config says `agent: true`;
-  an account token and a keyless client write nothing. Refused before sending: a known-of stub, a link array in a
-  patch (a PATCH replaces it whole: use `edit_links`), an `if_match` that is not a whole number.
+  an account token and a keyless client write nothing. Refused before sending: a known-of stub, an `if_match` that is
+  not a whole number. A link array in a patch is sent as given and replaces the whole array, as in the Unity and
+  TypeScript SDKs: to add or remove one id, use `edit_links` (keel's merge).
 - **Errors**: one type, `OWApiError`, with a `kind`: `api` (keel's envelope: `status`, `code`, `message`, `param`,
   `doc_url`, `retry_after`), `transport` (no answer), `refused` (a caller's mistake, nothing sent: an unknown option, a
-  value of the wrong type, `world` beside a world key), `answer` (a 2xx that is not what the route answers) and
-  `proposed` (a 202: the write became a proposal, `error.proposal` is the row, the element did not change).
+  value of the wrong type, `world` beside a world key) and `answer` (a 2xx that is not what the route answers). A write
+  that became a proposal is kind `api` with `status` 202 and `error.proposal` the row (`is_proposed()`), as the Unity
+  SDK's `OWProposedError` is: the element did not change.
 - **Options** are Dictionaries, and an unknown key is refused, never dropped (a dropped filter lists everything).
 - **The cursor walk** is driven by `has_more`, never by a page's size; it stops at a page with no cursor and refuses a
   page that hands back the cursor it was sent.
