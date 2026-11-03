@@ -138,6 +138,11 @@ the git log.
   refuses a known key as unknown, or the other way round, now fails the case where before the name alone passed it.
   Still 92 cases, the same bytes as the TypeScript SDK's (`85ef7dd`) and the Python package's (`b1a4a45`); nothing
   shipped changes.
+- `OWTools` repinned at the tools list's `60a590e` (tools.json sha256 `e9e8ad9d…`), the list the TypeScript SDK 4.132.1
+  and the Python package 0.106.1 bake: Tactical Tangle opens a world or a Character. Its row gains a world door and an
+  element door (`needs: "account"`, `element_types: ["character"]`, skipping room, hidden and proposed elements), so
+  the Open with menu offers it on a world and on a Character, and on no other type. Atlas, Lantern and Little Lens
+  each gain `element_types: null`, so nothing they offer changes.
 - `OWTools` repinned at the tools list's `f10afdc` (tools.json sha256 `ff5e7c67…`), the list the TypeScript SDK 4.131.0
   bakes and the Python package pins: one new row, Tactical Tangle (`tangle`, listed, the API door only), with no
   `open`, so the Open with menu offers it nowhere. No other row changed.
