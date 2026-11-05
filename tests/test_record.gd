@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWRecord on the record profile's conformance fixture (schema-dist profiles/record.fixture.json, the pinned copy at
-## dist.107, its sha256 checked against the manifest): every mark case through record_mark_of and every records case
+## dist.108, its sha256 checked against the manifest): every mark case through record_mark_of and every records case
 ## through records_of, by name. Beside it, what the fixture leaves open: ids ordered by code point where UTF-16 order
 ## differs, played_at's digits ASCII and its form the whole value, the calendar's edges, the order by the instant past
 ## the fixture's pairs, each optional member's kind, a name that is not text, a caller's mistake, an element without a

@@ -153,6 +153,11 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.108` (`c618b9d`); the standard stays at 00.34.00, descriptions only (canonical PR 20): no
+  field, type, link, fixture or reader change. Seventeen time-field descriptions on thirteen types say one thing, "in
+  the world's time unit (World `time_basic_unit`)"; `Event.constructs` reads "concepts, systems or built entities";
+  `Map.hierarchy` reads "an integer to order or group the maps that share a parent; how a tool reads it is the tool's
+  own". The generated models' doc comments for those 19 fields and the generated headers moved; nothing else did.
 - Schema pin to `v0.34.0-dist.107` (`1d774b9`); the standard stays at 00.34.00, no model, fixture or reader change. The
   serial changes two profile pages' prose: the charter page names a reader's `open` as the World's `public_read`, the
   standard's field on world.yaml, and the map space page dates its exact-range sentence. Only the generated headers
