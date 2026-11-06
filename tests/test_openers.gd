@@ -96,20 +96,23 @@ func test_the_baked_list_gives_the_sites_row_then_each_listed_tool_with_a_door(t
 		var href: String = row["href"]
 		t.ok(href.begins_with("https://") and href.contains(WORLD) and not href.contains("{"), href)
 	var open := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, {"audience": "public"})
-	# The public: a tool that needs the device is not there; one that needs an account says so.
+	# The public: a tool that needs the device is not there; one that needs an account says so, unless it opens a
+	# public world with none (Atlas at 9452529).
 	var shown := offered.filter(func(x): return x["open"]["needs"] != "device")
 	var public_ids := ["onlyworlds"]
 	public_ids.append_array(shown.map(func(x): return x["id"]))
 	t.eq(open.rows.map(func(x): return x["id"]), public_ids, "the public's rows")
 	for row in open.rows.slice(1):
-		var needs: Variant = OWTools.ALL.filter(func(x): return x["id"] == row["id"])[0]["open"]["needs"]
-		t.eq(row["state"], OWOpeners.NEEDS_AN_ACCOUNT if needs == "account" else null, row["id"])
+		var o: Dictionary = OWTools.ALL.filter(func(x): return x["id"] == row["id"])[0]["open"]
+		var says: bool = o["needs"] == "account" and o.get("opens_public", false) != true
+		t.eq(row["state"], OWOpeners.NEEDS_AN_ACCOUNT if says else null, row["id"])
 	t.done()
 
 func test_a_visitor_sees_the_account_tools_saying_needs_an_account_whatever_signed_in_says(t) -> void:
 	var address := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
 	var n := OWOpeners.NEEDS_AN_ACCOUNT
-	var want := [["onlyworlds", null], ["atlas", n], ["lantern", n], ["little-lens", null], ["tangle", n]]
+	# Atlas opens a public world with no account (opens_public, the list at 9452529), so a visitor's row is live.
+	var want := [["onlyworlds", null], ["atlas", null], ["lantern", n], ["little-lens", null], ["tangle", n]]
 	for signed_in in [null, false, true]:
 		for browser in [true, false]:
 			var r := OWOpeners.openers_for(OWTools.ALL, "element", address, {"audience": "public", "signed_in": signed_in, "browser": browser})
