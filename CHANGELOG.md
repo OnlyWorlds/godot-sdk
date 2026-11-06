@@ -8,6 +8,11 @@ the git log.
 
 ### Added
 
+- A tools-list row can say it opens a public world with no account. `OWOpeners.openers_for` reads the row's
+  `open.opens_public`: on a world's public page a row with `needs: account` and `opens_public: true` is live instead
+  of "Needs an account"; anywhere else it reads as its `needs` says. Absent reads as false. A value that is not true or
+  false, or true beside a `needs` other than `account`, is refused by name, as a row that is not one. The same rule as
+  the TypeScript SDK 4.133.0; the shared openers fixture at 110 cases.
 - A tool that opens one kind of element is offered only on that kind. `OWOpeners.openers_for` reads the tools
   list's `open.element_types`, the element types a tool's element door opens (type words such as `character`), or
   null (or the key absent, as in a list older than it) for every type. On an element's menu a row whose

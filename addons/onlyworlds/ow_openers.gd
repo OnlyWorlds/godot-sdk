@@ -81,7 +81,9 @@ static func sign_in_first(name: String) -> String:
 ## no element body is needed; a world's menu reads no element types). [code]element_types[/code] null or absent (a list
 ## older than the key has none): the door opens every type. For the [code]public[/code] audience (the signed-out reader) a row whose [code]open.needs[/code] is
 ## [code]device[/code] is not there, since a visitor's device holds no world of this one's, and a row whose
-## [code]needs[/code] is [code]account[/code] is there and says it needs one.
+## [code]needs[/code] is [code]account[/code] is there and says it needs one, unless its [code]open.opens_public[/code]
+## is true: its links open a public world with nothing signed in, so on a public page it needs nothing and reads as a
+## live row. Anywhere else the row reads as its [code]needs[/code] says.
 ##
 ## [param surface] is a Dictionary of what the surface knows, and nothing is guessed: [code]audience[/code]
 ## ([code]member[/code], a seat in the world, a guest included, or [code]public[/code], the signed-out reader;
@@ -109,8 +111,9 @@ static func sign_in_first(name: String) -> String:
 ## with no element, an unknown key on the address, the surface or the options, a missing or unknown
 ## [code]audience[/code], a surface value of the wrong type, an element given for a world's menu or naming another
 ## element than the address, a tools row that is not one (a [code]needs[/code], an [code]element_skips[/code] or an
-## [code]element_types[/code] word outside the list's format, an empty or repeating [code]element_types[/code], or skips
-## or types on a row with no element door, included, and an [code]open[/code] template that
+## [code]element_types[/code] word outside the list's format, an empty or repeating [code]element_types[/code], skips
+## or types on a row with no element door, or an [code]opens_public[/code] that is not true or false or is true beside
+## a [code]needs[/code] other than [code]account[/code], included, and an [code]open[/code] template that
 ## does not begin with its scheme or whose scheme opens no app: [code]javascript[/code], [code]data[/code],
 ## [code]vbscript[/code], [code]file[/code], [code]blob[/code] or [code]about[/code], in any case).
 static func openers_for(tools: Variant, kind: Variant, address: Variant, surface: Variant, options: Variant = {}) -> Result:
@@ -218,6 +221,12 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		var needs: Variant = o.get("needs")
 		if needs != null and not (needs is String and _NEEDS.has(needs)):
 			return _mistake(out, "tool %s: open.needs is 'account', 'device' or null; got %s" % [rid, _show(needs)])
+		# Absent reads as false; null, like any value but true or false, is refused (the TypeScript reader's rule).
+		var opens_public: Variant = o.get("opens_public") if o.has("opens_public") else false
+		if not (opens_public is bool):
+			return _mistake(out, "tool %s: open.opens_public is true or false; got %s" % [rid, _show(opens_public)])
+		if opens_public and needs != "account":
+			return _mistake(out, "tool %s: open.opens_public is true only beside needs 'account'; got needs %s" % [rid, _show(needs)])
 		var skips: Variant = o.get("element_skips")
 		if skips == null:
 			skips = []
@@ -264,18 +273,21 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		# opens nothing, whatever else it needs.
 		var href := _fill(template, values)
 		var client: Variant = r.get("client")
+		# What the row needs on this surface: a public page shows a public world, which a row that opens one opens with
+		# nothing signed in.
+		var need: Variant = null if audience == PUBLIC and opens_public else needs
 		var state: Variant = null
 		if tool != null and client is String and client == String(tool):
 			state = YOU_ARE_HERE
 		elif _offline(href, online):
 			state = NEEDS_A_CONNECTION
-		elif audience == PUBLIC and needs == "account":
+		elif audience == PUBLIC and need == "account":
 			state = NEEDS_AN_ACCOUNT
-		elif needs == "account" and not browser:
+		elif need == "account" and not browser:
 			state = OPENS_IN_YOUR_BROWSER
-		elif needs == "account" and signed_in is bool and signed_in == false:
+		elif need == "account" and signed_in is bool and signed_in == false:
 			state = sign_in_first(name)
-		elif needs == "device" and phone:
+		elif need == "device" and phone:
 			state = NEEDS_THE_WORLD_ON_THIS_PHONE
 		elif kind == ELEMENT and element_door == null:
 			state = OPENS_THE_WORLD
