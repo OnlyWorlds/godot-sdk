@@ -221,9 +221,18 @@ test whose world is missing is skipped, never passed.
   leap rule with `except` and `offset`, eras with an open end skipping down eras, free and nested weeks, the template's
   close-up on JavaScript's white space); `world_calendars` finds them by the field. Every case of the profile's fixture
   (76: 34 calendars, 209 steps, 42 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
-  never a number; a month's days are found by arithmetic, never listed. Not ported: `parseDate`, the axis labels
-  (`formatYearLabel`, `formatMidLabel`), `formatDuration`, `monthStartSteps`, `validateCalendarConfig`,
-  `resolveCalendar`.
+  never a number; a month's days are found by arithmetic, never listed. The axis labels `format_year_label` ("22 FT")
+  and `format_mid_label` ("11 Greening 454"), `format_duration` ("19 years", "12 days", "1.5 years"),
+  `approx_year_length` and `month_start_steps` read as npm's `formatYearLabel`, `formatMidLabel`, `formatDuration`,
+  `approxYearLength` and `monthStartSteps` do; `parse_date(calendar, text, {"now": step})` reads a typed date as
+  npm's `parseDate` (a bare number is the raw step; the calendar's words without regard to case; `{"step"}` or
+  `{"error"}` in npm's words, an unknown option refused by name), with `abs_year_for_era_year` its inverse of an era's
+  year; `validate_config` is npm's `validateCalendarConfig`, a builder's messages word for word on any JSON value
+  (where npm throws, on eras or intercalary days that are no list, it says so);
+  `resolve_calendar(elements, id, {"fallback_to_only": true})` is npm's `resolveCalendar`, the id left out
+  (`OWCalendar.NOT_CHOSEN`) apart from null. Each held to npm's own answers: parity vectors generated from the npm
+  package's built code (`codegen/generate_calendar_parity.mjs`, `--check` to see they still hold) over every
+  calendar of the fixture and calendars written for the traps.
 - **Open with** (the tools list's README, "Open with"): `OWOpeners.openers_for(tools, kind, address, surface)` gives
   the rows of an Open with menu for a world or one element, as the npm SDK's `openersFor` and the Python package's
   `openers_for` do: the site's page first, then each listed tool with a door for that kind in the list's order, each

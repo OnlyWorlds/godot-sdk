@@ -8,6 +8,32 @@ the git log.
 
 ### Added
 
+- The calendar's labels, durations and typed dates: the last of the TypeScript SDK's calendar functions, on
+  `OWCalendar`. `format_year_label(calendar, step)` is the compact axis label (the era's year and abbrev, or its
+  name; a falsy word, `""` or 0, prints the year alone) and `format_mid_label` the dense one (day, month and year, no
+  era word; an intercalary day's name and year; with no months the year label). `format_duration(calendar, steps)`
+  speaks a span: years from the base year length (one decimal under 10, whole from 10, half up as JavaScript's
+  `Math.round`), else the step word (`step_name`, else the grain, trimmed as JavaScript trims; `""` reads `step`),
+  to two decimals, a fraction of a step included. `approx_year_length` and `month_start_steps(calendar, year)`
+  (`{month, name, step}` each, by arithmetic). `parse_date(calendar, text, {"now": step})` reads a typed date to
+  `{"step"}` or `{"error"}` in the TypeScript SDK's words, and `is_parse_error` tells them apart: a bare number is
+  the raw step; era, intercalary and month words match without regard to case (U+0130 lowered as JavaScript does),
+  the longest first by UTF-16 length; a missing year reads in the now's year and is an error with no now; the default
+  era is the one holding the now, else the latest-started open era, a tie to the first listed. An unknown option, a
+  `now` that is not a whole number or options that are not a Dictionary answer `{"error", "refused"}` and push the
+  error. `abs_year_for_era_year` is its inverse of an era's year. `validate_config(value)` is the builder's
+  check, `validateCalendarConfig`'s messages in its order on any JSON value, read as JavaScript reads it (an absent
+  key prints `undefined`, a string's `length` is read, mixed values compare as `<` does, eras ordered by V8's sort);
+  where the TypeScript SDK throws (eras or intercalary days that are an object, a number or true; a null value or
+  entry) it answers `eras must be a list`, `intercalary must be a list`, or reads the null as an object with no keys.
+  `resolve_calendar(elements, id, {"fallback_to_only": true})` is `resolveCalendar`: the id left out
+  (`OWCalendar.NOT_CHOSEN`, the default) falls back to a world's only calendar, null stays none, ids compare as
+  `===`, an unknown option is refused (pushed, null). Where Godot answers differently: a number past a 64-bit int is
+  unrecognized (JavaScript reads a rounded double) and one past 2^53 is exact; an era abbrev or `step_name` that is
+  not a string is passed over (the TypeScript SDK throws); a final capital sigma lowers to σ, not ς. Held to
+  parity vectors generated from the TypeScript SDK 4.133.1's built code (`codegen/generate_calendar_parity.mjs`,
+  `tests/data/calendar_parity.json`, `--check` to see they still hold): the fixture's 34 calendars and 16 written for
+  the traps, about 15,000 parses, 147 validations and 784 resolutions.
 - `OWTools` repinned at the tools list's `9452529` (tools.json sha256 `8905defb…`), the list the TypeScript SDK
   4.133.1 bakes: Atlas's row carries `opens_public: true` (its `needs` stays `account`), so a world's public page
   offers Atlas live.
