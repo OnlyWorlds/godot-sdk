@@ -72,11 +72,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 				t.eq(s["breakdown"].keys(), KEYS.keys(), "%s: the breakdown's keys, every one compared" % c["name"])
 		else:
 			t.ok(not c.has("steps"), "%s: a refused value reads no step" % c["name"])
-	t.eq(doc["cases"].size(), 76, "76 cases")
+	t.eq(doc["cases"].size(), 77, "77 cases")
 	t.eq(valid, 34, "34 calendars")
-	t.eq(doc["cases"].size() - valid, 42, "42 refusals")
+	t.eq(doc["cases"].size() - valid, 43, "43 refusals")
 	t.eq(steps, 209, "209 steps")
-	t.eq(names.size(), 76, "every case's name is its own")
+	t.eq(names.size(), 77, "every case's name is its own")
 	t.done()
 
 # -- what the fixture leaves open -------------------------------------------------------------------------------------

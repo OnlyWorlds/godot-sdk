@@ -101,7 +101,7 @@ func _calendar(t, c: Dictionary) -> void:   # bound arguments come after the cal
 
 func _validate(t) -> void:
 	var rows: Array = _parity()["validate"]
-	t.eq(rows.size(), 147, "the validate rows")
+	t.eq(rows.size(), 148, "the validate rows")
 	var thrown := 0
 	for row in rows:
 		var name: String = row["case"] if row.has("case") else row["name"]

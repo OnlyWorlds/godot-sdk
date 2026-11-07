@@ -220,7 +220,7 @@ test whose world is missing is skipped, never passed.
   `breakdown_step` and `format_step` read a step as npm's `breakdownStep` and `formatStep` do (Euclidean floor, the
   leap rule with `except` and `offset`, eras with an open end skipping down eras, free and nested weeks, the template's
   close-up on JavaScript's white space); `world_calendars` finds them by the field. Every case of the profile's fixture
-  (76: 34 calendars, 209 steps, 42 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
+  (77: 34 calendars, 209 steps, 43 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
   never a number; a month's days are found by arithmetic, never listed. The axis labels `format_year_label` ("22 FT")
   and `format_mid_label` ("11 Greening 454"), `format_duration` ("19 years", "12 days", "1.5 years"),
   `approx_year_length` and `month_start_steps` read as npm's `formatYearLabel`, `formatMidLabel`, `formatDuration`,

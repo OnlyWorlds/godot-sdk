@@ -31,9 +31,9 @@ the git log.
   `===`, an unknown option is refused (pushed, null). Where Godot answers differently: a number past a 64-bit int is
   unrecognized (JavaScript reads a rounded double) and one past 2^53 is exact; an era abbrev or `step_name` that is
   not a string is passed over (the TypeScript SDK throws); a final capital sigma lowers to σ, not ς. Held to
-  parity vectors generated from the TypeScript SDK 4.133.1's built code (`codegen/generate_calendar_parity.mjs`,
+  parity vectors generated from the TypeScript SDK 4.133.2's built code (`codegen/generate_calendar_parity.mjs`,
   `tests/data/calendar_parity.json`, `--check` to see they still hold): the fixture's 34 calendars and 16 written for
-  the traps, about 15,000 parses, 147 validations and 784 resolutions.
+  the traps, about 15,000 parses, 148 validations and 784 resolutions.
 - `OWTools` repinned at the tools list's `9452529` (tools.json sha256 `8905defb…`), the list the TypeScript SDK
   4.133.1 bakes: Atlas's row carries `opens_public: true` (its `needs` stays `account`), so a world's public page
   offers Atlas live.
@@ -187,6 +187,11 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.109` (`bc30626`); the standard stays at 00.34.00. The calendar profile's refusal list now
+  says an era's `year_base` is refused when it is "present and not 0 or 1", as its field table always did, and its
+  fixture gains `refuse-year-base-five` (77 cases, 43 refusals). `OWCalendar.read_value` refused it already; no reader
+  change. The generated headers moved and the calendar parity vectors were regenerated from the TypeScript SDK
+  4.133.2, which reads the new case the same way.
 - Schema pin to `v0.34.0-dist.108` (`c618b9d`); the standard stays at 00.34.00, descriptions only (canonical PR 20): no
   field, type, link, fixture or reader change. Seventeen time-field descriptions on thirteen types say one thing, "in
   the world's time unit (World `time_basic_unit`)"; `Event.constructs` reads "concepts, systems or built entities";
