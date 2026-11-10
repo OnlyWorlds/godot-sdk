@@ -199,6 +199,13 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.113` (`e3e2499`); the standard stays at 00.34.00, no schema file moved. The serial adds
+  two presentation files at the distribution's root, `views.json` (how a report, a charter, a message and a line in a
+  room are shown: the one sentence, what leads, what folds, the layout, the marks at a page's head) and its fixture,
+  `views.fixture.json`. This SDK vendors both and has no reader of them yet: a kind is drawn as its type is. The room
+  page now says the order of its pairs carries no meaning (no pair or case moved; the tests still hold the fixture's
+  order, which is stricter than the page), and two texts changed in words only (the report page's example, one
+  checks fixture case's description). Only the generated headers moved.
 - Schema pin to `v0.34.0-dist.112` (`04ce83d`); the standard stays at 00.34.00, no schema file moved. A report is a
   room element: `OWLens.ROOM_PAIRS` holds the room profile's tenth pair, `narrative/report`, third in the fixture's
   order, so the lens's room rule leaves a Narrative with supertype `Report` and `x_room_of` out of a lore view and a
