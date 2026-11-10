@@ -23,6 +23,7 @@ for row in seen.rows: print(row["name"])                         # seen.cut: wha
 var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # nodes, edges, edges_cut
 var land := OWLanding.landing_of(g, {"heads": 5})                         # mode, size, clusters, unclustered, gaps
 var space := OWMapSpace.map_space(bodies)                                  # maps, zones, pins, out: in the Map's pixels
+var lay := OWMapSpace.layout_of(map_row, map_rows, pin_rows)               # layout, ground, hand: one Map's layout keys
 
 var cal := OWCalendar.read_value(element.get(OWCalendar.FIELD))   # null: not a calendar, show bare numbers
 print(OWCalendar.format_step(cal, 1200))                           # the step in the world's words, or "1200"
@@ -187,6 +188,12 @@ test whose world is missing is skipped, never passed.
   `no_map`). `z` is an elevation, never a height, and a `z` past `depth` is kept; `2.0` is 2, a boolean is no number,
   a float past 2^53 - 1 (a value the parse may have rounded) is not whole; two rows of one type with one id read as the last one served;
   `type` and `shape` are read as written; ids compare by code point. Every case of the profile's fixture (34).
+  Since serial 110, `OWMapSpace.layout_of(map, maps, pins)` reads one Map's layout keys (rules 8 to 10) into
+  `{layout, ground, hand}`: the `x_layout` method when it is a non-empty string (`hand` a board), the ground Map's id
+  when `settings.ground.map` names a served Map other than this one, and the ids of this Map's Pins a new lay-out
+  keeps (every Pin on a board, those whose `x_hand` is the bool `true` on any other layout map, none on a plain Map),
+  by code point. The Pins are filtered by `map` inside, so a caller passes every Pin it holds. Every layout case of the
+  fixture (17).
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,

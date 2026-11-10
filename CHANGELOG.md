@@ -8,6 +8,18 @@ the git log.
 
 ### Added
 
+- The map space profile's layout reading (rules 8 to 10, serial 110): `OWMapSpace.layout_of(map, maps, pins)` answers
+  a `MapLayout` whose `to_dict()` is `{layout, ground, hand}`. `layout` is the Map's `x_layout.method` when
+  `x_layout` is a Dictionary whose `method` is a non-empty String (`"hand"` a board; a method no page names answers
+  itself), else null. `ground`, only on a layout map, is the id in `x_layout.settings.ground.map` when it names a Map
+  in `maps` other than this one, else null; its size is not returned. `hand` is the ids, by code point, of this Map's
+  Pins a new lay-out keeps: every Pin on a board, the Pins whose `x_hand` is the bool `true` on any other layout map
+  (`1`, `1.0` and `"true"` are not), none on a plain Map. `pins` may hold every Pin the caller has: the reader keeps
+  those whose `map` names this Map, reads rows as `map_space` does (a row without a non-empty String id is no element,
+  a Map row without one no layout map; the last row served for an id) and counts a Pin whose element it cannot see.
+  A caller's mistake (a `map` that is not a Dictionary, `maps` or `pins` not an Array) is named in `error` and reads
+  nothing. Every one of the fixture's 17 `layout_cases`, whole answers in key order, and the TypeScript SDK 4.142.0's
+  and the Python package 0.110.0's vectors beyond the fixture. `map_space` is unchanged.
 - The calendar's labels, durations and typed dates: the last of the TypeScript SDK's calendar functions, on
   `OWCalendar`. `format_year_label(calendar, step)` is the compact axis label (the era's year and abbrev, or its
   name; a falsy word, `""` or 0, prints the year alone) and `format_mid_label` the dense one (day, month and year, no

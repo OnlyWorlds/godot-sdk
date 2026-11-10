@@ -4,7 +4,9 @@ extends RefCounted
 ## Maps, Zones, Markers and Pins into geometry, a Map's frame, a Zone's outline from its Markers, a Pin's point. It
 ## adds nothing to the world: structure and coordinates in the Map's own pixels; looks, cameras, walls, doors and units
 ## are a drawing tool's. The npm SDK's [code]mapSpace[/code] and the Python package's [code]map_space[/code], ported;
-## the fixture beside the profile is this file's test.
+## the fixture beside the profile is this file's test. Since serial 110 also the profile's second, small reading,
+## [method layout_of]: one Map's layout keys ([code]x_layout[/code] on the Map, [code]x_hand[/code] on its Pins),
+## the fixture's [code]layout_cases[/code] its test.
 
 ## The reasons [member MapSpace.out] counts, in the order it lists them.
 const OUT_REASONS := ["no_point", "no_markers", "dangling", "no_map"]
@@ -148,6 +150,85 @@ static func map_space(elements: Variant) -> MapSpace:
 	for k in OUT_REASONS:
 		if out[k] > 0:
 			a.out[k] = out[k]
+	return a
+
+## What [method layout_of] answers: the layout reading's three parts, always all there. [member error] names a
+## caller's mistake (nothing read), "" otherwise.
+class MapLayout:
+	## The Map's [code]x_layout.method[/code] when the Map is a layout map ([code]"hand"[/code] for a board, a method
+	## no page names answering itself), else null.
+	var layout: Variant = null
+	## When [member layout] is not null, the id in [code]x_layout.settings.ground.map[/code] when it names a served Map
+	## other than this one, else null. Its size is not returned: the served Map's own wins, and the caller holds it.
+	var ground: Variant = null
+	## The ids of this Map's Pins a new lay-out keeps where they are, by id in code point order.
+	var hand := []
+	var error := ""
+
+	## The answer in the fixture's shape: the three keys in order.
+	func to_dict() -> Dictionary:
+		return {"layout": layout, "ground": ground, "hand": hand}
+
+## One Map's layout keys, the map space profile's layout reading (rules 8 to 10, serial 110; the npm SDK's
+## [code]layoutOf[/code] and the Python package's [code]layout_of[/code], ported): [param map] the Map read,
+## [param maps] the Maps the reader is served, [param pins] every Pin the caller holds, of any Map, as served. The
+## reader keeps the Pins whose [code]map[/code] names this Map's id, so a caller passes every Pin it has. Rows are read
+## as [method map_space] reads them: a row without a non-empty String id is no element (a Map row without one is no
+## layout map), and of two Pin rows with one id the last served is read. Pure: nothing in the input is changed and the
+## answer is the caller's own.
+##
+## The Map is a layout map when its [code]x_layout[/code] is a Dictionary whose [code]method[/code] is a non-empty
+## String; anything else (absent, null, a string, no [code]method[/code], [code]""[/code], a number) is no layout, and
+## its ground and Pins are not read. On a board ([code]method[/code] [code]"hand"[/code]) every Pin of the Map is
+## kept, marked or not; on any other layout map only the Pins whose [code]x_hand[/code] is exactly [code]true[/code]
+## (a bool: [code]1[/code], [code]1.0[/code] and [code]"true"[/code] are not); on a Map that is not a layout map none,
+## whatever its Pins carry. A Pin whose element the reader cannot see is still a Pin. How a method places Pins, and
+## its own settings, are a layout tool's: a tool that cannot run one draws the Pins where they are.
+static func layout_of(map: Variant, maps: Variant, pins: Variant) -> MapLayout:
+	var a := MapLayout.new()
+	if not map is Dictionary:
+		a.error = "layout_of: map is one Map element Dictionary; got %s" % var_to_str(map)
+		return a
+	if not maps is Array:
+		a.error = "layout_of: maps is an Array of Map elements; got %s" % var_to_str(maps)
+		return a
+	if not pins is Array:
+		a.error = "layout_of: pins is an Array of Pin elements; got %s" % var_to_str(pins)
+		return a
+	var id: Variant = _id_of(map.get("id"))
+	if id == null:
+		return a
+
+	# Rule 8: the mark is x_layout alone, a Dictionary with a non-empty String method.
+	var recipe: Variant = map.get("x_layout")
+	if not recipe is Dictionary:
+		return a
+	var method: Variant = _id_of(recipe.get("method"))
+	if method == null:
+		return a
+
+	# Rule 9: the ground is a served Map other than this one, named by settings.ground.map.
+	var settings: Variant = recipe.get("settings")
+	if settings is Dictionary and settings.get("ground") is Dictionary:
+		var g: Variant = _id_of(settings["ground"].get("map"))
+		if g != null and g != id and maps.any(func(m): return m is Dictionary and _id_of(m.get("id")) == g):
+			a.ground = g
+
+	# Rule 10: one row per Pin id, the last served; this Map's Pins, every one on a board, else the marked ones.
+	var held := {}
+	for p in pins:
+		if p is Dictionary and _id_of(p.get("id")) != null:
+			held[_id_of(p["id"])] = p
+	var board: bool = method == "hand"
+	for pid in held:
+		var p: Dictionary = held[pid]
+		if _id_of(p.get("map")) != id:
+			continue
+		var mark: Variant = p.get("x_hand")
+		if board or (typeof(mark) == TYPE_BOOL and mark):
+			a.hand.append(pid)
+	a.hand.sort()
+	a.layout = method
 	return a
 
 ## A whole number by value, or null: an int, or a float with no fraction within 2^53 - 1, the range a double holds
