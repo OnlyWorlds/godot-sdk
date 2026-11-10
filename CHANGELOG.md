@@ -199,6 +199,14 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.112` (`04ce83d`); the standard stays at 00.34.00, no schema file moved. A report is a
+  room element: `OWLens.ROOM_PAIRS` holds the room profile's tenth pair, `narrative/report`, third in the fixture's
+  order, so the lens's room rule leaves a Narrative with supertype `Report` and `x_room_of` out of a lore view and a
+  lens's `types` may name it; without the mark it stays lore. The room fixture's three new cases pass (35 in all) and
+  the lens fixture's `room_pairs` is held to the pairs in the new order. The new report profile's key
+  `x_report_answers` and the packet profile's new optional `x_packet_for` have no reader here (none in the TypeScript
+  SDK or the Python package either); `lenses_in_use`'s `membership` is null only for a folder world, as the lens page
+  now says, its behaviour unchanged. Only the generated headers moved.
 - Schema pin to `v0.34.0-dist.111` (`bfc90b4`); the standard stays at 00.34.00, no schema file moved. Four more
   `layout_cases` (twenty-one: code point order, a repeated Pin id, a Pin row and a Map row without a string id), the
   page's sentence that a Map row without a string id is no Map, and a case that names the Map it reads by `map_index`

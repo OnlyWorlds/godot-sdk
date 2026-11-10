@@ -32,10 +32,10 @@ const ANCHOR_FIELDS := ["characters", "objects", "locations", "species", "creatu
 	"collectives", "zones", "abilities", "phenomena", "languages", "families", "relations", "constructs", "events",
 	"narratives"]
 
-## The room profile's nine pairs, type and supertype trimmed and folded, a slash between: the words [code]types[/code]
-## may name beside the 22 slugs (the room profile's fixture order).
-const ROOM_PAIRS := ["narrative/message", "narrative/board", "relation/work item", "construct/spec", "relation/heart",
-	"relation/take", "relation/vote", "event/sitting", "character/member"]
+## The room profile's ten pairs, type and supertype trimmed and folded, a slash between: the words [code]types[/code]
+## may name beside the 22 slugs (the room profile's fixture order; the tenth, narrative/report, at serial 112).
+const ROOM_PAIRS := ["narrative/message", "narrative/board", "narrative/report", "relation/work item", "construct/spec",
+	"relation/heart", "relation/take", "relation/vote", "event/sitting", "character/member"]
 ## The room profile's mark: a room element carries it beside its pair.
 const ROOM_MARK := "x_room_of"
 ## The reading aids' pairs (the room profile: the world's charter, its guide, its domains), written as
@@ -1046,7 +1046,9 @@ static func check_keys(x_lens: Variant) -> Variant:
 
 ## The lenses a seat reads, by id: its membership's choice when it has made one (a list; an empty list is a choice),
 ## else its Character's [code]x_lens_uses[/code], else none. Never both: the membership wins. Strings only, each once,
-## in the order given; a value that is not a list is no choice.
+## in the order given; a value that is not a list is no choice. [param membership] null means there is no membership
+## (a folder world); a keel membership that never chose is not this reading's case: keel starts that seat with its
+## Titles' lenses and never reads [code]x_lens_uses[/code] (the lens profile, serial 112).
 static func lenses_in_use(membership: Variant, x_lens_uses: Variant) -> PackedStringArray:
 	var list: Variant = membership if _is_list(membership) else x_lens_uses
 	var out := PackedStringArray()

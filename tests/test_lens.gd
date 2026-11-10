@@ -94,7 +94,7 @@ func test_the_tables_are_the_fixtures(t) -> void:
 		OWLens.MAIL_DAYS], "the defaults")
 	t.done()
 
-## The room pairs as the room profile's own fixture spells them, folded: the same nine, in its order.
+## The room pairs as the room profile's own fixture spells them, folded: the same ten, in its order.
 func test_the_room_pairs_are_the_room_profiles(t) -> void:
 	var room: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/profiles/room.fixture.json"))
 	var words := []
@@ -102,7 +102,7 @@ func test_the_room_pairs_are_the_room_profiles(t) -> void:
 		words.append(OWUnicode.profile_fold(p["type"]) + "/" + OWUnicode.profile_fold(p["supertype"]))
 	t.eq(words, OWLens.ROOM_PAIRS, "the room fixture's pairs")
 	t.eq(room["mark"]["field"], OWLens.ROOM_MARK, "the room fixture's mark")
-	t.eq(room["cases"].size(), 32, "32 room cases")
+	t.eq(room["cases"].size(), 35, "35 room cases")
 	t.done()
 
 ## The profiles' fold is trim then simple case folding, never NFC: a decomposed e and acute stays two code points.
