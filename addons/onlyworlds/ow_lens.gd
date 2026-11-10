@@ -107,6 +107,9 @@ class Reading:
 	## The kept elements' ids, in the profile's order: anchors first in the lens's link order, then what the hop reached.
 	var kept := PackedStringArray()
 	## The kept elements as [code]show[/code] makes them, in the same order; an anchor's row carries its [code]note[/code].
+	## A [code]name[/code] row is [code]id[/code], [code]type[/code], [code]name[/code], and [code]supertype[/code] and
+	## [code]subtype[/code] each where the served body holds it as a String with something left after trimming
+	## White_Space, as stored; a [code]first_line[/code] row adds [code]description[/code] up to its first line break.
 	var rows := []
 	## The cut, counted by reason in the profile's order; a reason with no count is absent, and a reader that is not
 	## the owner never carries the owner's two.
@@ -986,6 +989,12 @@ class View:
 			out = b.duplicate(true)
 		else:
 			out = {"id": b.get("id"), "type": b.get("type"), "name": b.get("name")}
+			# Serial 114: supertype and subtype where the served body holds one as a String with something left after
+			# trimming White_Space, carried as stored (never trimmed); anything else gives no key.
+			for k in ["supertype", "subtype"]:
+				var v: Variant = b.get(k)
+				if v is String and OWUnicode.trim_white_space(v) != "":
+					out[k] = v
 			if show == "first_line" and b.get("description") is String:
 				var text: String = b["description"]
 				var cut := -1

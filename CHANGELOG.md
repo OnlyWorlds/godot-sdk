@@ -199,6 +199,16 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.114` (`428227a`); the standard stays at 00.34.00, no schema file moved. A lens's short
+  rows (`show` `first_line` or `name`) now carry `supertype` and `subtype`, each only where the body the reader is
+  served holds it as a String with something left after trimming White_Space, as stored (never trimmed): `OWLens`'s
+  rows do, and the lens fixture's nine new cases pass (210 in all). Parity with the TypeScript SDK 4.151.0. The review
+  page's new rule 5 (an object holding a key is a mark, whatever its keys) is how `OWLens.is_proposed` already read
+  it; npm's two vectors join the review cases. The report page's rule 8 (a `consequences` line may stand for a change
+  made to many, with no address) binds a reader of report lines, which this SDK has none of. `views.json` is version
+  2 (the order a page draws its fields in) with a fixture of 41 cases; both vendored, still with no reader here. The
+  lens page's `lenses_from` gains `none`, which the client's roster and `/me` answers hand on as served. Only the
+  generated headers moved.
 - Schema pin to `v0.34.0-dist.113` (`e3e2499`); the standard stays at 00.34.00, no schema file moved. The serial adds
   two presentation files at the distribution's root, `views.json` (how a report, a charter, a message and a line in a
   room are shown: the one sentence, what leads, what folds, the layout, the marks at a page's head) and its fixture,
