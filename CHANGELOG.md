@@ -187,6 +187,10 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.110` (`533a581`); the standard stays at 00.34.00, no schema file moved. The map space
+  profile gains its layout keys, rules 8 to 10 (`x_layout` on a Map, its ground, `x_hand` on a Pin), and a second,
+  small reading of one Map, with seventeen `layout_cases` beside the fixture's `cases`, which keep their 34 entries
+  unchanged. Only the generated headers moved.
 - Schema pin to `v0.34.0-dist.109` (`bc30626`); the standard stays at 00.34.00. The calendar profile's refusal list now
   says an era's `year_base` is refused when it is "present and not 0 or 1", as its field table always did, and its
   fixture gains `refuse-year-base-five` (77 cases, 43 refusals). `OWCalendar.read_value` refused it already; no reader
