@@ -193,7 +193,7 @@ test whose world is missing is skipped, never passed.
   when `settings.ground.map` names a served Map other than this one, and the ids of this Map's Pins a new lay-out
   keeps (every Pin on a board, those whose `x_hand` is the bool `true` on any other layout map, none on a plain Map),
   by code point. The Pins are filtered by `map` inside, so a caller passes every Pin it holds. Every layout case of the
-  fixture (17).
+  fixture (21 since serial 111).
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,

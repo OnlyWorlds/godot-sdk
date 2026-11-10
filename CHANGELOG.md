@@ -18,7 +18,7 @@ the git log.
   those whose `map` names this Map, reads rows as `map_space` does (a row without a non-empty String id is no element,
   a Map row without one no layout map; the last row served for an id) and counts a Pin whose element it cannot see.
   A caller's mistake (a `map` that is not a Dictionary, `maps` or `pins` not an Array) is named in `error` and reads
-  nothing. Every one of the fixture's 17 `layout_cases`, whole answers in key order, and the TypeScript SDK 4.142.0's
+  nothing. Every one of the fixture's 21 `layout_cases`, whole answers in key order, and the TypeScript SDK 4.142.0's
   and the Python package 0.110.0's vectors beyond the fixture. `map_space` is unchanged.
 - The calendar's labels, durations and typed dates: the last of the TypeScript SDK's calendar functions, on
   `OWCalendar`. `format_year_label(calendar, step)` is the compact axis label (the era's year and abbrev, or its
@@ -199,6 +199,11 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.111` (`bfc90b4`); the standard stays at 00.34.00, no schema file moved. Four more
+  `layout_cases` (twenty-one: code point order, a repeated Pin id, a Pin row and a Map row without a string id), the
+  page's sentence that a Map row without a string id is no Map, and a case that names the Map it reads by `map_index`
+  (positions in its elements) when the row has no id; the replay reads every row a case names. `layout_of` needed no
+  change. Only the generated headers moved.
 - Schema pin to `v0.34.0-dist.110` (`533a581`); the standard stays at 00.34.00, no schema file moved. The map space
   profile gains its layout keys, rules 8 to 10 (`x_layout` on a Map, its ground, `x_hand` on a Pin), and a second,
   small reading of one Map, with seventeen `layout_cases` beside the fixture's `cases`, which keep their 34 entries

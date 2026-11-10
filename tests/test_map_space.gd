@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWMapSpace on the map space profile's conformance fixture (schema-dist profiles/map-space.fixture.json, the pinned
-## copy at dist.110, its sha256 checked against the manifest): every case by name, the whole answer compared by value
+## copy at dist.111, its sha256 checked against the manifest): every case by name, the whole answer compared by value
 ## and as bytes, key order included. Beside it, what the fixture leaves open in Godot: the same rows given as ints,
 ## a boolean that is no number, a whole value past the reader's int range, the page's reading A, a caller's mistake,
 ## rows that are no element, and a reading that never moves the elements.
@@ -194,33 +194,97 @@ func test_a_reading_never_moves_the_elements(t) -> void:
 	t.ok(b.maps[0]["id"] != "planted" and b.zones[0]["points"][0][0] != -1, "an answer is the caller's own")
 	t.done()
 
-# -- The layout reading (rules 8 to 10, serial 110): the fixture's layout_cases and the two packages' vectors ---------
+# -- The layout reading (rules 8 to 10, serials 110 and 111): the fixture's layout_cases and the two packages' vectors ---------
 
-## A layout case read as the page says: its Map row with the case's id, its Map rows, its Pin rows.
+## A layout case read as the page says, once per Map row it names: by [code]map[/code], the one Map row with that
+## String id; by [code]map_index[/code] (since dist.111, for rows with no id to name them by), each row at those
+## positions in its elements, every one a Map row. [code]maps[/code] are the case's Map rows, [code]pins[/code] its Pin
+## rows. A case names its Map one way, never both and never neither. [param errors] gathers what is wrong with the case
+## itself (read with [code]get[/code], so a row without an id never stops the replay).
+static func _read_layouts(c: Dictionary, errors: Array) -> Array:
+	var elements: Array = c["elements"]
+	var maps: Array = elements.filter(func(e): return e.get("type") == "map")
+	var pins: Array = elements.filter(func(e): return e.get("type") == "pin")
+	var rows := []
+	if c.has("map") == c.has("map_index"):
+		errors.append("a case names its Map by map or by map_index, one of the two")
+		return []
+	if c.has("map"):
+		var named: Array = maps.filter(func(e): return e.get("id") is String and c["map"] is String and e["id"] == c["map"])
+		if named.size() != 1:
+			errors.append("no one Map row with the case's id")
+			return []
+		rows.append(named[0])
+	else:
+		var index: Variant = c["map_index"]
+		if not (index is Array and not index.is_empty()):
+			errors.append("map_index is a list of positions")
+			return []
+		for i in index:
+			var at: Variant = OWLens.whole(i)
+			if at == null or at < 0 or at >= elements.size() or elements[at].get("type") != "map":
+				errors.append("position %s is no Map row of the elements" % var_to_str(i))
+				return []
+			rows.append(elements[at])
+	return rows.map(func(m): return OWMapSpace.layout_of(m, maps, pins))
+
+## A case that names one Map row (by its id): its one answer.
 static func _read_layout(c: Dictionary) -> OWMapSpace.MapLayout:
-	var maps: Array = c["elements"].filter(func(e): return e["type"] == "map")
-	var pins: Array = c["elements"].filter(func(e): return e["type"] == "pin")
-	var map: Array = maps.filter(func(e): return e["id"] == c["map"])
-	return OWMapSpace.layout_of(map[0] if map.size() == 1 else null, maps, pins)
+	var errors := []
+	var all := _read_layouts(c, errors)
+	return all[0] if all.size() == 1 and errors.is_empty() else OWMapSpace.layout_of(null, [], [])
 
 func _layout_case(t, c: Dictionary) -> void:
-	var a := _read_layout(c)
-	t.eq(a.error, "", "no caller's mistake")
-	var got := a.to_dict()
-	t.eq(got.keys(), ["layout", "ground", "hand"], "the three keys, in order")
-	for k in c["want"]:
-		t.eq(got.get(k), c["want"][k], k)
-	t.eq(JSON.stringify(got), JSON.stringify(c["want"]), "byte for byte, key order included")
+	var errors := []
+	var answers := _read_layouts(c, errors)
+	t.eq(errors, [], "the case names its Map rows")
+	t.ok(not answers.is_empty(), "a Map row read")
+	var n := 0
+	for a in answers:
+		n += 1
+		var row := "row %d" % n
+		t.eq(a.error, "", row + ": no caller's mistake")
+		var got: Dictionary = a.to_dict()
+		t.eq(got.keys(), ["layout", "ground", "hand"], row + ": the three keys, in order")
+		for k in c["want"]:
+			t.eq(got.get(k), c["want"][k], row + ": " + k)
+		t.eq(JSON.stringify(got), JSON.stringify(c["want"]), row + ": byte for byte, key order included")
 	t.done()
 
-func test_the_fixture_holds_seventeen_layout_cases_beside_its_cases(t) -> void:
+## The replay reads every row a case names: one per map case, each of a map_index case's positions (dist.111's
+## map-without-a-string-id names two, a row with no id and one whose id is 7).
+func test_the_replay_reads_every_row_a_case_names(t) -> void:
+	var by_index: Array = _fixture()["layout_cases"].filter(func(c): return c.has("map_index"))
+	t.eq(by_index.map(func(c): return c["name"]), ["map-without-a-string-id"], "dist.111 names one case's Maps by map_index")
+	var errors := []
+	t.eq(_read_layouts(by_index[0], errors).size(), 2, "its two rows, each read")
+	var rows := 0
+	for c in _fixture()["layout_cases"]:
+		rows += _read_layouts(c, errors).size()
+	t.eq(rows, 22, "every row a case names, read once")
+	t.eq(errors, [], "every case names its Map rows")
+	t.done()
+
+## Godot's JSON joins an escaped surrogate pair into one code point, which sorts after U+FFFF (measured, as the
+## fixture's hand-in-code-point-order holds its ids raw, not escaped).
+func test_an_escaped_surrogate_pair_is_one_code_point_in_code_point_order(t) -> void:
+	var bs := String.chr(92)
+	var text := "[{\"type\": \"pin\", \"id\": \"p" + bs + "ud83d" + bs + "udea2\", \"map\": \"m\"}, {\"type\": \"pin\", \"id\": \"p" + bs + "uffff\", \"map\": \"m\"}]"
+	var pins: Variant = JSON.parse_string(text)
+	t.ok(pins is Array and pins.size() == 2, "the text parses")
+	t.eq(pins[0]["id"], "p" + String.chr(0x1F6A2), "the pair is one code point")
+	var board := {"type": "map", "id": "m", "x_layout": {"method": "hand"}}
+	t.eq(OWMapSpace.layout_of(board, [board], pins).hand, ["p" + String.chr(0xFFFF), "p" + String.chr(0x1F6A2)], "U+FFFF first")
+	t.done()
+
+func test_the_fixture_holds_twenty_one_layout_cases_beside_its_cases(t) -> void:
 	var f := _fixture()
 	t.ok(f.get("layout_cases") is Array, "layout_cases beside cases")
-	t.eq(f["layout_cases"].size(), 17, "17 layout cases")
+	t.eq(f["layout_cases"].size(), 21, "21 layout cases (17 at dist.110)")
 	var names := {}
 	for c in f["layout_cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 17, "each layout case named once")
+	t.eq(names.size(), 21, "each layout case named once")
 	t.eq(f["cases"].size(), 34, "the map space reading's 34 cases beside them")
 	t.done()
 
@@ -238,8 +302,8 @@ func test_the_map_space_reading_carries_no_layout_key(t) -> void:
 func test_the_layout_reading_never_moves_the_rows(t) -> void:
 	for c in _fixture()["layout_cases"]:
 		var before := JSON.stringify(c["elements"])
-		var once := JSON.stringify(_read_layout(c).to_dict())
-		t.eq(JSON.stringify(_read_layout(c).to_dict()), once, c["name"] + ": stable")
+		var once := JSON.stringify(_read_layouts(c, []).map(func(a): return a.to_dict()))
+		t.eq(JSON.stringify(_read_layouts(c, []).map(func(a): return a.to_dict())), once, c["name"] + ": stable")
 		t.eq(JSON.stringify(c["elements"]), before, c["name"] + ": the rows unchanged")
 	var board: Dictionary = _fixture()["layout_cases"].filter(func(c): return c["name"] == "board-every-pin-is-hand")[0]
 	var got := _read_layout(board)
