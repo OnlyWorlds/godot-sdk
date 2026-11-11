@@ -8,6 +8,25 @@ the git log.
 
 ### Added
 
+- How an element is shown by its kind: `OWViews.view_of(element)` reads the distribution's `views.json` (version 2,
+  serial 114; presentation, not the standard) and answers a `View`: `row`, the matching row (the table's own,
+  read-only) or null when the element draws as its type; `sentence`, the first field the row names whose value is a
+  String with something left after trimming White_Space, cut at its first U+000A or U+000D and trimmed again, else
+  null; `banners`, the marks at its page's head in the file's order (`known_of` and `hidden` only when true, the two
+  review marks only as an object with at least one key, `x_served_trimmed` only when its list holds a String with
+  something after trimming), then the row's own marks by presence; `order`, the fields its page draws (lead, then the
+  type's section fields in the schema's order, then fold, each once, only a field that holds something; a field in
+  both lead and fold is drawn in the lead). `to_dict()` is the fixture's shape. A row's kind is a type, a type with a
+  supertype, or a profile's pair, which matches only with that profile's mark by `OWLens`'s room and charter readers;
+  types and supertypes are trimmed and folded as the room profile folds them; the most specific row wins, and on a
+  tie the first. A Pin's generic link is the schema's `element`, which no body holds, so a Pin's page draws no element,
+  as the other SDKs read it today. `codegen/generate.py` bakes the table into the generated `ow_views_table.gd`
+  (`OWViews.ROWS`, `BANNERS`, `LAYOUTS`, `SECTION_FIELDS`, `VERSION`, `SHA256`) and refuses a file of another version,
+  a column the reader does not read, a pair its profile's reader does not match, two rows of one kind, a field its type
+  lacks, an undefined layout, or a cite whose quote is not at its line (`codegen/test_generate_views.py`). Every one of
+  the fixture's 41 cases, two of them against tables of the fixture's own, and its 10 cites; the TypeScript SDK's and
+  the Unity SDK's vectors beside them. Parity with the TypeScript SDK 4.152.0's `viewOf` and the Unity SDK's
+  `OWViews.ViewOf`.
 - The map space profile's layout reading (rules 8 to 10, serial 110): `OWMapSpace.layout_of(map, maps, pins)` answers
   a `MapLayout` whose `to_dict()` is `{layout, ground, hand}`. `layout` is the Map's `x_layout.method` when
   `x_layout` is a Dictionary whose `method` is a non-empty String (`"hand"` a board; a method no page names answers
@@ -206,13 +225,13 @@ the git log.
   page's new rule 5 (an object holding a key is a mark, whatever its keys) is how `OWLens.is_proposed` already read
   it; npm's two vectors join the review cases. The report page's rule 8 (a `consequences` line may stand for a change
   made to many, with no address) binds a reader of report lines, which this SDK has none of. `views.json` is version
-  2 (the order a page draws its fields in) with a fixture of 41 cases; both vendored, still with no reader here. The
+  2 (the order a page draws its fields in) with a fixture of 41 cases; both vendored, and read by `OWViews` (Added). The
   lens page's `lenses_from` gains `none`, which the client's roster and `/me` answers hand on as served. Only the
   generated headers moved.
 - Schema pin to `v0.34.0-dist.113` (`e3e2499`); the standard stays at 00.34.00, no schema file moved. The serial adds
   two presentation files at the distribution's root, `views.json` (how a report, a charter, a message and a line in a
   room are shown: the one sentence, what leads, what folds, the layout, the marks at a page's head) and its fixture,
-  `views.fixture.json`. This SDK vendors both and has no reader of them yet: a kind is drawn as its type is. The room
+  `views.fixture.json`. This SDK vendors both; `OWViews` reads them since version 2 (Added). The room
   page now says the order of its pairs carries no meaning (no pair or case moved; the tests still hold the fixture's
   order, which is stricter than the page), and two texts changed in words only (the report page's example, one
   checks fixture case's description). Only the generated headers moved.
