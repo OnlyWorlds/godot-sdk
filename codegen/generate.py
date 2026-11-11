@@ -16,6 +16,9 @@ Standard library only. What it reads and writes:
   -> addons/onlyworlds/ow_schema_pin.gd           the pin, for the runtime's own check
   -> addons/onlyworlds/ow_presentation.gd         each type's default family and icon (presentation.json `types`);
                                                   codegen/ is not exported with a game, so the runtime reads this
+  -> addons/onlyworlds/ow_views_table.gd          views.json's banners, layouts and rows, and each type's section
+                                                  fields in the walk's order, for OWViews; the file is checked first
+                                                  (check_views) and refused whole when it fails
   -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), as GDScript constants
   -> tests/data/unicode_vectors.txt               what Python says NFC and the fold give, for the tests
 
@@ -306,6 +309,195 @@ def emit_presentation(presentation: dict, head: str) -> str:
     return "\n".join(out)
 
 
+# -- views ----------------------------------------------------------------------------------------------------------
+
+VIEWS_ROW_KEYS = {"id", "kind", "from", "sentence", "lead", "fold", "layout", "banner"}
+VIEWS_PROFILES = ("room", "charter")
+
+
+def views_refuse(msg: str) -> None:
+    sys.exit(f"views.json: {msg}")
+
+
+def check_views(doc, schema: dict, fixture: dict, dist: Path) -> None:
+    """views.json is checked as the Unity SDK's codegen/generate_views.py checks it (628418d; itself the TypeScript
+    SDK's load_views, 4.151.0), and nothing is written when it fails: version 2 only (serial 114: the drawing order is
+    version 2's sentence, which a version-1 file never states); each row's keys ones OWViews reads (a new column is a
+    new meaning); a kind that is a type, a type with a supertype, or a profile's pair that profile's own reader matches
+    (the room fixture's pairs for room, the lens fixture's reading aid pairs for charter); no two rows holding one kind
+    (the file's `match`: "a file where two do is at fault, and is refused where it is built"); every field a row names
+    a field of its type by the walk (schema.json, the base fields included); every layout one the file defines;
+    distinct row ids; and views.fixture.json's cites (check_view_cites)."""
+    meta = doc.get("_meta") if isinstance(doc, dict) else None
+    if not isinstance(meta, dict) or meta.get("version") != 2:
+        views_refuse(f"`_meta.version` is {meta.get('version') if isinstance(meta, dict) else meta!r}, expected 2")
+    if set(doc) != {"_meta", "banners", "layouts", "rows"}:
+        views_refuse(f"the top-level keys are {sorted(doc)}, expected _meta, banners, layouts, rows")
+    banners, layouts, rows = doc["banners"], doc["layouts"], doc["rows"]
+    if (not isinstance(banners, list)
+            or not all(isinstance(b, dict) and set(b) == {"mark", "defined_by"}
+                       and isinstance(b["mark"], str) and isinstance(b["defined_by"], str) for b in banners)
+            or len({b["mark"] for b in banners}) != len(banners)):
+        views_refuse("`banners` must be a list of distinct {mark, defined_by}")
+    if not isinstance(layouts, dict) or not layouts or not all(isinstance(v, str) for v in layouts.values()):
+        views_refuse("`layouts` must be an object of layout names to their sentences")
+    if not isinstance(rows, list) or not rows:
+        views_refuse("`rows` must be a non-empty list")
+
+    base = {f["name"] for f in schema["base"]} - {"id", "world"}
+    fields = {slug: {f["name"] for f in fs} | base for slug, fs in schema["types"].items()}
+
+    def fold(s: str) -> str:
+        return s.strip().lower()  # the pairs are ASCII, checked against the profiles' own lists
+
+    room = {(fold(p["type"]), fold(p["supertype"]))
+            for p in json.loads((dist / "profiles" / "room.fixture.json").read_text(encoding="utf-8"))["pairs"]}
+    charter = {tuple(fold(x) for x in w.split("/")) for w in json.loads(
+        (dist / "profiles" / "lens.fixture.json").read_text(encoding="utf-8"))["reading_aid_pairs"]}
+
+    ids: set[str] = set()
+    kinds: set[tuple] = set()
+    for row in rows:
+        rid = row.get("id") if isinstance(row, dict) else None
+        if not isinstance(rid, str) or not rid or rid in ids:
+            views_refuse(f"a row's id is {rid!r}: each row needs its own non-empty id")
+        ids.add(rid)
+        stray = sorted(set(row) - VIEWS_ROW_KEYS)
+        if stray:
+            views_refuse(f"row {rid} carries {stray}, which OWViews does not read: a new column is a new meaning, "
+                         "read it in OWViews first, then here")
+        kind = row.get("kind")
+        if isinstance(kind, dict) and set(kind) == {"profile", "pair"}:
+            prof, pair = kind["profile"], kind["pair"]
+            parts = pair.split("/") if isinstance(pair, str) else []
+            if prof not in VIEWS_PROFILES or len(parts) != 2:
+                views_refuse(f"row {rid}'s kind {kind!r} names a profile outside {VIEWS_PROFILES} or a pair not "
+                             "`type/Supertype`")
+            if (fold(parts[0]), fold(parts[1])) not in (room if prof == "room" else charter):
+                views_refuse(f"row {rid}'s pair {pair!r} is not one the {prof} profile's reader matches")
+            slug = parts[0]
+            key = ("profile", prof, fold(pair))
+        elif (isinstance(kind, dict) and set(kind) in ({"type"}, {"type", "supertype"})
+              and all(isinstance(v, str) for v in kind.values())):
+            slug = kind["type"]
+            key = ("type", fold(kind["type"]), fold(kind.get("supertype", "\0")))
+        else:
+            views_refuse(f"row {rid}'s kind {kind!r} is neither a type, a type with a supertype, nor a profile's pair")
+        if slug not in fields:
+            views_refuse(f"row {rid} names the type {slug!r}, not one of the 22 slugs as written")
+        if key in kinds:
+            views_refuse(f"row {rid} holds a kind another row holds; the file's `match` says no two rows do")
+        kinds.add(key)
+
+        def names(k: str) -> list[str]:
+            v = row.get(k, [])
+            if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+                views_refuse(f"row {rid}'s `{k}` is {v!r}, expected a list of field names")
+            return v
+
+        named = names("sentence") + names("lead")
+        folds = row.get("fold", [])
+        if not isinstance(folds, list) or not all(isinstance(f, dict) and set(f) == {"field", "label"}
+                                                 and isinstance(f["field"], str) and isinstance(f["label"], str)
+                                                 for f in folds):
+            views_refuse(f"row {rid}'s `fold` is {folds!r}, expected a list of {{field, label}}")
+        named += [f["field"] for f in folds]
+        layout = row.get("layout")
+        if not isinstance(layout, dict) or layout.get("name") not in layouts or not set(layout) <= {"name", "by"}:
+            views_refuse(f"row {rid}'s layout {layout!r} is not {{name, by?}} with a name the file defines")
+        if "by" in layout:
+            if not isinstance(layout["by"], str):
+                views_refuse(f"row {rid}'s layout.by is {layout['by']!r}, expected a field name")
+            named.append(layout["by"])
+        unknown = sorted({n for n in named if n not in fields[slug]})
+        if unknown:
+            views_refuse(f"row {rid} names {unknown}, which {slug} does not have by the walk")
+        banner = row.get("banner", [])
+        if not isinstance(banner, list) or not all(isinstance(b, str) and b for b in banner):
+            views_refuse(f"row {rid}'s `banner` is {banner!r}, expected a list of mark names")
+        if not isinstance(row.get("from"), str):
+            views_refuse(f"row {rid}'s `from` is {row.get('from')!r}, expected the page that defines the kind")
+    check_view_cites(rows, fixture, dist)
+
+
+def check_view_cites(rows: list, fixture: dict, dist: Path) -> None:
+    """views.fixture.json's cites (its third note): every field a row names (sentence, lead, fold, layout.by) is
+    quoted from the page that defines the kind, at its line. Each quote is checked at its line of the vendored page
+    (the page split at LF, the line 1-based), each cite names a field its row names, and each field a row names has a
+    cite. As the Unity SDK's generate_views.py check_cites."""
+    named: set[tuple[str, str]] = set()
+    for row in rows:
+        for f in row.get("sentence", []) + row.get("lead", []) + [x["field"] for x in row.get("fold", [])]:
+            named.add((row["id"], f))
+        if "by" in row["layout"]:
+            named.add((row["id"], row["layout"]["by"]))
+    cited: set[tuple[str, str]] = set()
+    for c in fixture.get("cites", []):
+        where = f"the cite of {c.get('row')}.{c.get('field')} ({c.get('page')}:{c.get('line')})"
+        if (c.get("row"), c.get("field")) not in named:
+            views_refuse(f"{where} names a field its row does not name")
+        page = dist / c["page"]
+        if not page.is_file():
+            views_refuse(f"{where}: the page is not in the vendored dist")
+        lines = page.read_bytes().decode("utf-8").split("\n")
+        if not (isinstance(c["line"], int) and 1 <= c["line"] <= len(lines) and c["quote"] in lines[c["line"] - 1]):
+            views_refuse(f"{where}: the quote is not at that line of the page")
+        cited.add((c["row"], c["field"]))
+    if named - cited:
+        views_refuse(f"fields a row names with no cite in views.fixture.json: {sorted(named - cited)}")
+
+
+def gd_literal(value) -> str:
+    """A JSON value as a GDScript constant expression: JSON's own text is one, for objects, arrays, strings, null and
+    booleans (no number appears in views.json); ASCII only, so every escape is one GDScript reads (\\uXXXX)."""
+    if any(ord(c) > 0xFFFF for c in json.dumps(value, ensure_ascii=False)):
+        views_refuse("a character outside the Basic Multilingual Plane, which this emitter does not write")
+    return json.dumps(value, ensure_ascii=True)
+
+
+def emit_views(doc: dict, sha: str, schema: dict, head: str) -> str:
+    """The table OWViews reads: views.json's banners, layouts and rows as the file writes them (`_meta` is not baked:
+    its sentences are the file's rules, which OWViews reads in code), and each type's section fields in the walk's
+    order, as the Unity SDK bakes OWViews.SectionFields and the TypeScript SDK its ELEMENT_SECTIONS."""
+    out = header(head) + [
+        "extends RefCounted",
+        "## views.json as baked at this pin, read by [OWViews] (which names these as its own constants). Data, not code.",
+        "",
+        "## views.json's format, [code]_meta.version[/code].",
+        f"const VERSION := {int(doc['_meta']['version'])}",
+        "## sha256 of the views.json these rows were baked from, as the pinned MANIFEST.json lists it.",
+        f'const SHA256 := "{sha}"',
+        "",
+        "## The marks every page shows at its head, in the file's order, each {mark, defined_by}.",
+        "const BANNERS := [",
+    ]
+    out += [f"\t{gd_literal(b)}," for b in doc["banners"]]
+    out += ["]", "", "## The layouts the file defines, by name, each with its sentence.", "const LAYOUTS := {"]
+    out += [f"\t{gd_literal(name)}: {gd_literal(sentence)}," for name, sentence in doc["layouts"].items()]
+    out += ["}", "", "## The rows, in the file's order, each as the file writes it.", "const ROWS := ["]
+    out += [f"\t{gd_literal(r)}," for r in doc["rows"]]
+    out += [
+        "]",
+        "",
+        "## Each type's section fields in the schema's own order (schema/<type>.yaml: its sections as listed, each",
+        "## section's fields as listed), as the walk lists them; the base fields are in no section. A generic link is",
+        "## its one name ([code]element[/code] on a Pin), as the walk lists it.",
+        "const SECTION_FIELDS := {",
+    ]
+    out += [f"\t{gd_literal(slug)}: {gd_literal([f['name'] for f in fs])}," for slug, fs in schema["types"].items()]
+    out += ["}", ""]
+    return "\n".join(out)
+
+
+def views_output(schema: dict, head: str) -> str:
+    data = (DIST / "views.json").read_bytes()
+    sha = hashlib.sha256(data).hexdigest()
+    doc = json.loads(data.decode("utf-8"))
+    fixture = json.loads((DIST / "views.fixture.json").read_text(encoding="utf-8"))
+    check_views(doc, schema, fixture, DIST)
+    return emit_views(doc, sha, schema, head)
+
+
 # -- Unicode --------------------------------------------------------------------------------------------------------
 
 def simple_folds() -> dict[int, int]:
@@ -497,6 +689,7 @@ def outputs() -> dict[Path, str]:
     }
     presentation = json.loads((DIST / "presentation.json").read_text(encoding="utf-8"))
     out[ADDON / "ow_presentation.gd"] = emit_presentation(presentation, head)
+    out[ADDON / "ow_views_table.gd"] = views_output(schema, head)
     for slug, fields in schema["types"].items():
         out[ADDON / "models" / f"ow_{slug}.gd"] = emit_model(slug, fields, head)
     nfc = nfc_tables_from_files()
