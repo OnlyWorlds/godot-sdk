@@ -219,6 +219,16 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.118` (`cf708c8`); the standard stays at 00.34.00, no schema file or walk moved,
+  `views.json` is still version 3, and no answer of a reader moves. The views table's sentence rule ends by saying a
+  tool that shows names only need show no sentence, and its `conversation` layout by saying a tool that shows one
+  element and no thread draws it as a document and asks nothing of the layout; the layout is the one string
+  `OWViews` bakes of the two (`_meta` is not baked), so the views table moved in that string, its stamp and its
+  sha256, by `codegen/generate.py`. The checks fixture gains two room-mark rules (an extension key as the field) with
+  eight cases, and the checks page names the White_Space set `present` trims; this SDK has no checks reader. The
+  room page says a sitting's own mark holds the world's id and a sitting's winning spec is named in its `x_star`;
+  the room fixture's pairs and cases are the same, so `OWLens` is unchanged. The other generated headers moved in
+  their stamp only.
 - Schema pin to `v0.34.0-dist.117` (`8f16a18`); the standard stays at 00.34.00, no schema file or walk moved, and
   `views.json` is still version 3. The views table's description says a tool's own words for a heading or a fold are
   its drawing, and a fold's label the word a tool uses where it has none of its own; `OWViews`' header quotes it.
