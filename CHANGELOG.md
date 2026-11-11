@@ -219,6 +219,12 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.116` (`51a2496`); the standard stays at 00.34.00, no schema file, fixture or walk moved.
+  The review page says who a mark's `by` names: the writer's own word, a claim, read as stored and never trimmed
+  (White_Space alone, or a value that is not a String, names nobody), shown as the mark's word and in a name's place
+  only where the platform resolves it. This SDK reads the review marks by presence and reads no mark's `by`, so no
+  reader moved. The review cases follow the TypeScript SDK 4.155.0 (one row renamed, two added, 31 in all; every
+  answer here is presence and unchanged). Only the generated headers and the views table's stamp moved.
 - Schema pin to `v0.34.0-dist.115` (`9652e1b`); the standard stays at 00.34.00, no schema file moved. A lens's
   `first_line` row now carries as `description` the first line, the description split at every carriage return and
   every line feed (no other character breaks a line), that holds something after trimming White_Space, as stored with
