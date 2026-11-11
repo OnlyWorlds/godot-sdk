@@ -83,14 +83,17 @@ func test_the_table_is_the_file_the_banners_the_layouts_and_every_row(t) -> void
 			t.ok(k in ["id", "kind", "from", "sentence", "lead", "fold", "layout", "banner"], "row %s carries a column OWViews does not read: %s" % [r["id"], k])
 	t.done()
 
-func test_the_fixture_holds_dist115s_cases_and_every_row_is_reached(t) -> void:
+func test_the_fixture_holds_dist117s_cases_and_every_row_is_reached(t) -> void:
 	var f := _fixture()
 	t.eq(f["views"], "views.json", "the fixture's table")
 	var cases: Array = f["cases"]
-	t.eq(cases.size(), 45, "dist.115's fixture holds 45 cases")
+	t.eq(cases.size(), 46, "dist.117's fixture holds 46 cases")
+	t.eq(get_cases().size(), 46, "every case runs here, one test each")
+	t.ok(cases.any(func(c): return c["name"] == "document-a-generic-link-with-one-key-white-space-alone-holds-nothing"),
+		"dist.117's case: a generic link with one key holding and the other White_Space alone holds nothing")
 	var own := cases.filter(func(c): return not c.has("table"))
 	t.eq(cases.size() - own.size(), 2, "two cases read a table of the fixture's own")
-	t.eq(own.filter(func(c): return c["expect"].has("order")).size(), 9, "nine of the file's own cases name an order")
+	t.eq(own.filter(func(c): return c["expect"].has("order")).size(), 10, "ten of the file's own cases name an order")
 	var seen := {}
 	for c in own:
 		var v := OWViews.view_of(c["element"])

@@ -5,8 +5,9 @@ extends RefCounted
 ## file's words, "presentation data, not the standard": for a report, a charter, a message and a line in a room, which
 ## field gives the one sentence, which fields lead the page and which fold, the layout, and the marks shown at the head
 ## of any element's page. "A kind with no row draws as its type draws today, in the standard's section order. Each tool
-## keeps its own drawing and reads the row; nothing here says who may see or do what (that is the server's, by what it
-## serves)."
+## keeps its own drawing and reads the row: a tool's own words for a heading or a fold are its drawing, and a fold's
+## label is the word a tool uses where it has none of its own; which fields it draws, in what order, open or folded,
+## are the row's. Nothing here says who may see or do what (that is the server's, by what it serves)."
 ##
 ## [method view_of] answers one element's [OWViews.View]: its row, its one sentence, its banners and the order its page
 ## draws its fields in. Ported from the TypeScript SDK's [code]viewOf[/code] (4.152.0; its reader is unchanged since

@@ -25,7 +25,7 @@ the git log.
   `SECTION_FIELDS`, `GENERIC_LINKS`, `VERSION`, `SHA256`) and refuses a file of another version,
   a column the reader does not read, a pair its profile's reader does not match, two rows of one kind, a field its type
   lacks, an undefined layout, or a cite whose quote is not at its line (`codegen/test_generate_views.py`). Every one of
-  the fixture's 45 cases, two of them against tables of the fixture's own, and its 10 cites; the TypeScript SDK's and
+  the fixture's 46 cases, two of them against tables of the fixture's own, and its 10 cites; the TypeScript SDK's and
   the Unity SDK's vectors beside them. Parity with the TypeScript SDK 4.152.0's `viewOf` and the Unity SDK's
   `OWViews.ViewOf` for version 2; version 3's generic link built to the file's words and its fixture.
 - The map space profile's layout reading (rules 8 to 10, serial 110): `OWMapSpace.layout_of(map, maps, pins)` answers
@@ -219,6 +219,13 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.117` (`8f16a18`); the standard stays at 00.34.00, no schema file or walk moved, and
+  `views.json` is still version 3. The views table's description says a tool's own words for a heading or a fold are
+  its drawing, and a fold's label the word a tool uses where it has none of its own; `OWViews`' header quotes it.
+  `_meta` is not baked, so the views table moved in its stamp and sha256 only. The views fixture gains a 46th case, a
+  Pin whose generic link has one key holding and the other White_Space alone, which holds nothing: `OWViews.view_of`
+  already read it so, and the fixture's count test now holds 46. Only the generated headers and the views table's
+  stamp moved.
 - Schema pin to `v0.34.0-dist.116` (`51a2496`); the standard stays at 00.34.00, no schema file, fixture or walk moved.
   The review page says who a mark's `by` names: the writer's own word, a claim, read as stored and never trimmed
   (White_Space alone, or a value that is not a String, names nobody), shown as the mark's word and in a name's place

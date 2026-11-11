@@ -235,7 +235,7 @@ test whose world is missing is skipped, never passed.
   holds something; a Pin's generic link is one field, `element`, at its place, holding something only when both its
   keys (`element_type`, `element_id`) do (`OWViews.GENERIC_LINKS`). The table is baked by `codegen/generate.py`, which
   refuses a file the fixture's rules break (another version, two rows of one kind, a field its type lacks, a cite whose
-  quote is not at its line); every case of its fixture (45) and the 10 cites. Parity with the TypeScript SDK 4.152.0
+  quote is not at its line); every case of its fixture (46) and the 10 cites. Parity with the TypeScript SDK 4.152.0
   and the Unity SDK.
 - **Calendars** (the calendar profile, `atlas_calendar`, version 1 and 2): `OWCalendar.read_value` reads the field
   (an object, or the same as strict JSON text: Godot's parser takes a trailing comma, a leading zero, `5.` and a raw
