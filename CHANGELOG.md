@@ -8,8 +8,8 @@ the git log.
 
 ### Added
 
-- How an element is shown by its kind: `OWViews.view_of(element)` reads the distribution's `views.json` (version 2,
-  serial 114; presentation, not the standard) and answers a `View`: `row`, the matching row (the table's own,
+- How an element is shown by its kind: `OWViews.view_of(element)` reads the distribution's `views.json` (version 3,
+  serial 115; presentation, not the standard) and answers a `View`: `row`, the matching row (the table's own,
   read-only) or null when the element draws as its type; `sentence`, the first field the row names whose value is a
   String with something left after trimming White_Space, cut at its first U+000A or U+000D and trimmed again, else
   null; `banners`, the marks at its page's head in the file's order (`known_of` and `hidden` only when true, the two
@@ -19,14 +19,15 @@ the git log.
   both lead and fold is drawn in the lead). `to_dict()` is the fixture's shape. A row's kind is a type, a type with a
   supertype, or a profile's pair, which matches only with that profile's mark by `OWLens`'s room and charter readers;
   types and supertypes are trimmed and folded as the room profile folds them; the most specific row wins, and on a
-  tie the first. A Pin's generic link is the schema's `element`, which no body holds, so a Pin's page draws no element,
-  as the other SDKs read it today. `codegen/generate.py` bakes the table into the generated `ow_views_table.gd`
-  (`OWViews.ROWS`, `BANNERS`, `LAYOUTS`, `SECTION_FIELDS`, `VERSION`, `SHA256`) and refuses a file of another version,
+  tie the first. A generic link, a Pin's `element`, is one field of the order at its place, holding something only
+  when both its keys (`element_type`, `element_id`) are Strings with something left after trimming.
+  `codegen/generate.py` bakes the table into the generated `ow_views_table.gd` (`OWViews.ROWS`, `BANNERS`, `LAYOUTS`,
+  `SECTION_FIELDS`, `GENERIC_LINKS`, `VERSION`, `SHA256`) and refuses a file of another version,
   a column the reader does not read, a pair its profile's reader does not match, two rows of one kind, a field its type
   lacks, an undefined layout, or a cite whose quote is not at its line (`codegen/test_generate_views.py`). Every one of
-  the fixture's 41 cases, two of them against tables of the fixture's own, and its 10 cites; the TypeScript SDK's and
+  the fixture's 45 cases, two of them against tables of the fixture's own, and its 10 cites; the TypeScript SDK's and
   the Unity SDK's vectors beside them. Parity with the TypeScript SDK 4.152.0's `viewOf` and the Unity SDK's
-  `OWViews.ViewOf`.
+  `OWViews.ViewOf` for version 2; version 3's generic link built to the file's words and its fixture.
 - The map space profile's layout reading (rules 8 to 10, serial 110): `OWMapSpace.layout_of(map, maps, pins)` answers
   a `MapLayout` whose `to_dict()` is `{layout, ground, hand}`. `layout` is the Map's `x_layout.method` when
   `x_layout` is a Dictionary whose `method` is a non-empty String (`"hand"` a board; a method no page names answers
@@ -218,6 +219,19 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.115` (`9652e1b`); the standard stays at 00.34.00, no schema file moved. A lens's
+  `first_line` row now carries as `description` the first line, the description split at every carriage return and
+  every line feed (no other character breaks a line), that holds something after trimming White_Space, as stored with
+  its own spaces; a description with no such line, or one that is not a String, gives no `description`. Before, the
+  row carried everything up to the first line break, so a description opening with a line break gave `""` and one of
+  White_Space alone was carried. The lens fixture's ten new cases pass (220 in all). `views.json` is version 3 (a
+  generic link, a Pin's `element`, is one field of the drawing order, read by its two keys) with a fixture of 45
+  cases, read by `OWViews` (Added). The charter page's empty mark (settled) and a Domain's sentence (trimmed, cut at
+  the first line break, trimmed again) are how `OWCharter` already read them; the charter fixture's four new cases
+  pass (31 in all). The report page's keeper report in one write and its reporter by `created_by`, the packet page's
+  optional producer `version`, and the folder lint's review warnings bind readers this SDK has none of. No package
+  had published a reader of the lens or views rule at this serial: both are built to the profiles' words and the
+  fixtures. Only the generated headers and the views table moved beside the code.
 - Schema pin to `v0.34.0-dist.114` (`428227a`); the standard stays at 00.34.00, no schema file moved. A lens's short
   rows (`show` `first_line` or `name`) now carry `supertype` and `subtype`, each only where the body the reader is
   served holds it as a String with something left after trimming White_Space, as stored (never trimmed): `OWLens`'s

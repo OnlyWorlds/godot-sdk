@@ -95,8 +95,9 @@ static func is_charter_element(element: Variant) -> bool:
 ## row. [code]guide[/code] the same among marked Guides, [code]{id, name}[/code]. [code]domains[/code] is every marked
 ## Domain the reader sees: first in the order of the Guide's [code]constructs[/code] as the reader is served them (an
 ## id named twice keeps its first place, an entry that is no marked Domain or one the reader cannot see is skipped),
-## then the rest by folded name and then id. Each as the reader is served it: [code]sentence[/code] the description up
-## to its first line break (a line feed or a carriage return), trimmed of White_Space; [code]hubs[/code] the distinct
+## then the rest by folded name and then id. Each as the reader is served it: [code]sentence[/code] the description
+## trimmed of White_Space, cut at its first line break (a line feed or a carriage return) and trimmed again, so its
+## first line that holds something; [code]hubs[/code] the distinct
 ## [code]{type, id}[/code] its link fields name, itself excluded, in the schema's field order; a stub serves no links,
 ## so a stub Domain has its name and sentence and no hubs. Whether an element is an aid is read from the element as
 ## the owner is served it, since a stub serves no mark.
@@ -155,8 +156,9 @@ static func hub_fields() -> Array:
 				_hub_fields.append([name, fields[name][1]])
 	return _hub_fields
 
-## The lens profile's first_line: the text trimmed of White_Space, up to its first line feed or carriage return,
-## trimmed again; "" for anything that is not text.
+## A Domain's sentence, the charter profile's own words (serial 115): the text trimmed of White_Space, cut at its first
+## line feed or carriage return, trimmed again; "" for anything that is not text or holds nothing. Not the lens's
+## [code]first_line[/code] row, which carries the first line that holds something as stored, untrimmed.
 static func first_line(text: Variant) -> String:
 	if not (text is String):
 		return ""

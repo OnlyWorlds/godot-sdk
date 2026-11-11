@@ -321,16 +321,17 @@ def views_refuse(msg: str) -> None:
 
 def check_views(doc, schema: dict, fixture: dict, dist: Path) -> None:
     """views.json is checked as the Unity SDK's codegen/generate_views.py checks it (628418d; itself the TypeScript
-    SDK's load_views, 4.151.0), and nothing is written when it fails: version 2 only (serial 114: the drawing order is
-    version 2's sentence, which a version-1 file never states); each row's keys ones OWViews reads (a new column is a
+    SDK's load_views, 4.151.0), and nothing is written when it fails: version 3 only (serial 115: a generic link is one
+    field of the drawing order, which changes a Pin's order for every reader of version 2; version 2, serial 114, stated
+    the order, version 1 never did); each row's keys ones OWViews reads (a new column is a
     new meaning); a kind that is a type, a type with a supertype, or a profile's pair that profile's own reader matches
     (the room fixture's pairs for room, the lens fixture's reading aid pairs for charter); no two rows holding one kind
     (the file's `match`: "a file where two do is at fault, and is refused where it is built"); every field a row names
     a field of its type by the walk (schema.json, the base fields included); every layout one the file defines;
     distinct row ids; and views.fixture.json's cites (check_view_cites)."""
     meta = doc.get("_meta") if isinstance(doc, dict) else None
-    if not isinstance(meta, dict) or meta.get("version") != 2:
-        views_refuse(f"`_meta.version` is {meta.get('version') if isinstance(meta, dict) else meta!r}, expected 2")
+    if not isinstance(meta, dict) or meta.get("version") != 3:
+        views_refuse(f"`_meta.version` is {meta.get('version') if isinstance(meta, dict) else meta!r}, expected 3")
     if set(doc) != {"_meta", "banners", "layouts", "rows"}:
         views_refuse(f"the top-level keys are {sorted(doc)}, expected _meta, banners, layouts, rows")
     banners, layouts, rows = doc["banners"], doc["layouts"], doc["rows"]
@@ -485,6 +486,20 @@ def emit_views(doc: dict, sha: str, schema: dict, head: str) -> str:
         "const SECTION_FIELDS := {",
     ]
     out += [f"\t{gd_literal(slug)}: {gd_literal([f['name'] for f in fs])}," for slug, fs in schema["types"].items()]
+    out += [
+        "}",
+        "",
+        "## Each type's generic links and the two keys a served body carries for each, [code][type_key, id_key][/code],",
+        "## from the walk. The document layout draws a generic link as one field at its place, holding something only",
+        "## when both keys do (views.json version 3).",
+        "const GENERIC_LINKS := {",
+    ]
+    for slug, fs in schema["types"].items():
+        links = {f["name"]: [f["type_key"], f["id_key"]] for f in fs if f["kind"] == "generic"}
+        if any(not (isinstance(k, str) and k) for pair in links.values() for k in pair):
+            views_refuse(f"{slug} has a generic link without both its keys in the walk")
+        if links:
+            out.append(f"\t{gd_literal(slug)}: {gd_literal(links)},")
     out += ["}", ""]
     return "\n".join(out)
 

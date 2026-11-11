@@ -1,7 +1,7 @@
 class_name OWViews
 extends RefCounted
 ## How an element is shown by its kind: schema-dist [code]views.json[/code] (at the dist's root since serial 113,
-## version 2 since serial 114), baked by [code]codegen/generate.py[/code] into [code]ow_views_table.gd[/code]. In the
+## version 3 since serial 115), baked by [code]codegen/generate.py[/code] into [code]ow_views_table.gd[/code]. In the
 ## file's words, "presentation data, not the standard": for a report, a charter, a message and a line in a room, which
 ## field gives the one sentence, which fields lead the page and which fold, the layout, and the marks shown at the head
 ## of any element's page. "A kind with no row draws as its type draws today, in the standard's section order. Each tool
@@ -10,7 +10,8 @@ extends RefCounted
 ##
 ## [method view_of] answers one element's [OWViews.View]: its row, its one sentence, its banners and the order its page
 ## draws its fields in. Ported from the TypeScript SDK's [code]viewOf[/code] (4.152.0; its reader is unchanged since
-## 4.151.0) and the Unity SDK's [code]OWViews.ViewOf[/code] (628418d); the file's own fixture,
+## 4.151.0) and the Unity SDK's [code]OWViews.ViewOf[/code] (628418d), with version 3's generic link built to the
+## file's words and its fixture (no package had published a version-3 reader at serial 115); the file's own fixture,
 ## [code]views.fixture.json[/code], is this file's test. A profile's pair is matched by that profile's own reader here:
 ## the room's in [OWLens] ([code]_is_room_element[/code]), the charter's [method OWLens.is_charter_element].
 ##
@@ -19,7 +20,7 @@ extends RefCounted
 
 const _T = preload("res://addons/onlyworlds/ow_views_table.gd")
 
-## views.json's format ([code]_meta.version[/code]) as baked: 2.
+## views.json's format ([code]_meta.version[/code]) as baked: 3.
 const VERSION := _T.VERSION
 ## sha256 of the views.json the table was baked from, as the pinned MANIFEST.json lists it.
 const SHA256 := _T.SHA256
@@ -34,6 +35,9 @@ const ROWS := _T.ROWS
 ## fields as listed), as the walk lists them: the order the document layout draws the rest in. A Pin's generic link is
 ## its one name, [code]element[/code], as the schema lists it (see [method view_of]).
 const SECTION_FIELDS := _T.SECTION_FIELDS
+## Each type's generic links and the two keys a served body carries for each, [code][type_key, id_key][/code], from
+## the walk: [code]{"pin": {"element": ["element_type", "element_id"]}}[/code]. Read-only.
+const GENERIC_LINKS := _T.GENERIC_LINKS
 
 ## What [method view_of] answers for one element. Each answer is its own: changing one changes no other, and never the
 ## table.
@@ -88,9 +92,11 @@ class View:
 ## are the page's head and are in the order only where the row names one in lead or fold; extension keys never are.
 ## With no row, the type's section fields. A [code]conversation[/code] draws "each line's own fields as a document
 ## draws them", so its order is read the same way; following the chain ([code]layout.by[/code]) is the caller's.
-## A Pin's generic link is listed as [code]element[/code], a key no body holds (a body carries
-## [code]element_type[/code] and [code]element_id[/code]), so a Pin's page draws no element: the TypeScript and Unity
-## SDKs read it so today, and the file does not say otherwise.
+## "A generic link (a Pin's [code]element[/code]) is one field of the order, under its schema name and at its place,
+## never its two keys as two entries: it is read as the two keys schema.json gives it ([code]type_key[/code],
+## [code]id_key[/code]), and it holds something only when both are strings with something left after trimming; one
+## alone, or both empty, holds nothing" (version 3; [constant GENERIC_LINKS]). A body's own [code]element[/code] key is
+## not one of the two and is never read.
 ##
 ## [codeblock]
 ## OWViews.view_of({"type": "narrative", "supertype": "Message", "story": "See you at the gate.\nBring the map."}).to_dict()
@@ -206,10 +212,24 @@ static func _holds(el: Dictionary, field: String) -> bool:
 		return not v.is_empty()
 	return true
 
-## The fields drawn, in order: lead, then the type's section fields in neither lead nor fold, then fold; each once.
+## A generic link (a Pin's [code]element[/code]) holds something only when both its keys are Strings with something
+## left after trimming White_Space; any other field holds as [method _holds] says. [param generic] is the type's
+## [constant GENERIC_LINKS] entry, field name -> [code][type_key, id_key][/code].
+static func _field_holds(el: Dictionary, field: String, generic: Dictionary) -> bool:
+	if not generic.has(field):
+		return _holds(el, field)
+	for k in generic[field]:
+		var v: Variant = el.get(k)
+		if not (v is String and OWUnicode.trim_white_space(v) != ""):
+			return false
+	return true
+
+## The fields drawn, in order: lead, then the type's section fields in neither lead nor fold, then fold; each once. A
+## generic link is one field at its place, read by its two keys (views.json version 3).
 static func _draw_order(row: Variant, el: Dictionary) -> PackedStringArray:
 	var type: Variant = el.get("type")
 	var sections: Array = SECTION_FIELDS.get(OWUnicode.profile_fold(type), []) if type is String else []
+	var generic: Dictionary = GENERIC_LINKS.get(OWUnicode.profile_fold(type), {}) if type is String else {}
 	var lead: Array = row.get("lead", []) if row is Dictionary else []
 	var folds := []
 	if row is Dictionary:
@@ -217,12 +237,12 @@ static func _draw_order(row: Variant, el: Dictionary) -> PackedStringArray:
 			folds.append(f["field"])
 	var drawn := PackedStringArray()
 	for f in lead:
-		if not drawn.has(f) and _holds(el, f):
+		if not drawn.has(f) and _field_holds(el, f, generic):
 			drawn.append(f)
 	for f in sections:
-		if not lead.has(f) and not folds.has(f) and not drawn.has(f) and _holds(el, f):
+		if not lead.has(f) and not folds.has(f) and not drawn.has(f) and _field_holds(el, f, generic):
 			drawn.append(f)
 	for f in folds:
-		if not drawn.has(f) and _holds(el, f):
+		if not drawn.has(f) and _field_holds(el, f, generic):
 			drawn.append(f)
 	return drawn

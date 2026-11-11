@@ -55,10 +55,10 @@ class CheckViewsTest(unittest.TestCase):
         have = (gen.ADDON / "ow_views_table.gd").read_text(encoding="utf-8")
         self.assertEqual(want.split("\n", 1)[1], have.split("\n", 1)[1], "only the generated header may differ")
 
-    def test_version_1_is_refused(self) -> None:
+    def test_version_2_is_refused(self) -> None:
         doc = copy.deepcopy(self.doc)
-        doc["_meta"]["version"] = 1
-        self.assertIn("`_meta.version` is 1, expected 2", self.refused(doc))
+        doc["_meta"]["version"] = 2
+        self.assertIn("`_meta.version` is 2, expected 3", self.refused(doc))
 
     def test_a_column_owviews_does_not_read_is_refused(self) -> None:
         doc = copy.deepcopy(self.doc)

@@ -109,7 +109,9 @@ class Reading:
 	## The kept elements as [code]show[/code] makes them, in the same order; an anchor's row carries its [code]note[/code].
 	## A [code]name[/code] row is [code]id[/code], [code]type[/code], [code]name[/code], and [code]supertype[/code] and
 	## [code]subtype[/code] each where the served body holds it as a String with something left after trimming
-	## White_Space, as stored; a [code]first_line[/code] row adds [code]description[/code] up to its first line break.
+	## White_Space, as stored; a [code]first_line[/code] row adds [code]description[/code], its first line: the first,
+	## split at every carriage return and line feed, that holds something after trimming White_Space, as stored; no such
+	## line, or a description that is not a String, gives no [code]description[/code] (schema-dist serial 115).
 	var rows := []
 	## The cut, counted by reason in the profile's order; a reason with no count is absent, and a reader that is not
 	## the owner never carries the owner's two.
@@ -995,18 +997,28 @@ class View:
 				var v: Variant = b.get(k)
 				if v is String and OWUnicode.trim_white_space(v) != "":
 					out[k] = v
+			# Serial 115: the first line, the description split at every CR and every LF (no other break), that holds
+			# something after trimming White_Space, carried as stored; no such line, or a description that is not a
+			# String, gives no key.
 			if show == "first_line" and b.get("description") is String:
-				var text: String = b["description"]
-				var cut := -1
-				for i in text.length():
-					var c := text.unicode_at(i)
-					if c == 0x0A or c == 0x0D:
-						cut = i
-						break
-				out["description"] = text if cut < 0 else text.substr(0, cut)
+				var line: Variant = _first_line_holding(b["description"])
+				if line != null:
+					out["description"] = line
 		if notes != null and notes.has(id):
 			out["note"] = notes[id]
 		return out
+
+	## The first line of [param text], split at every carriage return and every line feed, that holds something after
+	## trimming White_Space (the room profile's set), as stored with its own spaces; null when no line does.
+	static func _first_line_holding(text: String) -> Variant:
+		var start := 0
+		for i in text.length() + 1:
+			if i == text.length() or text.unicode_at(i) == 0x0A or text.unicode_at(i) == 0x0D:
+				var line := text.substr(start, i - start)
+				if OWUnicode.trim_white_space(line) != "":
+					return line
+				start = i + 1
+		return null
 
 # -- the pair -----------------------------------------------------------------------------------------------------------
 

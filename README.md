@@ -223,7 +223,7 @@ test whose world is missing is skipped, never passed.
   `thread_of` and `note_of` (a Character's line). Every case of the profile's fixture (87). A Note's line is proposed
   only by an object mark, as the profile's text and the packages read it (a doubt leaves it shown, unlike
   `OWLens.is_proposed`, the rule of a reader that hands a world on). `OWLens`'s mail rule reads through it.
-- **Views** (the distribution's `views.json`, version 2, serial 114: presentation, not the standard):
+- **Views** (the distribution's `views.json`, version 3, serial 115: presentation, not the standard):
   `OWViews.view_of(element)` is how an element is shown by its kind, a `View` with the matching `row` (the table's
   own, read-only; null when the element draws as its type), its one `sentence`, the `banners` at its page's head and
   the `order` its page draws its fields in. A row is a report, a charter, a message or a line in a room; a profile's
@@ -232,11 +232,11 @@ test whose world is missing is skipped, never passed.
   or U+000D). The banners: `known_of` and `hidden` only when true, the review marks only as an object with a key,
   `x_served_trimmed` only when it names a field, then the row's own marks by presence. The order: lead, then the
   type's section fields in the schema's order (`OWViews.SECTION_FIELDS`), then fold, each once, only a field that
-  holds something; a Pin's generic link is listed as `element`, which no body holds, so a Pin's page draws no element
-  (as the TypeScript and Unity SDKs read it today). The table is baked by `codegen/generate.py`, which refuses a file
-  the fixture's rules break (another version, two rows of one kind, a field its type lacks, a cite whose quote is not
-  at its line); every case of its fixture (41) and the 10 cites. Parity with the TypeScript SDK 4.152.0 and the Unity
-  SDK.
+  holds something; a Pin's generic link is one field, `element`, at its place, holding something only when both its
+  keys (`element_type`, `element_id`) do (`OWViews.GENERIC_LINKS`). The table is baked by `codegen/generate.py`, which
+  refuses a file the fixture's rules break (another version, two rows of one kind, a field its type lacks, a cite whose
+  quote is not at its line); every case of its fixture (45) and the 10 cites. Parity with the TypeScript SDK 4.152.0
+  and the Unity SDK.
 - **Calendars** (the calendar profile, `atlas_calendar`, version 1 and 2): `OWCalendar.read_value` reads the field
   (an object, or the same as strict JSON text: Godot's parser takes a trailing comma, a leading zero, `5.` and a raw
   control character, so the text is checked against JSON's grammar first) and refuses what the profile refuses;

@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWViews on views.json's conformance fixture (schema-dist views.fixture.json at the dist's root since serial 113,
-## version 2 since serial 114; the pinned copies, their sha256 checked against the manifest): the baked table is the
+## version 3 since serial 115; the pinned copies, their sha256 checked against the manifest): the baked table is the
 ## file, every case gives its row, its sentence, its banners and, where it names one, its order (a case that names a
 ## table of the fixture's own reads against that table, through OWViews._view_in), and the fixture's cites name fields
 ## their rows name and their types have, each quote at its line of the vendored page. Beside the fixture, the
@@ -70,8 +70,8 @@ func test_the_files_are_the_pinned_ones(t) -> void:
 
 func test_the_table_is_the_file_the_banners_the_layouts_and_every_row(t) -> void:
 	var doc := _the_file()
-	t.eq(doc["_meta"]["version"], 2.0, "the vendored file is version 2")
-	t.eq(OWViews.VERSION, 2, "the baked table is version 2")
+	t.eq(doc["_meta"]["version"], 3.0, "the vendored file is version 3")
+	t.eq(OWViews.VERSION, 3, "the baked table is version 3")
 	t.eq(OWViews.BANNERS, doc["banners"], "the banners, in the file's order")
 	t.eq(OWViews.LAYOUTS, doc["layouts"], "the layouts")
 	t.eq(OWViews.ROWS, doc["rows"], "every row, as the file writes it")
@@ -83,14 +83,14 @@ func test_the_table_is_the_file_the_banners_the_layouts_and_every_row(t) -> void
 			t.ok(k in ["id", "kind", "from", "sentence", "lead", "fold", "layout", "banner"], "row %s carries a column OWViews does not read: %s" % [r["id"], k])
 	t.done()
 
-func test_the_fixture_holds_dist114s_cases_and_every_row_is_reached(t) -> void:
+func test_the_fixture_holds_dist115s_cases_and_every_row_is_reached(t) -> void:
 	var f := _fixture()
 	t.eq(f["views"], "views.json", "the fixture's table")
 	var cases: Array = f["cases"]
-	t.eq(cases.size(), 41, "dist.114's fixture holds 41 cases")
+	t.eq(cases.size(), 45, "dist.115's fixture holds 45 cases")
 	var own := cases.filter(func(c): return not c.has("table"))
 	t.eq(cases.size() - own.size(), 2, "two cases read a table of the fixture's own")
-	t.eq(own.filter(func(c): return c["expect"].has("order")).size(), 5, "five of the file's own cases name an order")
+	t.eq(own.filter(func(c): return c["expect"].has("order")).size(), 9, "nine of the file's own cases name an order")
 	var seen := {}
 	for c in own:
 		var v := OWViews.view_of(c["element"])
@@ -227,13 +227,25 @@ func test_the_section_fields_are_the_walks_in_its_order_the_pins_generic_link_as
 		t.eq(OWViews.SECTION_FIELDS[slug], want, slug)
 	t.done()
 
-## The file names the schema's fields as listed, and a Pin's is [code]element[/code], which no served body holds: it
-## carries [code]element_type[/code] and [code]element_id[/code]. So a Pin's page draws no element, as the TypeScript
-## SDK (ELEMENT_SECTIONS.pin names element) and the Unity SDK read it today. A known open point: when the file says the
-## generic link is drawn at element's place as its two keys, this test and SECTION_FIELDS follow.
-func test_a_pins_generic_link_is_no_field_its_body_holds_so_its_page_draws_no_element(t) -> void:
-	var pin := {"type": "pin", "name": "The ferry", "map": "m1", "element_type": "location", "element_id": "l1", "x": 0, "y": 12}
-	t.eq(OWViews.view_of(pin).order, PackedStringArray(["map", "x", "y"]), "the order")
+## Version 3's document layout: a generic link (a Pin's [code]element[/code]) is one field of the order, under its
+## schema name and at its place, read as the two keys the walk gives it, never as two entries. It holds something only
+## when both are Strings with something left after trimming White_Space (U+3000 too). A body's own [code]element[/code]
+## key is not one of the two and is never read; a key that is not a String holds nothing. (At serial 114 this test
+## pinned the opposite: no served body holds [code]element[/code], so a Pin's page drew none.)
+func test_a_pins_generic_link_is_one_field_at_its_place_read_by_its_two_keys(t) -> void:
+	var pin := func(type_key: Variant, id_key: Variant) -> Dictionary:
+		return {"type": "pin", "name": "The ferry", "map": "m1", "element_type": type_key, "element_id": id_key,
+			"x": 0, "y": 12, "z": 3}
+	var all := PackedStringArray(["map", "element", "x", "y", "z"])
+	var none := PackedStringArray(["map", "x", "y", "z"])
+	t.eq(OWViews.view_of(pin.call("location", "l1")).order, all, "both keys hold")
+	t.eq(OWViews.view_of(pin.call(" location ", " l1")).order, all, "a key with White_Space around something holds it")
+	t.eq(OWViews.view_of(pin.call("location", "\u3000")).order, none, "an ideographic space alone holds nothing")
+	t.eq(OWViews.view_of(pin.call(null, "l1")).order, none, "a null key")
+	t.eq(OWViews.view_of(pin.call("location", 7)).order, none, "a key that is not a String")
+	var keyless := {"type": "Pin", "map": "m1", "element": "l1", "x": 0}
+	t.eq(OWViews.view_of(keyless).order, PackedStringArray(["map", "x"]), "a body's own element key is not read; the type folded")
+	t.eq(OWViews.GENERIC_LINKS, {"pin": {"element": ["element_type", "element_id"]}}, "the walk's generic links")
 	t.done()
 
 ## What holds something, field by field, beside the fixture's cases: a number (zero too) and a boolean (false too) hold
