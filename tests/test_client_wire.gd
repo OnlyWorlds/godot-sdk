@@ -8,14 +8,14 @@ extends RefCounted
 ## names is one keel lists. The checks are the Unity SDK's OWWireContractTests, those that apply to these calls.
 ##
 ## The fixture is keel's published document as the Unity SDK's tools/refresh_wire.py reduces it, vendored byte for
-## byte from unity-sdk (Packages/com.onlyworlds.sdk/Tests/Editor/Fixtures/wire/keel-wire.json at 2432945, fetched
-## 2026-11-10T04:39+01:00 from https://www.onlyworlds.com/api/v2/openapi.json): tests/data/keel-wire.json, sha256
-## abea02bde7df2a5ba99a67fc4eeb473369656856be76f75a122ce16b4aaee7b6, checked below. A trailing slash is ignored when
+## byte from unity-sdk (Packages/com.onlyworlds.sdk/Tests/Editor/Fixtures/wire/keel-wire.json at df74f08, fetched
+## 2026-11-11T04:06+01:00 from https://www.onlyworlds.com/api/v2/openapi.json): tests/data/keel-wire.json, sha256
+## bad370e9af553720a1d8e4481e5d19808b90c56a2b895638f9b1f8f82491f3fe, checked below. A trailing slash is ignored when
 ## matching (keel serves both spellings). Answer keys go one level down there: data[].name, world.id.
 
 const Fake := preload("res://tests/fake_transport.gd")
 const WIRE := "res://tests/data/keel-wire.json"
-const WIRE_SHA256 := "abea02bde7df2a5ba99a67fc4eeb473369656856be76f75a122ce16b4aaee7b6"
+const WIRE_SHA256 := "bad370e9af553720a1d8e4481e5d19808b90c56a2b895638f9b1f8f82491f3fe"
 const BASE := "https://example.test/api/v2"
 
 ## Never a declared parameter in OpenAPI: a body's media type.
@@ -137,8 +137,8 @@ func test_the_fixture_is_the_vendored_bytes(t) -> void:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(FileAccess.get_file_as_bytes(WIRE))
-	t.eq(ctx.finish().hex_encode(), WIRE_SHA256, "tests/data/keel-wire.json is unity-sdk 2432945's copy, byte for byte")
-	t.eq(_doc()["fetched"], "2026-11-10T04:39+01:00", "")
+	t.eq(ctx.finish().hex_encode(), WIRE_SHA256, "tests/data/keel-wire.json is unity-sdk df74f08's copy, byte for byte")
+	t.eq(_doc()["fetched"], "2026-11-11T04:06+01:00", "")
 	t.done()
 
 func test_every_call_hits_a_path_and_method_keel_serves(t) -> void:
