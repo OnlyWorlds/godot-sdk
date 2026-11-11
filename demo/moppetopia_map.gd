@@ -37,9 +37,9 @@ func _ready() -> void:
 	if world == null:
 		push_error("no world at %s" % folder)
 		return
-	map = _root_map()
+	map = root_map_of(world)
 	if map == null:
-		push_error("%s has no map without a parent" % folder)
+		push_error("%s has no map without a parent that is not a layout map" % folder)
 		return
 	texture = _map_texture_in(archive.files) if archive != null else _map_texture(folder)
 	for p: OWPin in world.of_type("pin"):
@@ -64,16 +64,19 @@ func _process(_delta: float) -> void:
 		print("captured %dx%d to %s (error %d)" % [img.get_width(), img.get_height(), _capture, err])
 		get_tree().quit(0 if err == OK else 1)
 
-## The map nothing contains: no parent_map. Several: the one whose image is the world's, else the first by name.
-func _root_map() -> OWMap:
+## The map nothing contains: no parent_map, and not a layout map (the map space profile's rule 8: an x_layout whose
+## method is a non-empty String places its Pins by a method, so it is no ground to draw them on). Several: the one
+## whose image is the world's, else the first by name. Null when no Map qualifies.
+static func root_map_of(w: OWWorld) -> OWMap:
 	var roots: Array[OWMap] = []
-	for m: OWMap in world.of_type("map"):
-		if m.parent_map == "":
+	for m: OWMap in w.of_type("map"):
+		if m.parent_map == "" and OWMapSpace.layout_of(m.to_dict(), [], []).layout == null:
 			roots.append(m)
 	if roots.is_empty():
 		return null
+	var world_image: String = w.info.image_url if w.info != null else ""
 	for m in roots:
-		if m.image_url != "" and m.image_url == world.info.image_url:
+		if m.image_url != "" and m.image_url == world_image:
 			return m
 	roots.sort_custom(func(a, b): return a.name < b.name)
 	return roots[0]

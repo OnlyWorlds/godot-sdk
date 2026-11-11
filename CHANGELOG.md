@@ -169,6 +169,10 @@ the git log.
 
 ### Fixed
 
+- The Moppetopia demo never draws a layout map as its root Map: among the Maps with no `parent_map` it skips any whose
+  `x_layout` is a Dictionary with a non-empty String `method` (the map space profile's rule 8, read through
+  `OWMapSpace.layout_of`), so a layout map with the world's image or a name that sorts first is no longer drawn as the
+  ground. The choice is `root_map_of(world)`, a static function `tests/test_demo_root_map.gd` holds.
 - `OWLens.whole` (every profile reader's whole number) reads a float as whole only within 2^53 - 1, the range a double
   holds exactly, as the TypeScript SDK's `Number.isSafeInteger`: Godot's JSON reads every number as a float, so past
   2^53 a parse may have rounded it (`-9223372036854775809` arrived as exactly -2^63 and read as whole). An int is whole
