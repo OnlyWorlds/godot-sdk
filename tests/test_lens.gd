@@ -886,6 +886,35 @@ func test_an_owners_full_row_of_a_hidden_element_carries_hidden_true_as_served(t
 	t.eq(JSON.stringify(world), before, "the world is not changed")
 	t.done()
 
+## The lens profile's first-line rule (schema-dist serial 115): trimming White_Space decides which line is the first
+## that holds something; the line itself is carried as stored, its leading spaces kept; a description with no such line
+## gives no description key. The npm package's eight cases ([code]test/lens.test.mjs[/code], 4.153.0) and the Python
+## package's ([code]tests/test_lens.py[/code], 0.116.0), the same inputs and answers ([code]null[/code]: no key).
+func test_a_first_line_row_carries_the_first_line_holding_something_as_stored(t) -> void:
+	var cases := [
+		["plain", "One.\nTwo.", "One."],
+		["a leading break, then spaces", "\n  Rung for every crossing.\nMore.", "  Rung for every crossing."],
+		["blank lines first, CRLF", "\r\n \t\r\n" + String.chr(0xA0) + "\r\nThird.\r\nFourth.", "Third."],
+		["a carriage return alone", "\rAfter the return.", "After the return."],
+		["one line with spaces", "  Only line  ", "  Only line  "],
+		["blank lines only", "\n \n\t\r\n", null],
+		["White_Space alone", " " + String.chr(0x3000) + " ", null],
+		["empty", "", null],
+	]
+	for c in cases:
+		var world := {"elements": [
+			{"id": "a", "type": "institution", "name": "Anchor", "objects": ["o"]},
+			{"id": "o", "type": "object", "name": "Ledger", "description": c[1]}]}
+		var rows: Array = OWLens.resolve(world, _lens_on({"institutions": ["a"]}, {"show": "first_line"}), OWNER).rows
+		var row: Dictionary = {}
+		for r in rows:
+			if r["id"] == "o":
+				row = r
+		t.ok(not row.is_empty(), "%s: the row" % c[0])
+		t.eq(row.has("description"), c[2] != null, "%s: the key" % c[0])
+		t.eq(row.get("description"), c[2], c[0])
+	t.done()
+
 ## keel serves no hidden key on a body no mark hides, so a stored hidden: false is dropped from the row, for the owner
 ## and every reader below it. Kills: the stored key carried onto the row.
 func test_a_stored_hidden_false_is_dropped_from_the_row(t) -> void:

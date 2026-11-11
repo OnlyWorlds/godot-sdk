@@ -2,7 +2,8 @@ extends RefCounted
 ## The review profile's rule 1 (schema-dist [code]profiles/review.md[/code], serial 87) as [method OWLens.is_proposed]
 ## reads it: the npm and Python packages' 24 shared cases (npm [code]test/review.test.mjs[/code] at 4.102.2, Python
 ## [code]tests/test_review.py[/code] at 0.84.1), same names, same order, and npm 4.151.0's two of rule 5 (serial 114:
-## an object holding a key is a mark, whatever its keys) in npm's place, 26 in all. Each case's answer is the packages'
+## an object holding a key is a mark, whatever its keys) and npm 4.152.0's three doubts ([code]1[/code],
+## [code]true[/code] and [code]["a"][/code]) in npm's places, 29 in all. Each case's answer is the packages'
 ## [code]handsOnAsProposed[/code] column: whether a reader leaves the element out as proposed, a doubt included. Their
 ## [code]proposedMarkOf[/code] column (the mark's by, expires and lapsed) has no reader here, so it is not ported.
 ## Characters past ASCII are built from code points.
@@ -24,6 +25,9 @@ static func _cases() -> Array:
 		["an array holding an empty array: present, not a mark, a doubt", {M: [[]]}, true],
 		["false: a value, a doubt", {M: false}, true],
 		["zero: a value, a doubt", {M: 0}, true],
+		["one: a value, a doubt", {M: 1}, true],
+		["true: a value, a doubt", {M: true}, true],
+		["a list holding a string: present, not a mark, a doubt", {M: ["a"]}, true],
 		["an empty object: an empty mark, settled", {M: {}}, false],
 		["an object with no key the profile names: present, a mark", {M: {"x": null}}, true],
 		["rule 5: only a key the table does not name ({\"note\": \"x\"}), a mark that never lapses", {M: {"note": "x"}}, true],
@@ -58,8 +62,8 @@ func _case(t, mark: Dictionary, proposed: bool) -> void:   # bound arguments com
 		t.eq(OWLens.is_proposed({"id": "a", "name": "A", M: float(mark[M])}), proposed, "is_proposed, as a float")
 	t.done()
 
-func test_the_cases_are_the_packages_26(t) -> void:
-	t.eq(_cases().size(), 26, "case count")
+func test_the_cases_are_the_packages_29(t) -> void:
+	t.eq(_cases().size(), 29, "case count")
 	t.eq(M, "x_review_proposed", "the mark key is the profile's")
 	t.done()
 
