@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWMapSpace on the map space profile's conformance fixture (schema-dist profiles/map-space.fixture.json, the pinned
-## copy at dist.111, its sha256 checked against the manifest): every case by name, the whole answer compared by value
+## copy at dist.119, its sha256 checked against the manifest): every case by name, the whole answer compared by value
 ## and as bytes, key order included. Beside it, what the fixture leaves open in Godot: the same rows given as ints,
 ## a boolean that is no number, a whole value past the reader's int range, the page's reading A, a caller's mistake,
 ## rows that are no element, and a reading that never moves the elements.
@@ -55,11 +55,12 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "map-space", "the profile")
 	t.eq(f["profile_page"], "profiles/map-space.md", "its page")
-	t.eq(f["cases"].size(), 34, "34 cases")
+	t.eq(f["cases"].size(), 35, "35 cases (34 at dist.106)")
 	var names := {}
 	for c in f["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 34, "each case named once")
+	t.eq(names.size(), 35, "each case named once")
+	t.ok(names.has("layout-map-read-as-before"), "dist.119's case: a layout map read as any Map (rule 11)")
 	t.done()
 
 ## Every answer holds its four keys in order, a Map row its eight (and extent only when measured), every coordinate
@@ -261,7 +262,7 @@ func test_the_replay_reads_every_row_a_case_names(t) -> void:
 	var rows := 0
 	for c in _fixture()["layout_cases"]:
 		rows += _read_layouts(c, errors).size()
-	t.eq(rows, 22, "every row a case names, read once")
+	t.eq(rows, 23 - 1 + 2, "every row a case names, read once (23 cases, one of them naming two rows)")
 	t.eq(errors, [], "every case names its Map rows")
 	t.done()
 
@@ -277,15 +278,17 @@ func test_an_escaped_surrogate_pair_is_one_code_point_in_code_point_order(t) -> 
 	t.eq(OWMapSpace.layout_of(board, [board], pins).hand, ["p" + String.chr(0xFFFF), "p" + String.chr(0x1F6A2)], "U+FFFF first")
 	t.done()
 
-func test_the_fixture_holds_twenty_one_layout_cases_beside_its_cases(t) -> void:
+func test_the_fixture_holds_twenty_three_layout_cases_beside_its_cases(t) -> void:
 	var f := _fixture()
 	t.ok(f.get("layout_cases") is Array, "layout_cases beside cases")
-	t.eq(f["layout_cases"].size(), 21, "21 layout cases (17 at dist.110)")
+	t.eq(f["layout_cases"].size(), 23, "23 layout cases (17 at dist.110, 21 at dist.111)")
 	var names := {}
 	for c in f["layout_cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 21, "each layout case named once")
-	t.eq(f["cases"].size(), 34, "the map space reading's 34 cases beside them")
+	t.eq(names.size(), 23, "each layout case named once")
+	t.ok(names.has("parentless-layout-beside-ground") and names.has("ground-beside-parentless-layout"),
+		"dist.119's two cases: a layout Map and its ground, neither with a parent_map, each read in turn")
+	t.eq(f["cases"].size(), 35, "the map space reading's 35 cases beside them")
 	t.done()
 
 ## The map space reading is unchanged by rules 8 to 10: on every layout case its answer carries no layout key.
@@ -362,6 +365,14 @@ func test_npm_a_map_row_without_an_id_is_no_map_and_a_list_x_layout_is_no_layout
 	var none := {"layout": null, "ground": null, "hand": []}
 	t.eq(OWMapSpace.layout_of({"type": "map", "x_layout": {"method": "hand"}}, [], pins).to_dict(), none, "no id")
 	t.eq(OWMapSpace.layout_of({"type": "map", "id": "m1", "x_layout": [{"method": "hand"}]}, [], pins).to_dict(), none, "a list")
+	t.done()
+
+## Reading H says a non-empty string id (dist.119's words): a Map row whose id is "" is no Map, so no layout map, even
+## with a method and a Pin naming "" as its map. No fixture case holds this row yet.
+func test_a_map_row_whose_id_is_the_empty_string_is_no_layout_map(t) -> void:
+	var map := {"type": "map", "id": "", "x_layout": {"method": "hand"}}
+	var pins := [{"type": "pin", "id": "p1", "map": ""}]
+	t.eq(OWMapSpace.layout_of(map, [map], pins).to_dict(), {"layout": null, "ground": null, "hand": []})
 	t.done()
 
 func test_npm_a_ground_named_by_a_row_that_is_no_map_is_no_ground(t) -> void:

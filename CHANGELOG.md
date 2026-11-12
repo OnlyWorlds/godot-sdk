@@ -219,6 +219,15 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Schema pin to `v0.34.0-dist.119` (`00369ea`); the standard stays at 00.34.00, no schema file, `schema.json` or
+  walk reader moved, and no answer of a reader moves. The map-space page gains rule 11 (a layout map is no candidate
+  when a tool picks the Map that stands for the world's space, and a Pin or a Marker on one is a place in that
+  drawing, never in the world) and its reading H says a row's id is a non-empty string, as `OWMapSpace` already read
+  it. The fixture gains one map-space case (a layout map read as any Map, 35 in all) and two layout cases (a layout
+  Map and its ground, neither with a `parent_map`, 23 in all), each answered by `map_space` and `layout_of` as before;
+  the test asserts both counts and names the new cases, and a new test holds a Map row whose `id` is `""` as no layout
+  map. The distribution's folder lint knows folder format 0.3.22 and gains no check. The generated headers moved in
+  their stamp only.
 - Schema pin to `v0.34.0-dist.118` (`cf708c8`); the standard stays at 00.34.00, no schema file or walk moved,
   `views.json` is still version 3, and no answer of a reader moves. The views table's sentence rule ends by saying a
   tool that shows names only need show no sentence, and its `conversation` layout by saying a tool that shows one
