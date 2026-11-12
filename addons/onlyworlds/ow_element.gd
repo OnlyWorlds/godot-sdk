@@ -45,6 +45,7 @@ var image_url: String:
 	set(v): _set_str("image_url", v)
 
 ## UUID of the world the element is part of.
+## Read only: a writer adds no world to an element (folder format 0.3.22); setting it is refused and changes nothing.
 var world: String:
 	get: return _str("world")
-	set(v): _set_str("world", v)
+	set(_v): push_error("OnlyWorlds: world is read only: a writer adds no world to an element (folder format 0.3.22)")

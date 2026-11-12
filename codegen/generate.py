@@ -115,6 +115,11 @@ def doc(desc: str | None) -> str:
     return d + "." if d and not d.endswith((".", "?", "!", ")")) else d
 
 
+# Fields a model reads and never writes, and why. world: the folder format 0.3.22 rules that a writer adds no `world` to
+# an element file and a reader gives one no meaning; the site serves none in an element's body, and a write strips it.
+READ_ONLY = {"world": "a writer adds no world to an element (folder format 0.3.22)"}
+
+
 def emit_fields(fields: list[dict]) -> list[str]:
     out, section = [], None
     for f in fields:
@@ -137,6 +142,11 @@ def emit_fields(fields: list[dict]) -> list[str]:
             gd_type, get, set_ = KIND_VIEW[f["kind"]]
         target = f" Links to [code]{f['target']}[/code]." if f.get("target") else ""
         out.append(f"## {d}{target}" if d or target else f"## [code]{f['name']}[/code].")
+        if f["name"] in READ_ONLY:
+            out += [f"## Read only: {READ_ONLY[f['name']]}; setting it is refused and changes nothing.",
+                    f"var {prop_name(f['name'])}: {gd_type}:", f'\tget: return {get}("{f["name"]}")',
+                    f'\tset(_v): push_error("OnlyWorlds: {f["name"]} is read only: {READ_ONLY[f["name"]]}")', ""]
+            continue
         out += [f"var {prop_name(f['name'])}: {gd_type}:", f'\tget: return {get}("{f["name"]}")',
                 f'\tset(v): {set_}("{f["name"]}", v)', ""]
     return out

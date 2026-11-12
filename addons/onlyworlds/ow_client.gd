@@ -212,7 +212,9 @@ class BulkSlot:
 	const KEYS := ["status", "id", "created_at", "updated_at", "error", "proposal"]
 	## The item's own HTTP status: 201 created, 200 updated, 202 a proposal, else its failure.
 	var status := 0
-	var id := ""
+	## The element's id as served, a String; null when the slot answers none (a failure before the item was
+	## identified), as the API document types it.
+	var id: Variant = null
 	## On a success: keel's timestamps, from which a sync baseline is set.
 	var created_at: Variant = null
 	var updated_at: Variant = null
@@ -711,7 +713,7 @@ func bulk(items: Array, options: Dictionary = {}) -> Reply:
 		var slot := BulkSlot.new()
 		var status = row.get("status")
 		slot.status = int(status) if (status is float or status is int) else 0
-		slot.id = _text(row.get("id"))
+		slot.id = row.get("id") if row.get("id") is String else null
 		slot.created_at = row.get("created_at")
 		slot.updated_at = row.get("updated_at")
 		if row.get("error") is Dictionary:

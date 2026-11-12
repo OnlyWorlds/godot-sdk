@@ -431,6 +431,19 @@ func test_bulk_reads_its_slots(t) -> void:
 	t.ok((await _make(fake).bulk([{"type": "character"}])).error.kind == OWApiError.ANSWER, "items that are not a list")
 	t.done()
 
+## The API document types a slot's id as a string or null (the TypeScript SDK 4.157.0, the Unity SDK's OWBulkSlot.Id): a
+## slot that failed before it was identified answers null, and null stays null, never "".
+func test_bulk_a_null_slot_id_stays_null(t) -> void:
+	var fake = Fake.new()
+	fake.then(200, "{\"errors\":true,\"items\":[{\"status\":201,\"id\":null,\"created_at\":null,\"updated_at\":null},"
+		+ "{\"status\":422,\"id\":null,\"error\":{\"type\":\"invalid_request\",\"code\":\"invalid\",\"message\":\"no\"}},"
+		+ "{\"status\":201,\"id\":\"a\"},{\"status\":201}]}")
+	var result: OWClient.BulkResult = (await _make(fake).bulk([{"type": "character"}, {"type": "character"},
+		{"type": "character"}, {"type": "character"}])).value
+	t.eq(result.items.map(func(s): return s.id), [null, null, "a", null], "null and absent read as null, a string as itself")
+	t.eq(result.succeeded_count(), 3, "a 201 slot with a null id still counts")
+	t.done()
+
 func test_a_write_answer_that_is_not_the_element(t) -> void:
 	var fake = Fake.new()
 	fake.then(201, "[1]")

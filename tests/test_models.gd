@@ -70,3 +70,16 @@ func test_unset_shapes_fold(t) -> void:
 	e.elevation = 12
 	t.eq(e.to_dict().keys(), ["id", "name", "subtype", "parent_location", "elevation"], "a new key is appended")
 	t.done()
+
+## Folder format 0.3.22: a writer adds no world to an element file, and a reader gives one no meaning. The typed
+## world reads what the element holds and setting it is refused: the element is not changed or marked edited.
+func test_world_is_read_only_and_a_set_adds_no_world_key(t) -> void:
+	var e := OWLocation.new({"id": "1", "name": "x"})
+	e.world = "w"
+	t.eq(e.to_dict().keys(), ["id", "name"], "no world key added")
+	t.ok(not e.edited, "not marked edited")
+	t.eq(e.world, "", "reads as unset")
+	var held := OWLocation.new({"id": "1", "world": "w0"})
+	held.world = "w1"
+	t.eq(held.world, "w0", "a world a body holds is read as held, never replaced")
+	t.done()

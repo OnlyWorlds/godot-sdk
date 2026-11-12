@@ -102,3 +102,47 @@ func test_edit_writes_only_the_edited_file(t) -> void:
 	t.eq(back.x, pin.x, "read back")
 	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
 	t.done()
+
+# -- No id, no write (folder format §4.1; §3.4, v0.3.22: a draft world conforms as any other, and a writer mints no id) --
+
+## A world in memory with no world.json id: write_folder writes nothing and says why, pack refuses; set the id and both go.
+func test_a_world_json_with_no_id_is_refused_and_nothing_is_written(t) -> void:
+	var out := ProjectSettings.globalize_path(P.TMP + "/draft-no-id")
+	for given in [{}, {"world.json": "{\"name\": \"Draft\"}".to_utf8_buffer()},
+			{"world.json": "{\"id\": \"\", \"name\": \"Draft\"}".to_utf8_buffer()},
+			{"world.json": "{\"id\": 7, \"name\": \"Draft\"}".to_utf8_buffer()}]:
+		var w := OWWorld.from_files(given)
+		var label := "world.json %s" % (given.get("world.json", PackedByteArray()).get_string_from_utf8())
+		P.remove_tree(out)
+		t.ok(w.write_refusal() != "", label + ": a refusal")
+		t.eq(w.write_folder(out), ERR_INVALID_DATA, label + ": write_folder refuses")
+		t.ok(not DirAccess.dir_exists_absolute(out), label + ": nothing written")
+		t.ok(not w.pack("draft").ok, label + ": pack refuses")
+	var draft := OWWorld.from_files({})
+	draft.info.id = "019a9200-0000-7000-8000-000000000001"
+	draft.info.name = "Draft"
+	t.eq(draft.write_refusal(), "", "with the tool's own id, no refusal")
+	t.eq(draft.write_folder(out), OK, "a draft with its id is written")
+	t.ok(FileAccess.file_exists(out + "/world.json"), "its world.json")
+	t.ok(draft.pack("draft").ok, "and packs")
+	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
+	t.done()
+
+## A new element with no id: the writer mints none, so write_folder and pack refuse the whole world; given an id, it goes.
+func test_a_new_element_with_no_id_is_refused_and_nothing_is_written(t) -> void:
+	var out := ProjectSettings.globalize_path(P.TMP + "/element-no-id")
+	P.remove_tree(out)
+	var w := OWWorld.from_files({"world.json": "{\"id\": \"w1\", \"name\": \"Draft\"}".to_utf8_buffer()})
+	var loc := OWLocation.new({"name": "Harbour"})
+	w.add_element(loc)
+	t.ok(w.write_refusal() != "", "a refusal")
+	t.eq(w.write_folder(out), ERR_INVALID_DATA, "write_folder refuses")
+	t.ok(not DirAccess.dir_exists_absolute(out), "nothing written")
+	t.ok(not w.pack("draft").ok, "pack refuses")
+	t.eq(w.write_folder(out, true), ERR_INVALID_DATA, "an edited-only write refuses too")
+	loc.id = "019a9200-0000-7000-8000-0000000e0001"
+	t.eq(w.write_refusal(), "", "with an id, no refusal")
+	t.eq(w.write_folder(out), OK, "written")
+	t.ok(FileAccess.file_exists(out + "/elements/location/harbour--000e0001.json"), "its file")
+	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
+	t.done()

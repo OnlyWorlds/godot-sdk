@@ -133,6 +133,24 @@ func add_element(e: OWElement) -> void:
 	if e.id != "":
 		_by_id[e.id] = e
 
+## Why [method write_folder] and [method pack] would refuse to write this world, or [code]""[/code] when they would
+## not: a world.json to be written whose id is no non-empty String, or a new or edited element with no id (a non-empty
+## String). A writer mints no id (folder spec §4.1; §3.4, format 0.3.22: a draft world conforms as any other, its id
+## the tool's own until a host gives one), so the caller sets it. A file read with no id and not edited is not an
+## element; it is carried back as read.
+func write_refusal(only_edited := false) -> String:
+	if info.edited or not only_edited:
+		var id = info.get_value("id")
+		if not (id is String and OWUnicode.strip_ws(id) != ""):
+			return "world.json has no id (a non-empty String), and a writer mints none: set info.id first"
+	for e in elements:
+		if only_edited and not e.edited:
+			continue
+		var eid = e.get_value("id")
+		if (e.edited or e.source_path == "") and not (eid is String and eid != ""):
+			return "a new or edited %s has no id (a non-empty String), and a writer mints none: set its id first" % e.get_type()
+	return ""
+
 ## An element file's bytes: as read when unedited, else in the spec's section 5 form.
 static func element_bytes(e: OWElementCore) -> PackedByteArray:
 	if not e.edited and e.source_path != "":
@@ -155,7 +173,10 @@ func to_files(only_edited := false) -> Dictionary:
 
 ## Write the world as a folder at [param path]: world.json and every element file (and, for a world read from an
 ## archive, its other files). [param only_edited] writes just the edited files (writing back into the folder read).
+## [constant ERR_INVALID_DATA], and nothing written, when [method write_refusal] says why it would not.
 func write_folder(path: String, only_edited := false) -> Error:
+	if write_refusal(only_edited) != "":
+		return ERR_INVALID_DATA
 	path = path.replace("\\", "/").trim_suffix("/")
 	var files := to_files(only_edited)
 	for rel: String in files:
@@ -170,8 +191,14 @@ func write_folder(path: String, only_edited := false) -> Error:
 		f.close()
 	return OK
 
-## Pack the world as an [code].owworld[/code]'s bytes, its top folder [param top].
+## Pack the world as an [code].owworld[/code]'s bytes, its top folder [param top]. Not ok, its message
+## [method write_refusal]'s, when the world would not be written.
 func pack(top: String) -> OWWorldArchive.Packed:
+	var why := write_refusal()
+	if why != "":
+		var refused := OWWorldArchive.Packed.new()
+		refused.message = why
+		return refused
 	return OWWorldArchive.pack_files(to_files(), top)
 
 func _path_of(e: OWElementCore) -> String:

@@ -219,6 +219,19 @@ the git log.
   points only, a non-whole `z` as 0, `no_markers` for a Zone with no placed Marker, a dangling Marker or a Pin with no
   served map counted once, `type` and `shape` read as written) were read so already. Parity with the TypeScript SDK
   4.129.1 and the Python package 0.104.1, which read serial 106 the same way.
+- Folder format 0.3.22 (a draft world, one no host holds yet, conforms as any other folder; a writer adds no `world`
+  to an element file and a reader gives one no meaning). **`OWWorld.write_folder` and `OWWorld.pack` now refuse a
+  world they would write with no id**: a `world.json` whose `id` is not a non-empty String, or a new or edited
+  element with no id. `write_folder` answers `ERR_INVALID_DATA` and writes nothing, `pack` answers a `Packed` that is
+  not ok, and the new `OWWorld.write_refusal()` says why. Before, both wrote such a world (a 0-byte `world.json`, an
+  element file named `…--.json`). A writer mints no id: the caller sets `info.id` (a draft world's id is the tool's
+  own until a host gives one) and each element's. A file read with no id and not edited is carried back as read.
+  **`OWElement.world` is read only**: setting it is refused with an error and changes nothing, so no model adds a
+  `world` key to an element file (`codegen/generate.py`'s `READ_ONLY`). This SDK's writers stamp no
+  `format_version`, so there is no version to move.
+- **`OWClient.BulkSlot.id` is `Variant`: a String, or null when the slot answers none** (a failure before the item was
+  identified), as the API document types it and the TypeScript and Unity SDKs read it; it read `""` before. A caller
+  that typed it `String` reads it as a `Variant` now.
 - Schema pin to `v0.34.0-dist.119` (`00369ea`); the standard stays at 00.34.00, no schema file, `schema.json` or
   walk reader moved, and no answer of a reader moves. The map-space page gains rule 11 (a layout map is no candidate
   when a tool picks the Map that stands for the world's space, and a Pin or a Marker on one is a place in that
