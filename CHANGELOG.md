@@ -165,7 +165,10 @@ the git log.
 - `OWTransport`, the seam the client sends through, and `OWHttpTransport`, its default on Godot's `HTTPClient`
   (polled between frames, or blocking): no scene tree needed, unlike `HTTPRequest`.
 - The wire checks: every request the read calls make is held to keel's OpenAPI document (`tests/data/keel-wire.json`,
-  vendored from the Unity SDK), every key the models read to what keel serves.
+  vendored from the Unity SDK), every key the models read to what keel serves. The vendored document follows keel's
+  (at `c1d6b0ff0cdd`: the Pin list takes `element`, the Pins that place that element of any type, `""` for the Pins
+  placing nothing); `list` already sends any field-named filter as given, so `{"filter": {"element": id}}` needs no
+  change here and the document's words, not the client's, are what moved.
 
 ### Fixed
 
