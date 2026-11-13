@@ -206,6 +206,15 @@ the git log.
 
 ### Changed
 
+- One time grammar: a record's `played_at` is now read by the message page's grammar, `OWLens.time_key`, the one the
+  message and lens readers already call, where `OWRecord` had a grammar of its own. `OWRecord.record_mark_of` and
+  `records_of` therefore now read a lowercase `t` and `z` (`2026-11-01t00:30:00z`) and an offset
+  (`2026-11-01T00:30:00+01:00`, ordered as its instant) as a mark, and no longer read a time without seconds
+  (`2026-11-01T00:30Z`) as one. The message grammar's other two readings come with it: a time with no zone is read as
+  UTC, and the year 0000 is a year. `played_at` is still kept as written, and the order is still to the millisecond
+  (a fraction truncated past three digits, before 1970 as after it), a tie by the Event's id. A writer that stamped
+  `played_at` without seconds writes them now, or its records stop showing. This is the record page's reading at
+  schema-dist serial 123.
 - One clock per lens: `OWLens.resolve`'s order past the anchors (the lens page's rule 5, which the budget keeps the
   first of) now reads the same clock as `changed_within`, where it read `updated_at` only. On the wire that is still
   `updated_at`; for a folder element it is the newer of `server_updated_at` and `local_updated_at` wherever either

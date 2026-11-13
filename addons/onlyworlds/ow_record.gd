@@ -16,15 +16,11 @@ const MARK := "x_record"
 ## The mark's six members, in the profile's order; [code]tool[/code] and [code]played_at[/code] are required.
 const MEMBERS := ["tool", "played_at", "version", "seed", "outcome", "seats"]
 
-## Each month's days in a common year; February has 29 in a Gregorian leap year.
-const _MONTH_DAYS := [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-const _MS_PER_DAY := 86400000
-
 ## The mark on [param element], normalised: [code]{tool, played_at, version, seed, outcome, seats}[/code], the two
 ## required members as written, each optional member null when unset, [code]seats[/code] a Dictionary ({} when unset),
 ## each a copy. Null when it is no mark: [param element] not a Dictionary whose [code]type[/code] is
 ## [code]"event"[/code] (a mark on any other element is no record), the value not a Dictionary, [code]tool[/code] not
-## 1 to 32 of [code]a-z 0-9 -[/code], [code]played_at[/code] not a real instant in the profile's form (see
+## 1 to 32 of [code]a-z 0-9 -[/code], [code]played_at[/code] not an instant as the message grammar reads one (see
 ## [method _instant_ms]), or [code]version[/code], [code]seed[/code], [code]outcome[/code] (1 to 24 of [code]a-z[/code])
 ## or [code]seats[/code] (a Dictionary of String to String) anything but its kind, null or absent. A broken writer
 ## never shows as a record.
@@ -112,74 +108,20 @@ static func records_of(character_id: Variant, elements: Variant) -> Array:
 	keyed.sort_custom(func(a, b) -> bool: return a[0] > b[0] if a[0] != b[0] else a[1] < b[1])
 	return keyed.map(func(k): return k[2])
 
-## [code]played_at[/code] as whole milliseconds from 0001-01-01T00:00Z, or null when it is no instant in the profile's
-## form. The form is the whole String: [code]YYYY-MM-DDTHH:MM[/code], then optionally [code]:SS[/code] and after it
-## optionally [code].[/code] and one or more digits, then [code]Z[/code]; ASCII digits only, the T and the Z upper case,
-## nothing before or after. The calendar is checked by its parts, never by a date parser: year 0001 or later, month 1
-## to 12, the day within its month (Gregorian leap years), hour 0 to 23, minute and second 0 to 59. A fraction is
-## truncated past three digits.
+## [code]played_at[/code] as whole milliseconds from 1970-01-01T00:00:00Z, or null when it is no instant. It is read by
+## the message page's grammar (serial 123: one grammar for a time in the standard), [method OWLens.time_key], the one
+## the message and lens readers call: [code]YYYY-MM-DDTHH:MM:SS[/code], an optional fraction, then [code]Z[/code],
+## [code]+HH:MM[/code], [code]-HH:MM[/code] or nothing (UTC); the T and the Z in either case; seconds required; a real
+## calendar date, years 0000 to 9999; ASCII digits only, the whole String, nothing trimmed. The order is to the
+## millisecond: the instant floored to it, so a fraction is truncated past three digits, never rounded.
 static func _instant_ms(at: Variant) -> Variant:
-	if not at is String:
+	var micros: Variant = OWLens.time_key(at)
+	if micros == null:
 		return null
-	var s: String = at
-	var n := s.length()
-	if n < 17 or not (_digits(s, 0, 4) and s[4] == "-" and _digits(s, 5, 2) and s[7] == "-" and _digits(s, 8, 2)
-			and s[10] == "T" and _digits(s, 11, 2) and s[13] == ":" and _digits(s, 14, 2)):
-		return null
-	var i := 16
-	var second := 0
-	var ms := 0
-	if s[i] == ":":
-		if not _digits(s, i + 1, 2):
-			return null
-		second = s.substr(i + 1, 2).to_int()
-		i += 3
-		if i < n and s[i] == ".":
-			var j := i + 1
-			while j < n and _digit(s.unicode_at(j)):
-				j += 1
-			if j == i + 1:
-				return null
-			ms = s.substr(i + 1, mini(3, j - i - 1)).rpad(3, "0").to_int()
-			i = j
-	if i != n - 1 or s[i] != "Z":
-		return null
-	var year := s.substr(0, 4).to_int()
-	var month := s.substr(5, 2).to_int()
-	var day := s.substr(8, 2).to_int()
-	var hour := s.substr(11, 2).to_int()
-	var minute := s.substr(14, 2).to_int()
-	if year < 1 or month < 1 or month > 12 or day < 1 or day > _month_days(year, month):
-		return null
-	if hour > 23 or minute > 59 or second > 59:
-		return null
-	return _days(year, month, day) * _MS_PER_DAY + ((hour * 60 + minute) * 60 + second) * 1000 + ms
-
-static func _leap(year: int) -> bool:
-	return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
-
-static func _month_days(year: int, month: int) -> int:
-	return 29 if month == 2 and _leap(year) else _MONTH_DAYS[month - 1]
-
-## Days from 0001-01-01 in the proleptic Gregorian calendar.
-static func _days(year: int, month: int, day: int) -> int:
-	var before := year - 1
-	var days := before * 365 + before / 4 - before / 100 + before / 400
-	for k in range(1, month):
-		days += _month_days(year, k)
-	return days + day - 1
+	return (micros - posmod(micros, 1000)) / 1000
 
 static func _digit(c: int) -> bool:
 	return c >= 0x30 and c <= 0x39
-
-## True when [param count] ASCII digits stand at [param from] in [param s].
-static func _digits(s: String, from: int, count: int) -> bool:
-	if from + count > s.length():
-		return false
-	for k in count:
-		if not _digit(s.unicode_at(from + k)):
-			return false
-	return true
 
 ## The tools list's id form: 1 to 32 of a-z, 0-9 and -.
 static func _tool_ok(s: String) -> bool:
