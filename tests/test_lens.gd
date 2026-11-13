@@ -566,6 +566,36 @@ func test_changed_within_reads_a_folder_element_by_the_newer_sync_stamp(t) -> vo
 	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "soon"}), true, "an unreadable stamp is none")
 	t.done()
 
+## One clock per lens (the lens page, serial 123): rule 5's order reads the clock changed_within reads, on the wire
+## updated_at, in a folder the newer of server_updated_at and local_updated_at. A filter over objects with budget 1
+## keeps the one sorted first; e2 is stamped 10-20 on the wire, e1 by the stamps given; no changed_within, so nothing
+## is cut stale and the order alone decides.
+func test_rule_5_orders_by_the_clock_changed_within_reads(t) -> void:
+	var lens := _lens_on({}, {"types": ["object"], "budget": 1})
+	var first := func(stamps: Dictionary) -> String:
+		var e1 := {"id": "e1", "type": "object", "name": "Folder copy"}
+		e1.merge(stamps)
+		var world := {"elements": [e1, {"id": "e2", "type": "object", "name": "Wire copy",
+			"updated_at": "2026-10-20T12:00:00Z"}]}
+		var kept := OWLens.resolve(world, lens, OWNER, {"clock": CLOCK}).kept
+		return kept[0] if kept.size() == 1 else "kept " + str(kept)
+	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z"}), "e1", "the wire: updated_at")
+	t.eq(first.call({"updated_at": "2026-10-15T12:00:00Z"}), "e2", "the wire: an older updated_at")
+	t.eq(first.call({"server_updated_at": "2026-10-25T12:00:00Z"}), "e1", "only server, newer")
+	t.eq(first.call({"local_updated_at": "2026-10-25T12:00:00Z"}), "e1", "only local, newer")
+	t.eq(first.call({"server_updated_at": "2026-10-15T12:00:00Z", "local_updated_at": "2026-10-25T12:00:00Z"}), "e1",
+		"the newer of the two")
+	t.eq(first.call({"updated_at": "2026-10-15T12:00:00Z", "server_updated_at": "2026-10-25T12:00:00Z"}), "e1",
+		"a folder stamp over an older updated_at")
+	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "server_updated_at": "2026-10-15T12:00:00Z"}), "e2",
+		"a folder stamp over a newer updated_at")
+	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "local_updated_at": "2026-10-15T12:00:00Z"}), "e2",
+		"a local stamp over a newer updated_at")
+	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "server_updated_at": "garbage"}), "e1",
+		"an unreadable folder stamp is none: updated_at read")
+	t.eq(first.call({"server_updated_at": "garbage"}), "e2", "no readable clock sorts last")
+	t.done()
+
 # -- keel's reader, where the packages read otherwise (ruled keel's way; serial 83's fixture is to carry them) ---------
 
 ## Nothing past the reading's date leads anywhere: no hop goes out of an element cut after_as_of, an anchor or one a hop

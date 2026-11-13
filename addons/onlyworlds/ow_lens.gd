@@ -965,12 +965,13 @@ class View:
 	func stops_at(id: String, recipe: Dictionary) -> bool:
 		return aid.has(id) and not recipe["types"].has(aid[id])
 
-	## Rule 5's order past the anchors: the schema's type order, newest updated_at first (an unreadable time last),
-	## then by id by code point.
+	## Rule 5's order past the anchors: the schema's type order, newest first by the clock changed_within reads
+	## ([method OWLens._changed_at]: on the wire updated_at, in a folder the newer of server_updated_at and
+	## local_updated_at; one clock per lens), an element with no readable time last, then by id by code point.
 	func sort(ids: Array) -> Array:
 		var keyed := []
 		for id in ids:
-			keyed.append([id, OWLens._type_rank(type_of[id]), OWLens.time_key(by_id[id].get("updated_at"))])
+			keyed.append([id, OWLens._type_rank(type_of[id]), OWLens._changed_at(by_id[id])])
 		keyed.sort_custom(func(a, b) -> bool:
 			if a[1] != b[1]:
 				return a[1] < b[1]

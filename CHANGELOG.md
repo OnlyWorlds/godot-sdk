@@ -206,6 +206,13 @@ the git log.
 
 ### Changed
 
+- One clock per lens: `OWLens.resolve`'s order past the anchors (the lens page's rule 5, which the budget keeps the
+  first of) now reads the same clock as `changed_within`, where it read `updated_at` only. On the wire that is still
+  `updated_at`; for a folder element it is the newer of `server_updated_at` and `local_updated_at` wherever either
+  reads as a time, and `updated_at` only when neither does. So an element edited locally yesterday sorts before one
+  the server stamped last week, and an element `changed_within` keeps as fresh is never sorted as old in the same
+  lens. An element with no readable time still sorts last, and a tie is still broken by id by code point. This is
+  the lens page's reading at schema-dist serial 123.
 - The message read mark's tie goes to the higher id. `OWMessage.read_mark_of`, of several marks that count, still
   takes the newest `updated_at` and still never lets one that cannot be read win, but two that are the same instant
   (an instant written two ways, as `10:00:00Z` and `11:00:00+01:00`, included) now tie by the higher id, compared by
