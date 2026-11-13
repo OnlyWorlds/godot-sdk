@@ -223,12 +223,11 @@ the git log.
   clock is still never cut, and still sorts last of its type. This is the lens page's reading at schema-dist serial
   123.
 - One clock per lens: `OWLens.resolve`'s order past the anchors (the lens page's rule 5, which the budget keeps the
-  first of) now reads the same clock as `changed_within`, where it read `updated_at` only. On the wire that is still
-  `updated_at`; for a folder element it is the newer of `server_updated_at` and `local_updated_at` wherever either
-  reads as a time, and `updated_at` only when neither does. So an element edited locally yesterday sorts before one
+  first of) now reads the same clock as `changed_within`, the element's clock (the entry above), where it read
+  `updated_at` only. On the wire that is still `updated_at`. So an element edited locally yesterday sorts before one
   the server stamped last week, and an element `changed_within` keeps as fresh is never sorted as old in the same
-  lens. An element with no readable time still sorts last, and a tie is still broken by id by code point. This is
-  the lens page's reading at schema-dist serial 123.
+  lens. An element with no readable clock still sorts last of its type, and a tie is still broken by id by code
+  point. This is the lens page's reading at schema-dist serial 123.
 - The message read mark's ties go to the higher id. `OWMessage.read_mark_of` now reads the message page's sentence:
   a lone mark is the mark; among several, the newest readable `updated_at` wins; one that cannot be read never beats
   one that can; among equal instants, or when none can be read, the higher id (code point, as written) is the mark.
