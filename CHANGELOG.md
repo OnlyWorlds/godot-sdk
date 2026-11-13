@@ -267,6 +267,20 @@ the git log.
 - **`OWClient.BulkSlot.id` is `Variant`: a String, or null when the slot answers none** (a failure before the item was
   identified), as the API document types it and the TypeScript and Unity SDKs read it; it read `""` before. A caller
   that typed it `String` reads it as a `Variant` now.
+- Schema pin to `v0.34.0-dist.122` (`2888214`); the standard stays at 00.34.00, no schema file, `schema.json` or
+  walk reader moved. The address page's new section, the same id: inside a world two ids are the same id when they
+  are written the same, and an order by id is of the ids as written; an id is read in either case, and taken in
+  lowercase, only at an address and in a text a page says is searched for ids (a Charter's `description`), and what
+  it is then matched against is read as written. The Charter's skills and the openers' check now read a held id so
+  (the two Changed entries above); the lens page's notes, the record page's seats and the report page's parents
+  name it too, and this SDK's readers read those as written already. Cases gained: `address.fixture.json` three (140:
+  an upper-case lens id is read, the key `Lens` is refused, a key with a space before it is another key),
+  `charter.fixture.json` seven (38), `lens.fixture.json` one (221: an `updated_at` read as the message profile reads a
+  `created_at`, an unreadable one last), `record.fixture.json` one (41), `report.fixture.json` two (29),
+  `checks.fixture.json` two (no reader here). Against the code before the two Changed entries, one case's answer
+  moves, `a-skill-object-whose-own-id-is-in-upper-case-is-not-kept`; every other case read as it stood. The baked
+  views table moved in the conversation layout's sentence ("read and ordered as profiles/message.md orders
+  messages") and the report row's `from`; the generated headers moved in their stamp only.
 - Schema pin to `v0.34.0-dist.121` (`f890974`); the standard stays at 00.34.00, no schema file, `schema.json` or
   walk reader moved, and no answer of a reader moves. The message page gives the one form a `created_at` is read in
   (a time with no offset is UTC, every part in its range, a year any four digits, a fraction counted to its sixth

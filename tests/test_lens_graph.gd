@@ -1,5 +1,5 @@
 extends RefCounted
-## OWGraph on the lens fixture's graph kind (schema-dist profiles/lens.fixture.json at dist.84, the pinned copy): each
+## OWGraph on the lens fixture's graph kind (schema-dist profiles/lens.fixture.json at dist.122, the pinned copy): each
 ## of its cases carries its own small world, reader and options, and the want (nodes in order with their marks,
 ## edges in order, edges_cut, the lens's cut and unreadable, or refused naming a flag). Then the profile's graph tables
 ## held to the fixture and the presentation defaults, degree_of and out_degree_of, and the degree kind's cases.

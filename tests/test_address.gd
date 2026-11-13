@@ -1,6 +1,6 @@
 extends RefCounted
-## OWAddress on the address profile's conformance fixture (schema-dist profiles/address.fixture.json, the pinned copy,
-## unchanged since serial 77): every format case through element_address_from, every parse case through parse_link,
+## OWAddress on the address profile's conformance fixture (schema-dist profiles/address.fixture.json, the pinned copy
+## at dist.122): every format case through element_address_from, every parse case through parse_link,
 ## each refusal by the reason the fixture names. Then what the fixture leaves open, as the npm and Python packages
 ## answer it: the writer's order, a moment of 3.0, an empty string, a key outside the shape.
 
@@ -57,10 +57,10 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var doc := _fixture()
 	t.eq(doc["profile"], "address", "the profile")
 	var cases: Array = doc["cases"]
-	t.eq(cases.size(), 137, "137 cases")
+	t.eq(cases.size(), 140, "140 cases")
 	t.eq(cases.filter(func(c): return c["kind"] == "format").size(), 36, "format cases")
-	t.eq(cases.filter(func(c): return c["kind"] == "parse").size(), 101, "parse cases")
-	t.eq(cases.filter(func(c): return c.get("refuse") != null).size(), 74, "refusals: 20 format, 54 parse")
+	t.eq(cases.filter(func(c): return c["kind"] == "parse").size(), 104, "parse cases")
+	t.eq(cases.filter(func(c): return c.get("refuse") != null).size(), 75, "refusals: 20 format, 55 parse")
 	t.done()
 
 func test_the_type_words_and_refusals_are_the_fixtures(t) -> void:

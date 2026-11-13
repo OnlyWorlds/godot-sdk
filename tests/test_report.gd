@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWReport on the report profile's conformance fixture (schema-dist profiles/report.fixture.json, the pinned copy at
-## dist.121, its sha256 checked against the manifest): every thread case by name, parents compared whole and in the
+## dist.122, its sha256 checked against the manifest): every thread case by name, parents compared whole and in the
 ## order given, groups and lints each as a set, as the fixture's notes say. Beside it, the corners dist.120's fixture
 ## left open, each a case of dist.121's (named on each test) and kept here to pin the reader beside it: a time with no
 ## offset, one id given twice, a parent that is no String or an expanded object, a parent with padding; then a caller's
@@ -46,12 +46,12 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(f["pair"], {"type": OWReport.PAIR_TYPE, "supertype": OWReport.REPORT_SUPERTYPE}, "the report's pair")
 	t.eq(f["board_pair"], {"type": OWReport.PAIR_TYPE, "supertype": OWReport.BOARD_SUPERTYPE}, "the board entry's pair")
 	t.eq(f["mark"]["field"], OWLens.ROOM_MARK, "the mark's field")
-	t.eq(f["thread_cases"].size(), 27, "27 thread cases (dist.121)")
+	t.eq(f["thread_cases"].size(), 29, "29 thread cases (dist.122)")
 	var names := {}
 	for c in f["thread_cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 27, "each case named once")
-	t.eq(get_cases().size(), 27, "every case runs here, one test each")
+	t.eq(names.size(), 29, "each case named once")
+	t.eq(get_cases().size(), 29, "every case runs here, one test each")
 	t.done()
 
 # -- beside the fixture ------------------------------------------------------------------------------------------------
