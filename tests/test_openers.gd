@@ -112,8 +112,9 @@ func test_a_visitor_sees_the_account_tools_saying_needs_an_account_whatever_sign
 	var address := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
 	var n := OWOpeners.NEEDS_AN_ACCOUNT
 	# Atlas opens a public world with no account (opens_public, the list at 9452529), so a visitor's row is live; Subs
-	# (the list at 0a7539c) opens a Character with an account.
-	var want := [["onlyworlds", null], ["atlas", null], ["lantern", n], ["little-lens", null], ["tangle", n], ["subs", n]]
+	# (the list at 0a7539c) opens a Character with an account; the mapper (the list at aa00969) opens a public world
+	# with no account, as Atlas does.
+	var want := [["onlyworlds", null], ["atlas", null], ["lantern", n], ["little-lens", null], ["tangle", n], ["subs", n], ["mapper", null]]
 	for signed_in in [null, false, true]:
 		for browser in [true, false]:
 			var r := OWOpeners.openers_for(OWTools.ALL, "element", address, {"audience": "public", "signed_in": signed_in, "browser": browser})
@@ -169,15 +170,15 @@ func test_the_baked_list_offers_tangle_on_a_world_and_a_character_only(t) -> voi
 	var member := {"audience": "member", "signed_in": true}
 	var ids := func(r) -> Array: return r.rows.map(func(x): return x["id"])
 	var world := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, member)
-	t.eq(ids.call(world), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle"], "a world's menu")
+	t.eq(ids.call(world), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle", "mapper"], "a world's menu")
 	var hero := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
 	var character := OWOpeners.openers_for(OWTools.ALL, "element", hero, member)
-	t.eq(ids.call(character), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle", "subs"], "a Character's menu")
-	if character.rows.size() == 6:
+	t.eq(ids.call(character), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle", "subs", "mapper"], "a Character's menu")
+	if character.rows.size() == 7:
 		t.eq(character.rows[4]["href"], "https://tangle.onlyworlds.com/#/open/%s/element/%s" % [WORLD, ELEMENT], "its element door")
 		t.eq(character.rows[4]["state"], null, "it opens now")
 	var hidden := OWOpeners.openers_for(OWTools.ALL, "element", hero, member, {"element": {"id": ELEMENT, "type": "character", "hidden": true}})
-	t.eq(ids.call(hidden), ["onlyworlds", "atlas", "lantern"], "a hidden Character's menu")
+	t.eq(ids.call(hidden), ["onlyworlds", "atlas", "lantern", "mapper"], "a hidden Character's menu")
 	for type in OWTypes.slugs():
 		if type == "character":
 			continue
@@ -232,6 +233,44 @@ func test_the_baked_list_lists_windrose_and_offers_it_nowhere(t) -> void:
 		for type in OWTypes.slugs():
 			var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, surface)
 			t.ok(r.ok and not ids.call(r).has("windrose"), "not on a %s's menu (%s)" % [type, surface["audience"]])
+	t.done()
+
+## The OnlyWorlds mapper (the list at aa00969) opens a world or any element: its element_types is null, so its element
+## door is offered on every type's menu; it skips only map space (a Map, Pin or Marker as served), needs an account
+## and opens a public world with none, so a visitor's row is live.
+func test_the_baked_list_offers_the_mapper_on_every_element(t) -> void:
+	var mapper = OWTools.ALL.filter(func(x): return x["id"] == "mapper")
+	t.eq(mapper.size(), 1, "the mapper is a row of the baked list")
+	if mapper.size() == 1:
+		t.eq(mapper[0]["rung"], "listed", "listed")
+		t.eq(mapper[0]["client"], "mapper", "its client")
+		t.eq(mapper[0]["open"]["element_types"], null, "element_types is null: it opens every type")
+		t.eq(mapper[0]["open"]["element_skips"], ["map_space"], "it skips map space")
+		t.eq(mapper[0]["open"]["needs"], "account", "it needs an account")
+		t.eq(mapper[0]["open"]["opens_public"], true, "it opens a public world with none")
+	var row_of := func(r) -> Array: return r.rows.filter(func(x): return x["id"] == "mapper")
+	for surface in [{"audience": "member", "signed_in": true}, {"audience": "public"}]:
+		var world := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, surface)
+		var w: Array = row_of.call(world)
+		t.eq(w.size(), 1, "on a world's menu (%s)" % surface["audience"])
+		if w.size() == 1:
+			t.eq(w[0]["href"], "https://maps.onlyworlds.com/?world=" + WORLD, "the world's door (%s)" % surface["audience"])
+			t.eq(w[0]["state"], null, "it opens now (%s)" % surface["audience"])
+		for type in OWTypes.slugs():
+			var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, surface)
+			t.ok(r.ok, "read: " + r.message)
+			var e: Array = row_of.call(r)
+			t.eq(e.size(), 1, "on a %s's menu (%s)" % [type, surface["audience"]])
+			if e.size() == 1:
+				t.eq(e[0]["href"], "https://maps.onlyworlds.com/?world=%s&type=%s&element=%s" % [WORLD, type, ELEMENT], "a %s's door" % type)
+				t.eq(e[0]["state"], null, "a %s's row opens now (%s)" % [type, surface["audience"]])
+	# Map space as served: a Map, Pin or Marker leaves it out; a Zone is content and keeps it.
+	var member := {"audience": "member", "signed_in": true}
+	for type in ["map", "pin", "marker", "zone"]:
+		var served := {"id": ELEMENT, "type": type, "name": "A " + type}
+		var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, member, {"element": served})
+		t.ok(r.ok, "read: " + r.message)
+		t.eq(row_of.call(r).size(), 1 if type == "zone" else 0, "a served %s's menu" % type)
 	t.done()
 
 func test_the_baked_list_is_the_list_at_the_pinned_commit(t) -> void:

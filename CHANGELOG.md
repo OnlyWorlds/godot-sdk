@@ -8,6 +8,10 @@ the git log.
 
 ### Added
 
+- `OWTools` repinned at the tools list's `aa00969` (tools.json sha256 `2140d2b9…`): the OnlyWorlds mapper is listed,
+  a world's maps and layouts in the browser, read only. Its `element_types` is null, so its element door is offered
+  on every type's menu; it skips map space (a Map, Pin or Marker as served), needs an account and opens a public
+  world with none. Seven rows (from six); no other row's reading changed.
 - `OWTools` repinned at the tools list's `53a05e4` (tools.json sha256 `198f62a2…`), the list the TypeScript SDK
   4.160.0 bakes: Windrose is listed, a map of one world in the browser that only reads, with no `open`, so the Open
   with menu offers it nowhere. Six rows (from five); no other row's reading changed.
