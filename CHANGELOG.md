@@ -8,6 +8,9 @@ the git log.
 
 ### Added
 
+- `OWTools` repinned at the tools list's `53a05e4` (tools.json sha256 `198f62a2…`), the list the TypeScript SDK
+  4.160.0 bakes: Windrose is listed, a map of one world in the browser that only reads, with no `open`, so the Open
+  with menu offers it nowhere. Six rows (from five); no other row's reading changed.
 - `OWTools` repinned at the tools list's `0a7539c` (tools.json sha256 `f1fac743…`), the list the TypeScript SDK
   4.159.0 and the Python package 0.120.0 bake: Subs is listed, a game that opens a Character (`needs` account, no
   world link).

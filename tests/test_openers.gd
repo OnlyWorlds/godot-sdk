@@ -164,7 +164,7 @@ func test_the_baked_list_offers_tangle_on_a_world_and_a_character_only(t) -> voi
 		t.eq(tangle[0]["open"]["element_skips"], ["room", "hidden", "proposed"], "it skips three marks")
 		t.eq(tangle[0]["open"]["needs"], "account", "it needs an account")
 	for row in OWTools.ALL:
-		if row["id"] != "tangle" and row["id"] != "subs":
+		if row["id"] != "tangle" and row["id"] != "subs" and row["open"] != null:   # a row with no open opens nothing
 			t.eq(row["open"]["element_types"], null, "%s opens every type" % row["id"])
 	var member := {"audience": "member", "signed_in": true}
 	var ids := func(r) -> Array: return r.rows.map(func(x): return x["id"])
@@ -214,6 +214,24 @@ func test_the_baked_list_offers_subs_on_a_character_only(t) -> void:
 			continue
 		var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, member)
 		t.ok(r.ok and not ids.call(r).has("subs"), "not on a %s's menu" % type)
+	t.done()
+
+## Windrose (the list at 53a05e4) is listed with no open: the Open with menu offers it nowhere, on no world's menu and
+## on no element's of any type, for a member or a visitor.
+func test_the_baked_list_lists_windrose_and_offers_it_nowhere(t) -> void:
+	var windrose = OWTools.ALL.filter(func(x): return x["id"] == "windrose")
+	t.eq(windrose.size(), 1, "Windrose is a row of the baked list")
+	if windrose.size() == 1:
+		t.eq(windrose[0]["rung"], "listed", "listed")
+		t.eq(windrose[0]["open"], null, "no open")
+		t.eq(windrose[0]["url"], "https://windrose.onlyworlds.com", "its url")
+	var ids := func(r) -> Array: return r.rows.map(func(x): return x["id"])
+	for surface in [{"audience": "member", "signed_in": true}, {"audience": "public"}]:
+		var world := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, surface)
+		t.ok(world.ok and not ids.call(world).has("windrose"), "not on a world's menu (%s)" % surface["audience"])
+		for type in OWTypes.slugs():
+			var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, surface)
+			t.ok(r.ok and not ids.call(r).has("windrose"), "not on a %s's menu (%s)" % [type, surface["audience"]])
 	t.done()
 
 func test_the_baked_list_is_the_list_at_the_pinned_commit(t) -> void:
