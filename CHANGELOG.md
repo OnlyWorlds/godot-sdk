@@ -203,6 +203,13 @@ the git log.
 
 ### Changed
 
+- A Charter's skill ids match an Object's own id as written. `OWCharter.charter_of` still finds an id in the Charter's
+  text in either case and takes it in lowercase, but now matches it against the ids of the Objects the reader sees as
+  they are written, where it lowercased those too. So an Object whose own id is held in upper case is not the Object a
+  lowercase id in the text names, and is no longer kept; an id named in upper case in the text still names the Object
+  held in lowercase, and a kept skill is always the Object's own id. This follows the address profile's rule for the
+  same id: an id is read in either case only at an address and in a text, and what it is then matched against is read
+  as written, as every other reader of this SDK already reads ids.
 - `OWClient`'s writes follow the Unity and TypeScript SDKs on two rules. A write that became a proposal (a 202 with
   `{proposal}` to an upsert, a patch or a link edit) is now an `OWApiError` of kind `api`, `status` 202, its row in
   `proposal`, `is_proposed()` true, as the Unity SDK's `OWProposedError` is; the kind `proposed` and

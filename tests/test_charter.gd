@@ -98,3 +98,27 @@ func test_a_reading_never_moves_the_world(t) -> void:
 			OWCharter.charter_of(world, world["readers"][r])
 		t.eq(JSON.stringify(world, "", false, true), before, "%s unchanged" % name)
 	t.done()
+
+## A Charter over one Object, its text naming the skill as given: the skill list the owner reads.
+func _skill_of(text: String, object_id: String) -> Variant:
+	var world := {"id": "w", "elements": [
+		{"id": "019a7f00-0000-7000-8000-0000000002b0", "type": "law", "name": "Rules", "supertype": "Charter",
+			"x_charter_of": "w", "description": text},
+		{"id": object_id, "type": "object", "name": "Skill"},
+	]}
+	var charter = OWCharter.charter_of(world, {"rung": "owner"}).to_dict()["charter"]
+	return null if charter == null else charter["skill"]
+
+## The address profile's rule for the same id, at the Charter's door: a skill id named in lowercase in the text is not
+## an Object whose own id is held in upper case, since the Object's id is read as written. Kills: the held id folded.
+func test_a_skill_named_in_lowercase_is_not_an_object_held_in_upper_case(t) -> void:
+	t.eq(_skill_of("Read ow://object/019a7f00-0000-7000-8000-0000000002bf.", "019A7F00-0000-7000-8000-0000000002BF"), [],
+		"not kept")
+	t.done()
+
+## An id found in the text is read in either case and taken in lowercase: named in upper case, it is the Object held in
+## lowercase, and the skill lists the Object's own id. Kills: the text's id matched as written.
+func test_a_skill_named_in_upper_case_is_the_object_held_in_lowercase(t) -> void:
+	t.eq(_skill_of("Read 019A7F00-0000-7000-8000-0000000002BE.", "019a7f00-0000-7000-8000-0000000002be"),
+		["019a7f00-0000-7000-8000-0000000002be"], "kept, as the Object's own id")
+	t.done()

@@ -205,14 +205,15 @@ static func _newest(r: OWLens.View, ids: Array) -> Variant:
 	return best
 
 ## Keel's charter_skill: every id the text names, lowercase, each once in the order written, kept when it is an Object
-## of this world the reader sees, the first SKILL_MAX of those kept.
+## of this world the reader sees, the first SKILL_MAX of those kept. The Object's own id is read as written (the address
+## profile's rule for the same id): an Object held in upper case is not the one a text names.
 static func _skill(r: OWLens.View, text: Variant) -> Array:
 	if _id_re == null:
 		_id_re = RegEx.create_from_string("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 	var objects := {}
 	for id in r.order:
 		if r.view.has(id) and r.type_of[id] == "object":
-			objects[String(id).to_lower()] = true
+			objects[String(id)] = true
 	var found := []
 	for m in _id_re.search_all(text if text is String else ""):
 		var v := m.get_string().to_lower()
