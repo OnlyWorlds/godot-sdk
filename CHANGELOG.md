@@ -210,6 +210,13 @@ the git log.
 
 ### Changed
 
+- An element held in upper case answers no rows, not a refusal. `OWOpeners.openers_for` with an options `element`
+  whose own `id` is the address's id in upper case (the address's id is read in either case and taken in lowercase,
+  the element's is read as written) now answers ok with no rows, the site's own row included: no address can name
+  such an element, so no door opens it, and it is no caller's mistake. The empty answer comes only after every other
+  check has run, so a tools row that is not one is still refused beside it. An id that differs by more than case is
+  still refused ("its id differs"). The shared openers fixture is re-vendored at 111 cases (sha256 `8af6f6da…`, the
+  TypeScript SDK 4.161.0 and the Python package 0.122.0): its case `skips-id-case-held-upper` wants no rows.
 - One time grammar: a record's `played_at` is now read by the message page's grammar, `OWLens.time_key`, the one the
   message and lens readers already call, where `OWRecord` had a grammar of its own. `OWRecord.record_mark_of` and
   `records_of` therefore now read a lowercase `t` and `z` (`2026-11-01t00:30:00z`) and an offset

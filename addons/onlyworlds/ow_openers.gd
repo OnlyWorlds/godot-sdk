@@ -116,6 +116,8 @@ static func sign_in_first(name: String) -> String:
 ## a [code]needs[/code] other than [code]account[/code], included, and an [code]open[/code] template that
 ## does not begin with its scheme or whose scheme opens no app: [code]javascript[/code], [code]data[/code],
 ## [code]vbscript[/code], [code]file[/code], [code]blob[/code] or [code]about[/code], in any case).
+## An element whose own id is held in upper case (the address's lowercase id otherwise its own) is no refusal: no
+## address can name it, so the answer is ok with no rows, given only after every other check has run.
 static func openers_for(tools: Variant, kind: Variant, address: Variant, surface: Variant, options: Variant = {}) -> Result:
 	var out := Result.new()
 	if not tools is Array:
@@ -188,16 +190,20 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			return _mistake(out, "unknown key '%s' in the options. The keys are %s." % [key, ", ".join(OPTION_KEYS)])
 	var element: Variant = options.get("element")
 	var marks := []
+	var unnamed := false
 	if element != null:
 		if not element is Dictionary:
 			return _mistake(out, "options element is the element as served, a Dictionary, or null")
 		if kind != ELEMENT:
 			return _mistake(out, "options element is for an element's menu; a world's menu takes none")
 		# The address profile's rule for the same id: the address's id is taken in lowercase, the element's own id is
-		# read as written, so an element held in upper case is not the element the address names.
+		# read as written. An id that differs by more than case is a caller's mistake.
 		var eid: Variant = element.get("id")
-		if not eid is String or eid != values["id"]:
+		if not eid is String or eid.to_lower() != values["id"]:
 			return _mistake(out, "options element is the element the address names: its id differs")
+		# An element held in upper case is one no address can name, so no door opens it: no rows, answered at the end,
+		# after every check has run. Not a caller's mistake, so no refusal.
+		unnamed = eid != values["id"]
 		marks = marks_of(element)
 
 	var site: String = page.address if kind == ELEMENT else OWAddress.element_address(OWAddress.HUMAN, world).address
@@ -294,6 +300,8 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 		elif kind == ELEMENT and element_door == null:
 			state = OPENS_THE_WORLD
 		out.rows.append({"id": rid, "name": name, "href": href, "state": state})
+	if unnamed:
+		out.rows = []
 	out.ok = true
 	return out
 

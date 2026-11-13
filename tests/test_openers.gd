@@ -6,7 +6,7 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "ac14435bc287e92bd18e651871f39a0c66870bb041be0eb394d3eb868eb76978"
+const FIXTURE_SHA256 := "8af6f6daded20444184303a66c73ce72b76a5aa111f639ffc4a9e9072fb07c74"
 const CASES := 111
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
@@ -460,7 +460,8 @@ func test_every_skip_word_leaves_a_door_out_exactly_when_the_graph_reads_that_ma
 
 ## The address profile's rule for the same id at the openers' check: the address's id is read in either case and taken
 ## in lowercase, the given element's own id is read as written. An element held in lowercase is the address's element
-## whatever the address's case; one held in upper case is not, whatever the address's case. Kills: the held id folded.
+## whatever the address's case; one held in upper case is one no address can name, whatever the address's case, so its
+## menu has no rows (no refusal: it is no caller's mistake). Kills: the held id folded.
 func test_the_elements_own_id_is_read_as_written_the_addresss_in_either_case(t) -> void:
 	for cell in [[false, false, true], [false, true, true], [true, false, false], [true, true, false]]:
 		var held: String = ELEMENT.to_upper() if cell[0] else ELEMENT
@@ -471,5 +472,33 @@ func test_the_elements_own_id_is_read_as_written_the_addresss_in_either_case(t) 
 		if cell[2]:
 			t.ok(r.ok and not r.rows.is_empty(), label + ": the address's element, its rows")
 		else:
-			t.ok(not r.ok and r.message.contains("its id differs"), label + ": refused, its id differs (got %s)" % r.message)
+			t.ok(r.ok, label + ": no refusal (got %s)" % r.message)
+			t.eq(r.rows, [], label + ": no address names it, no rows")
+	t.done()
+
+## An element whose id differs from the address's by more than case is still refused; one held in upper case answers no
+## rows only after every other check has run, so a mistake later in the call (a tools row that is not one, a template
+## that opens no app) is still refused beside it. Kills: the empty answer returned at the element's check.
+func test_an_element_held_in_upper_case_answers_no_rows_only_after_every_check(t) -> void:
+	var address := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
+	var other := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1b"
+	for held in [other, other.to_upper(), "", 7]:
+		var r := OWOpeners.openers_for(OWTools.ALL, "element", address, {"audience": "member"}, {"element": {"id": held, "type": "character"}})
+		t.ok(not r.ok and r.message.contains("its id differs"), "%s: refused, its id differs (got %s)" % [var_to_str(held), r.message])
+	var upper := {"element": {"id": ELEMENT.to_upper(), "type": "character"}}
+	var bad_rows := [
+		[{"id": "thorn", "name": "Thorn", "url": "https://thorn.example", "client": null, "rung": "listed",
+			"open": {"world": "https://thorn.example/{world}", "element": null, "needs": "everyone"}}, "open.needs"],
+		[{"id": "thorn", "name": "Thorn", "url": "https://thorn.example", "client": null, "rung": "listed",
+			"open": {"world": "javascript:alert('{world}')", "element": null, "needs": null}}, "opens no app"],
+		[{"id": "thorn", "name": "Thorn", "url": "https://thorn.example", "client": null, "rung": "listed",
+			"open": {"world": "https://thorn.example/{world}", "element": "https://thorn.example/{id}", "needs": null, "element_skips": ["private"]}}, "open.element_skips"],
+	]
+	for bad in bad_rows:
+		var tools: Array = OWTools.ALL.duplicate()
+		tools.append(bad[0])
+		var r := OWOpeners.openers_for(tools, "element", address, {"audience": "member"}, upper)
+		t.ok(not r.ok and r.message.contains(bad[1]), "held upper beside a bad row: refused naming %s (got ok %s, %s)" % [bad[1], r.ok, r.message])
+	var fine := OWOpeners.openers_for(OWTools.ALL, "element", address, {"audience": "member"}, upper)
+	t.ok(fine.ok and fine.rows.is_empty(), "held upper, nothing else wrong: no rows")
 	t.done()
