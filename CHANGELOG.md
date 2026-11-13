@@ -8,6 +8,17 @@ the git log.
 
 ### Added
 
+- Report threads (the report profile's rule 9, schema-dist serial 120): `OWReport.threads_of(narratives)` answers a
+  `Threads` (`to_dict()` is the fixture's shape): `parents`, each report's parent as `none`, `report`, `board`,
+  `missing`, `other` or `self`; `groups`, one `{parent, kind, reports}` per report or board entry some report names,
+  the reports in `created_at` order as `OWMessage` orders messages (through `OWLens.time_key`; equal times keep the
+  order given, an unreadable time last); `lints`, `chain` and `self`. Only reports are grouped; a parent is read as
+  written (absent, null, no String or White_Space only is none; content is never trimmed); a report that names itself
+  names no parent and still heads its thread; nothing is walked further up. Of two elements with one id the first is
+  read and the later one ignored. `OWReport.is_report` and `is_board_entry` are the room profile's pairs with the mark,
+  read by `OWLens`'s room reader. Every case of `profiles/report.fixture.json` (20), with tests of its own for a time
+  with no offset, one id given twice, a parent that is no String or an object, and a parent with padding. Parity with
+  the TypeScript SDK 4.159.0 (`reportThreadsOf`) and the Python package 0.120.0 (`report_threads_of`).
 - How an element is shown by its kind: `OWViews.view_of(element)` reads the distribution's `views.json` (version 3,
   serial 115; presentation, not the standard) and answers a `View`: `row`, the matching row (the table's own,
   read-only) or null when the element draws as its type; `sentence`, the first field the row names whose value is a

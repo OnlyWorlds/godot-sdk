@@ -223,6 +223,13 @@ test whose world is missing is skipped, never passed.
   `thread_of` and `note_of` (a Character's line). Every case of the profile's fixture (87). A Note's line is proposed
   only by an object mark, as the profile's text and the packages read it (a doubt leaves it shown, unlike
   `OWLens.is_proposed`, the rule of a reader that hands a world on). `OWLens`'s mail rule reads through it.
+- **Report threads** (the report profile's rule 9, serial 120): `OWReport.threads_of(narratives)` groups the reports
+  among a world's Narratives by `parent_narrative`, read as written: `parents` (each report's parent: `none`,
+  `report`, `board`, `missing`, `other` or `self`), `groups` (a report's thread, or the reports of the talks under a
+  board entry, each in `created_at` order as `OWMessage` orders messages) and `lints` (`chain`, `self`); never walked
+  further up, never guessed from names or days. A report and a board entry are the room profile's pairs with the
+  mark, read by `OWLens`'s room reader (`OWReport.is_report`, `is_board_entry`). Every case of the profile's fixture
+  (20). Parity with the TypeScript SDK 4.159.0 and the Python package 0.120.0.
 - **Views** (the distribution's `views.json`, version 3, serial 115: presentation, not the standard):
   `OWViews.view_of(element)` is how an element is shown by its kind, a `View` with the matching `row` (the table's
   own, read-only; null when the element draws as its type), its one `sentence`, the `banners` at its page's head and
