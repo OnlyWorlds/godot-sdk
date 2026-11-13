@@ -188,6 +188,20 @@ func test_the_read_mark_tie_goes_to_the_higher_id_in_either_order(t) -> void:
 		t.eq(OWMessage.read_mark_of([p[2], p[1]], A1, null)["id"], p[3], p[0] + ", listed last to first")
 	t.done()
 
+## The message page's read mark (serial 123): a mark whose updated_at cannot be read is never the mark, alone or
+## beside another. Two unreadable marks give no mark in either order, and so does one alone, whether its updated_at is
+## garbage, absent, null or a date alone. Kills: keeping the first of two unreadable marks, or a lone one.
+func test_an_unreadable_mark_is_never_the_mark(t) -> void:
+	var a := "aaaaaaaa-0000-4000-8000-00000000000a"
+	var b := "aaaaaaaa-0000-4000-8000-00000000000b"
+	t.eq(OWMessage.read_mark_of([_mark(a, "garbage"), _mark(b, ABSENT)], A1, null), null, "both unreadable, a first")
+	t.eq(OWMessage.read_mark_of([_mark(b, ABSENT), _mark(a, "garbage")], A1, null), null, "both unreadable, b first")
+	for at in ["garbage", ABSENT, null, "2026-10-26"]:
+		t.eq(OWMessage.read_mark_of([_mark(a, at)], A1, null), null, "one alone, " + var_to_str(at))
+	t.eq(OWMessage.read_mark_of([_mark(a, "2026-10-26"), _mark(b, "2026-10-26T10:00:00Z")], A1, null)["id"], b,
+		"control: the readable one beside it is the mark")
+	t.done()
+
 # -- created_at as the message reader reads it: OWLens.time_key, through unread_for's order -----------------------------
 
 ## A message addressed to "a1" by "a3", no created_by (a folder's): unread for a1, whatever its time. [param at] is
