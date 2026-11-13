@@ -193,8 +193,10 @@ static func openers_for(tools: Variant, kind: Variant, address: Variant, surface
 			return _mistake(out, "options element is the element as served, a Dictionary, or null")
 		if kind != ELEMENT:
 			return _mistake(out, "options element is for an element's menu; a world's menu takes none")
+		# The address profile's rule for the same id: the address's id is taken in lowercase, the element's own id is
+		# read as written, so an element held in upper case is not the element the address names.
 		var eid: Variant = element.get("id")
-		if not eid is String or eid.to_lower() != values["id"]:
+		if not eid is String or eid != values["id"]:
 			return _mistake(out, "options element is the element the address names: its id differs")
 		marks = marks_of(element)
 

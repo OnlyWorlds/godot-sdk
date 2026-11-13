@@ -6,8 +6,8 @@ extends RefCounted
 
 const P = preload("res://tests/paths.gd")
 
-const FIXTURE_SHA256 := "9df2b52916223969f8b48284c770f933673cef308b2f5158cb2007715e80c17b"
-const CASES := 110
+const FIXTURE_SHA256 := "ac14435bc287e92bd18e651871f39a0c66870bb041be0eb394d3eb868eb76978"
+const CASES := 111
 
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e1a"
@@ -399,4 +399,20 @@ func test_every_skip_word_leaves_a_door_out_exactly_when_the_graph_reads_that_ma
 	var words: Array = OWOpeners.ELEMENT_MARKS.duplicate()
 	words.sort()
 	t.eq(met, words, "every word met at least once")
+	t.done()
+
+## The address profile's rule for the same id at the openers' check: the address's id is read in either case and taken
+## in lowercase, the given element's own id is read as written. An element held in lowercase is the address's element
+## whatever the address's case; one held in upper case is not, whatever the address's case. Kills: the held id folded.
+func test_the_elements_own_id_is_read_as_written_the_addresss_in_either_case(t) -> void:
+	for cell in [[false, false, true], [false, true, true], [true, false, false], [true, true, false]]:
+		var held: String = ELEMENT.to_upper() if cell[0] else ELEMENT
+		var named: String = ELEMENT.to_upper() if cell[1] else ELEMENT
+		var label := "element %s, address %s" % ["upper" if cell[0] else "lower", "upper" if cell[1] else "lower"]
+		var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": "character", "id": named},
+			{"audience": "member"}, {"element": {"id": held, "type": "character", "name": "The element"}})
+		if cell[2]:
+			t.ok(r.ok and not r.rows.is_empty(), label + ": the address's element, its rows")
+		else:
+			t.ok(not r.ok and r.message.contains("its id differs"), label + ": refused, its id differs (got %s)" % r.message)
 	t.done()
