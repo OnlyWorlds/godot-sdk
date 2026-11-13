@@ -253,6 +253,13 @@ the git log.
 - **`OWClient.BulkSlot.id` is `Variant`: a String, or null when the slot answers none** (a failure before the item was
   identified), as the API document types it and the TypeScript and Unity SDKs read it; it read `""` before. A caller
   that typed it `String` reads it as a `Variant` now.
+- Schema pin to `v0.34.0-dist.121` (`f890974`); the standard stays at 00.34.00, no schema file, `schema.json` or
+  walk reader moved, and no answer of a reader moves. The message page gives the one form a `created_at` is read in
+  (a time with no offset is UTC, every part in its range, a year any four digits, a fraction counted to its sixth
+  digit) and `message.fixture.json` gains five `unread` cases (93). The report page's rule 9 says a parent that is no
+  string is no parent, a padded one is read as written, one id given twice keeps the first, and reports that name each
+  other in a ring are each grouped and linted; `report.fixture.json` gains seven thread cases (27). `OWMessage` and
+  `OWReport.threads_of` answer every new case as they stood; the generated headers moved in their stamp only.
 - Schema pin to `v0.34.0-dist.120` (`39d5163`); the standard stays at 00.34.00, no schema file, `schema.json` or
   walk reader moved, and no answer of a reader moves. The report page gains a `parent_narrative` row (the first
   report of the work a report continues, or the board entry a closed talk hangs on), a section on a report that

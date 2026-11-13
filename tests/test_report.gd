@@ -1,9 +1,10 @@
 extends RefCounted
 ## OWReport on the report profile's conformance fixture (schema-dist profiles/report.fixture.json, the pinned copy at
-## dist.120, its sha256 checked against the manifest): every thread case by name, parents compared whole and in the
-## order given, groups and lints each as a set, as the fixture's notes say. Beside it, what the fixture leaves open:
-## a time with no offset, one id given twice, a parent that is no String or an expanded object, a parent with padding,
-## a caller's mistake, and a reading that never changes the bodies.
+## dist.121, its sha256 checked against the manifest): every thread case by name, parents compared whole and in the
+## order given, groups and lints each as a set, as the fixture's notes say. Beside it, the corners dist.120's fixture
+## left open, each a case of dist.121's (named on each test) and kept here to pin the reader beside it: a time with no
+## offset, one id given twice, a parent that is no String or an expanded object, a parent with padding; then a caller's
+## mistake, and a reading that never changes the bodies.
 
 const REPORT := "res://codegen/schema-dist/profiles/report.fixture.json"
 const WORLD := "019a7120-0000-7000-8000-000000000000"
@@ -45,12 +46,12 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(f["pair"], {"type": OWReport.PAIR_TYPE, "supertype": OWReport.REPORT_SUPERTYPE}, "the report's pair")
 	t.eq(f["board_pair"], {"type": OWReport.PAIR_TYPE, "supertype": OWReport.BOARD_SUPERTYPE}, "the board entry's pair")
 	t.eq(f["mark"]["field"], OWLens.ROOM_MARK, "the mark's field")
-	t.eq(f["thread_cases"].size(), 20, "20 thread cases (dist.120)")
+	t.eq(f["thread_cases"].size(), 27, "27 thread cases (dist.121)")
 	var names := {}
 	for c in f["thread_cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 20, "each case named once")
-	t.eq(get_cases().size(), 20, "every case runs here, one test each")
+	t.eq(names.size(), 27, "each case named once")
+	t.eq(get_cases().size(), 27, "every case runs here, one test each")
 	t.done()
 
 # -- beside the fixture ------------------------------------------------------------------------------------------------
@@ -60,7 +61,8 @@ func _report(id: String, parent: Variant, at: Variant = "2026-10-26T09:00:00Z") 
 		"relations": [], "created_at": at}
 
 ## A created_at with no offset reads as UTC, as the message reader reads it (OWLens.time_key): 09:30:00 is after
-## 09:00:00Z and before 09:00:00-01:00 (10:00Z). Compared as text, the bare time would sort last.
+## 09:00:00Z and before 09:00:00-01:00 (10:00Z). Compared as text, the bare time would sort last. The fixture's case:
+## thread-created-at-with-no-offset-is-read-as-utc.
 func test_a_created_at_with_no_offset_reads_as_utc(t) -> void:
 	var given := [_report("r1", null), _report("r4", "r1", "2026-10-26T09:00:00-01:00"),
 		_report("r2", "r1", "2026-10-26T09:30:00"), _report("r3", "r1", "2026-10-26T09:00:00Z")]
@@ -69,6 +71,7 @@ func test_a_created_at_with_no_offset_reads_as_utc(t) -> void:
 	t.done()
 
 ## One id given twice: the first copy is read and the later one is ignored entirely, neither a report nor a parent.
+## The fixture's case: one-id-given-twice-keeps-the-first (two reports); here also a lore copy first.
 func test_one_id_given_twice_reads_the_first_copy(t) -> void:
 	var lore := {"id": "r1", "type": "narrative", "supertype": "Report", "parent_narrative": null}
 	var later := _report("r1", null)
@@ -86,7 +89,8 @@ func test_one_id_given_twice_reads_the_first_copy(t) -> void:
 	t.done()
 
 ## A parent that is no String reads none and is never matched as text, though an element's id is that text: a number
-## (Godot's JSON gives a float), a whole int, true, a list holding the id, and an expanded parent object.
+## (Godot's JSON gives a float), a whole int, true, a list holding the id, and an expanded parent object. The
+## fixture's case: parent-that-is-not-a-string (a number, a list, an object).
 func test_a_parent_that_is_no_string_reads_none(t) -> void:
 	var held := [_report("5", null), _report("r1", null)]
 	for parent in [5.0, 5, true, ["r1"], {"id": "r1", "type": "narrative"}]:
@@ -97,6 +101,7 @@ func test_a_parent_that_is_no_string_reads_none(t) -> void:
 
 ## A parent with content is read as written, never trimmed before the lookup: " r1 " beside a held r1 is missing, and
 ## a parent that is White_Space only (U+3000 among it) is none, as empty once trimmed is; U+001C is no White_Space.
+## The fixture's case: parent-is-a-held-id-with-a-space-at-each-end.
 func test_a_parent_with_padding_is_read_as_written(t) -> void:
 	var held := [_report("r1", null)]
 	var got := OWReport.threads_of(held + [_report("r2", " r1 ")])
