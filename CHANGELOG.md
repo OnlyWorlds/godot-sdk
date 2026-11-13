@@ -239,6 +239,13 @@ the git log.
 - **`OWClient.BulkSlot.id` is `Variant`: a String, or null when the slot answers none** (a failure before the item was
   identified), as the API document types it and the TypeScript and Unity SDKs read it; it read `""` before. A caller
   that typed it `String` reads it as a `Variant` now.
+- Schema pin to `v0.34.0-dist.120` (`39d5163`); the standard stays at 00.34.00, no schema file, `schema.json` or
+  walk reader moved, and no answer of a reader moves. The report page gains a `parent_narrative` row (the first
+  report of the work a report continues, or the board entry a closed talk hangs on), a section on a report that
+  continues earlier work, rule 9 (threads: a reader that groups reports groups them by `parent_narrative` as written,
+  ordered by `created_at` as the message profile orders messages) and its first fixture, `report.fixture.json`. The
+  views fixture's two cites of the report page move down one line with the new row (`description` 22, `consequences`
+  24), as `test_views.gd` checks each quote at its line. The generated headers moved in their stamp only.
 - Schema pin to `v0.34.0-dist.119` (`00369ea`); the standard stays at 00.34.00, no schema file, `schema.json` or
   walk reader moved, and no answer of a reader moves. The map-space page gains rule 11 (a layout map is no candidate
   when a tool picks the Map that stands for the world's space, and a Pin or a Marker on one is a place in that
