@@ -142,7 +142,7 @@ func test_recipients_of(t) -> void:
 	t.done()
 
 ## A list that names no valid id, or a value that is not a list, addresses nobody, never everyone; a Note's unseen
-## recipients are false, keyless or not; the read mark's tie keeps the first.
+## recipients are false, keyless or not; the read mark's tie goes to the higher id.
 func test_the_edges_the_packages_pin(t) -> void:
 	var msg := {"type": "narrative", "supertype": "Message"}
 	t.eq(OWMessage.is_to_everyone(msg.merged({"characters": [""]})), false, "[''] is not everyone")
@@ -152,12 +152,40 @@ func test_the_edges_the_packages_pin(t) -> void:
 	t.eq(OWMessage.is_sent_by(msg, ""), false, "an empty id sent nothing")
 	var r1 := {"id": "d1", "type": "relation", "supertype": "Read", "actor": A1, "updated_at": "2026-10-26T10:00:00Z"}
 	var r2 := {"id": "d2", "type": "relation", "supertype": "Read", "actor": A1, "updated_at": "2026-10-26T10:00:00Z"}
-	t.eq(OWMessage.read_mark_of([r1, r2], A1, null)["id"], "d1", "equal times keep the first")
+	t.eq(OWMessage.read_mark_of([r1, r2], A1, null)["id"], "d2", "equal times, the higher id")
 	t.eq(OWMessage.read_mark_of([r1, {"id": "d3", "type": "relation", "supertype": " READ ", "actor": A1,
 		"updated_at": "2026-10-26T11:00:00Z"}], A1, null)["id"], "d3", "the mark's word trimmed and folded")
 	var loop := [{"id": "x1", "type": "narrative", "supertype": "Message", "parent_narrative": "x2"},
 		{"id": "x2", "type": "narrative", "supertype": "Message", "parent_narrative": "x1"}]
 	t.eq(OWMessage.thread_of(loop, "r"), [], "a loop that never reaches the root ends")
+	t.done()
+
+func _mark(id: String, at: Variant) -> Dictionary:
+	var rel := {"id": id, "type": "relation", "supertype": "Read", "actor": A1}
+	if not (at is String and at == ABSENT):
+		rel["updated_at"] = at
+	return rel
+
+## The message page's read mark (serial 123): of two marks, one whose updated_at cannot be read never wins; two that
+## can be read and are the same instant, an instant written two ways included, tie by the higher id, compared by code
+## point as written. Each pair in both list orders, so no answer depends on the order.
+func test_the_read_mark_tie_goes_to_the_higher_id_in_either_order(t) -> void:
+	var a := "aaaaaaaa-0000-4000-8000-00000000000a"
+	var b := "aaaaaaaa-0000-4000-8000-00000000000b"
+	var pairs := [
+		["the same text", _mark(a, "2026-10-26T10:00:00Z"), _mark(b, "2026-10-26T10:00:00Z"), b],
+		["one instant written two ways", _mark(a, "2026-10-26T11:00:00+01:00"), _mark(b, "2026-10-26T10:00:00Z"), b],
+		["two ways, the other way", _mark(a, "2026-10-26T10:00:00Z"), _mark(b, "2026-10-26T11:00:00+01:00"), b],
+		["a newer lower id still wins", _mark(a, "2026-10-26T10:00:01Z"), _mark(b, "2026-10-26T10:00:00Z"), a],
+		["a lower id, the higher unreadable", _mark(a, "2026-10-26T10:00:00Z"), _mark(b, "garbage"), a],
+		["a lower id, the higher absent", _mark(a, "2026-10-26T10:00:00Z"), _mark(b, ABSENT), a],
+		["a lower id, the higher a date alone", _mark(a, "2026-10-26T10:00:00Z"), _mark(b, "2026-10-26"), a],
+		["upper case is lower by code point", _mark("aaaaaaaa-0000-4000-8000-00000000000A", "2026-10-26T10:00:00Z"),
+			_mark(a, "2026-10-26T10:00:00Z"), a],
+	]
+	for p in pairs:
+		t.eq(OWMessage.read_mark_of([p[1], p[2]], A1, null)["id"], p[3], p[0] + ", listed first to last")
+		t.eq(OWMessage.read_mark_of([p[2], p[1]], A1, null)["id"], p[3], p[0] + ", listed last to first")
 	t.done()
 
 # -- created_at as the message reader reads it: OWLens.time_key, through unread_for's order -----------------------------

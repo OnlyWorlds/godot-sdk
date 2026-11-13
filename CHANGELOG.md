@@ -206,6 +206,13 @@ the git log.
 
 ### Changed
 
+- The message read mark's tie goes to the higher id. `OWMessage.read_mark_of`, of several marks that count, still
+  takes the newest `updated_at` and still never lets one that cannot be read win, but two that are the same instant
+  (an instant written two ways, as `10:00:00Z` and `11:00:00+01:00`, included) now tie by the higher id, compared by
+  code point as written, where it kept the first in list order. So the mark no longer depends on the order the
+  Relations are listed in, and `OWLens`'s mail reader, which reads it, follows. This is the message page's reading
+  at schema-dist serial 123, and the order `OWCharter`'s newest Charter already breaks its tie in. Two marks that
+  both cannot be read still keep the first.
 - A Charter's skill ids match an Object's own id as written. `OWCharter.charter_of` still finds an id in the Charter's
   text in either case and takes it in lowercase, but now matches it against the ids of the Objects the reader sees as
   they are written, where it lowercased those too. So an Object whose own id is held in upper case is not the Object a

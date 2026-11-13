@@ -174,8 +174,10 @@ static func edited_by(message: Variant, members: Variant) -> Edit:
 ## [code]created_by[/code], that membership on [param members] plays the reader's Character (null is the owner's
 ## hand); where it carries [code]changed_by[/code], that equals its [code]created_by[/code] (a writer with no creator
 ## beside it is no hand, and is ignored). A mark with neither key (a folder, an export) counts. Of several that count,
-## the newest [code]updated_at[/code] wherever it stands (a readable time beats an unreadable one; a tie keeps the
-## first); a newer mark in another's hand is ignored and the reader's own stands. [param keyless] true for bodies read
+## the newest [code]updated_at[/code] wherever it stands: one that cannot be read never wins, and two the same
+## instant (an instant written two ways is one instant) tie by the higher id, by code point as written, so the answer
+## never depends on the list's order (two unreadable keep the first); a newer mark in another's hand is ignored and
+## the reader's own stands. [param keyless] true for bodies read
 ## with no credential, as [method is_to_everyone] takes it: the keyless public reader is served no
 ## [code]created_by[/code] or [code]changed_by[/code] on any body, so no mark counts there and the answer is null. npm
 ## [code]readMarkOf[/code].
@@ -196,7 +198,8 @@ static func read_mark_of(relations: Variant, character_id: Variant, members: Var
 		if has_author and _hand_of(rel, members) != character_id:
 			continue
 		var key: Variant = OWLens.time_key(rel.get("updated_at"))
-		if mark == null or (key != null and (mark_key == null or key > mark_key)):
+		if mark == null or (key != null and (mark_key == null or key > mark_key or (key == mark_key
+				and rel.get("id") is String and mark.get("id") is String and rel["id"] > mark["id"]))):
 			mark = rel
 			mark_key = key
 	return mark
