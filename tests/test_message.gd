@@ -217,18 +217,20 @@ func test_a_time_with_no_offset_is_utc_and_a_fraction_counts_to_its_sixth_digit(
 	t.done()
 
 ## The year's two ends: year 0000 reads, and an offset may carry an instant before it or past the end of 9999. The
-## seconds since 1970 are the TypeScript SDK 4.159.0's and onlyworlds 0.120.0's for the same texts; time_key holds
+## leap rule is taken on the year number as written, so 0000 is a leap year and its 29 February reads. The seconds
+## since 1970 are the TypeScript SDK 4.159.0's and onlyworlds 0.120.0's for the same texts; time_key holds
 ## microseconds in a 64-bit int, with no float on its path.
 func test_the_years_two_ends_order_as_instants_with_the_packages_seconds(t) -> void:
 	var times := [["E1", "9999-12-31T23:00:00-02:00", 253402304400], ["E2", "0000-01-01T00:00:00Z", -62167219200],
-		["R", "2026-11-12T10:00:00Z", 1794477600], ["E3", "0000-01-01T00:00:00+01:00", -62167222800]]
+		["R", "2026-11-12T10:00:00Z", 1794477600], ["E3", "0000-01-01T00:00:00+01:00", -62167222800],
+		["L", "0000-02-29T00:00:00Z", -62162121600]]
 	for e in times:
 		var key: Variant = OWLens.time_key(e[1])
 		t.ok(key is int, "%s %s is an int, not a float" % [e[0], e[1]])
 		t.eq(key, e[2] * 1000000, "%s %s" % [e[0], e[1]])
 	var given := times.map(func(e): return _timed(e[0], e[1]))
-	t.eq(_unread_ids(given), ["E3", "E2", "R", "E1"], "as given")
-	t.eq(_unread_ids(_reversed(given)), ["E3", "E2", "R", "E1"], "reversed")
+	t.eq(_unread_ids(given), ["E3", "E2", "L", "R", "E1"], "as given")
+	t.eq(_unread_ids(_reversed(given)), ["E3", "E2", "L", "R", "E1"], "reversed")
 	t.done()
 
 ## The forms, a row each: what reads and what does not. A readable row sorts before a message at 11:00Z, an
