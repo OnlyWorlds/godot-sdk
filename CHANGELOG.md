@@ -253,7 +253,9 @@ the git log.
   inside other text at an index (197); `checks.fixture.json` two rules and two cases, a `one_of` over a list (no
   reader here). Against this branch's readers every case of the five fixtures but the address page's `prose` kind
   reads as it stands; the `prose` kind asks for a finder this SDK does not have (the whole-string `OWAddress.parse_link`
-  is unchanged, and still refuses `ow://<type>/<id>.` as a bad id).
+  is unchanged, and still refuses `ow://<type>/<id>.` as a bad id). Each `prose` case that finds an address checks
+  that the text holds it at the index and that `parse_link` reads it whole as the case's reading, then is skipped by
+  name, counted in the suite's skips; the finder is not ported yet.
 - A Charter's skill ids match an Object's own id as written. `OWCharter.charter_of` still finds an id in the Charter's
   text in either case and takes it in lowercase, but now matches it against the ids of the Objects the reader sees as
   they are written, where it lowercased those too. So an Object whose own id is held in upper case is not the Object a

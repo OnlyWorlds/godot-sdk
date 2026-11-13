@@ -10,6 +10,11 @@ const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71"
 const LENS := "019a2b7e-4c1d-7f20-9b3e-1a2c3d4e5f60"
 
+## Why every prose case is skipped: this SDK reads an address only as a whole string, and the finder the cases test
+## (the packages' readOwLinkAt) is not ported yet. Each such case still checks the half above, then is skipped by this
+## reason, counted in the suite's total and named in its output; every other kind runs.
+const PROSE_SKIP := "skipped by kind 'prose': no finder of an address in prose in this SDK yet (OW Gaming #1527)"
+
 var _doc: Dictionary
 
 func _fixture() -> Dictionary:
@@ -40,6 +45,19 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 			else:
 				t.ok(r.ok, "read (refused as %s)" % r.reason)
 				t.eq(r.to_dict(), _reading(c["expect"]), "the reading")
+		"prose":
+			# The half this SDK owns: where the fixture finds an address, the text holds it at the index, and the
+			# whole-string parser reads it as the fixture's reading. The finding itself is skipped, by name.
+			var want: Dictionary = c["expect"]
+			if want["address"] != null:
+				var at := int(c["index"])
+				var address: String = want["address"]
+				t.eq(c["text"].substr(at, address.length()), address, "the address at the index")
+				var r := OWAddress.parse_link(address)
+				t.ok(r.ok, "the address read whole (refused as %s)" % r.reason)
+				t.eq(r.to_dict(), _reading(want["reading"]), "its reading, whole")
+			t.skip(PROSE_SKIP)
+			return
 		_:
 			t.fail("a case of unknown kind %s" % c["kind"])
 	t.done()
