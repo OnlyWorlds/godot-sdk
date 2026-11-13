@@ -215,6 +215,13 @@ the git log.
   (a fraction truncated past three digits, before 1970 as after it), a tie by the Event's id. A writer that stamped
   `played_at` without seconds writes them now, or its records stop showing. This is the record page's reading at
   schema-dist serial 123.
+- The lens clock is the newest of an element's three readable stamps: `updated_at`, `server_updated_at` and
+  `local_updated_at`, whichever read as a time, decided element by element. `changed_within` and the order past the
+  anchors (the entry below) both read it. Before, a folder element was read by the newer of its two folder stamps
+  alone, and `updated_at` only when neither read. So a wire `updated_at` newer than both folder stamps now wins: such
+  an element is no longer cut `stale` by `changed_within`, and is no longer sorted as old. An element with no readable
+  clock is still never cut, and still sorts last of its type. This is the lens page's reading at schema-dist serial
+  123.
 - One clock per lens: `OWLens.resolve`'s order past the anchors (the lens page's rule 5, which the budget keeps the
   first of) now reads the same clock as `changed_within`, where it read `updated_at` only. On the wire that is still
   `updated_at`; for a folder element it is the newer of `server_updated_at` and `local_updated_at` wherever either

@@ -562,14 +562,15 @@ func test_changed_within_reads_a_folder_element_by_the_newer_sync_stamp(t) -> vo
 	t.eq(kept.call({"server_updated_at": "2026-09-01T00:00:00Z", "local_updated_at": "2026-10-26T00:00:00Z"}), true, "local newer")
 	t.eq(kept.call({"server_updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "2026-09-01T00:00:00Z"}), true, "server newer")
 	t.eq(kept.call({"server_updated_at": "2026-09-01T00:00:00Z", "local_updated_at": "2026-09-02T00:00:00Z"}), false, "both old")
-	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "2026-09-02T00:00:00Z"}), false, "a folder stamp wins over updated_at")
+	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "2026-09-02T00:00:00Z"}), true, "updated_at newer than the folder stamp")
+	t.eq(kept.call({"updated_at": "2026-09-02T00:00:00Z", "local_updated_at": "2026-10-26T00:00:00Z"}), true, "the folder stamp newer than updated_at")
 	t.eq(kept.call({"updated_at": "2026-10-26T00:00:00Z", "local_updated_at": "soon"}), true, "an unreadable stamp is none")
 	t.done()
 
-## One clock per lens (the lens page, serial 123): rule 5's order reads the clock changed_within reads, on the wire
-## updated_at, in a folder the newer of server_updated_at and local_updated_at. A filter over objects with budget 1
-## keeps the one sorted first; e2 is stamped 10-20 on the wire, e1 by the stamps given; no changed_within, so nothing
-## is cut stale and the order alone decides.
+## One clock per lens (the lens page, serial 123): rule 5's order reads the clock changed_within reads, the element's
+## clock, the newest of its readable updated_at, server_updated_at and local_updated_at. A filter over objects with
+## budget 1 keeps the one sorted first; e2 is stamped 10-20 on the wire, e1 by the stamps given; no changed_within, so
+## nothing is cut stale and the order alone decides.
 func test_rule_5_orders_by_the_clock_changed_within_reads(t) -> void:
 	var lens := _lens_on({}, {"types": ["object"], "budget": 1})
 	var first := func(stamps: Dictionary) -> String:
@@ -587,13 +588,49 @@ func test_rule_5_orders_by_the_clock_changed_within_reads(t) -> void:
 		"the newer of the two")
 	t.eq(first.call({"updated_at": "2026-10-15T12:00:00Z", "server_updated_at": "2026-10-25T12:00:00Z"}), "e1",
 		"a folder stamp over an older updated_at")
-	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "server_updated_at": "2026-10-15T12:00:00Z"}), "e2",
-		"a folder stamp over a newer updated_at")
-	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "local_updated_at": "2026-10-15T12:00:00Z"}), "e2",
-		"a local stamp over a newer updated_at")
+	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "server_updated_at": "2026-10-15T12:00:00Z"}), "e1",
+		"a newer updated_at over an older folder stamp")
+	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "local_updated_at": "2026-10-15T12:00:00Z"}), "e1",
+		"a newer updated_at over an older local stamp")
 	t.eq(first.call({"updated_at": "2026-10-25T12:00:00Z", "server_updated_at": "garbage"}), "e1",
 		"an unreadable folder stamp is none: updated_at read")
 	t.eq(first.call({"server_updated_at": "garbage"}), "e2", "no readable clock sorts last")
+	t.done()
+
+## The element's clock is the newest of its three readable stamps, decided element by element (serial 123, the second
+## outside read's two cases, built here on their own strings). First: a family's budget of 2 over its two languages;
+## Peatspeech's updated_at (11-05) is newer than both its folder stamps (10-01, 10-02), so its clock is 11-05 and it
+## is kept over Turfcant (11-01). A folder-first clock reads Peatspeech at 10-02 and keeps Turfcant.
+## Second: changed_within 7 at 2026-11-20T12:00Z (the line at 11-13); Mossspeech's local edit (11-18) and Lichencant's
+## wire stamp (11-18) are each newer than the element's other stamp (10-01), so both are kept. updated_at alone cuts
+## Mossspeech stale; a folder-first clock cuts Lichencant stale.
+## Third: an element with no readable clock comes last of its type, not of the budget: the ability (whose type comes
+## before language in the schema's order) is kept over the language with a clock.
+func test_the_clock_is_the_newest_of_the_three_readable_stamps(t) -> void:
+	var peat := {"elements": [
+		{"id": "k00", "type": "family", "name": "The Peat Kin", "languages": ["k01", "k02"], "updated_at": "2026-11-01T12:00:00Z"},
+		{"id": "k01", "type": "language", "name": "Peatspeech", "server_updated_at": "2026-10-01T12:00:00Z",
+			"local_updated_at": "2026-10-02T12:00:00Z", "updated_at": "2026-11-05T12:00:00Z"},
+		{"id": "k02", "type": "language", "name": "Turfcant", "updated_at": "2026-11-01T12:00:00Z"}]}
+	var a := OWLens.resolve(peat, _lens_on({"families": ["k00"]}, {"budget": 2}), OWNER, {"clock": CLOCK})
+	t.eq([a.kept, a.cut], [PackedStringArray(["k00", "k01"]), {"budget": 1}], "an updated_at newer than both folder stamps")
+	var moss := {"elements": [
+		{"id": "k10", "type": "family", "name": "The Moss Kin", "languages": ["k11", "k12"], "updated_at": "2026-11-01T12:00:00Z"},
+		{"id": "k11", "type": "language", "name": "Mossspeech", "updated_at": "2026-10-01T12:00:00Z",
+			"local_updated_at": "2026-11-18T12:00:00Z"},
+		{"id": "k12", "type": "language", "name": "Lichencant", "server_updated_at": "2026-10-01T12:00:00Z",
+			"updated_at": "2026-11-18T12:00:00Z"}]}
+	var b := OWLens.resolve(moss, _lens_on({"families": ["k10"]}, {"changed_within": 7}), OWNER,
+		{"clock": "2026-11-20T12:00:00Z"})
+	var kept_b := Array(b.kept)
+	kept_b.sort()
+	t.eq([kept_b, b.cut], [["k10", "k11", "k12"], {}], "a local edit and a wire stamp, each newer, both kept")
+	var rush := {"elements": [
+		{"id": "k20", "type": "family", "name": "The Rush Kin", "abilities": ["k21"], "languages": ["k22"], "updated_at": "2026-11-01T12:00:00Z"},
+		{"id": "k21", "type": "ability", "name": "Rushweaving", "local_updated_at": "soon"},
+		{"id": "k22", "type": "language", "name": "Rushcant", "updated_at": "2026-11-01T12:00:00Z"}]}
+	var c := OWLens.resolve(rush, _lens_on({"families": ["k20"]}, {"budget": 2}), OWNER, {"clock": CLOCK})
+	t.eq([c.kept, c.cut], [PackedStringArray(["k20", "k21"]), {"budget": 1}], "no readable clock: last of its type, not of the budget")
 	t.done()
 
 # -- keel's reader, where the packages read otherwise (ruled keel's way; serial 83's fixture is to carry them) ---------

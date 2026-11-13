@@ -468,15 +468,16 @@ static func time_key(value: Variant) -> Variant:
 	var micros := (m.get_string(7) + "000000").substr(0, 6).to_int() if m.get_start(7) >= 0 else 0
 	return (_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s - offset) * 1000000 + micros
 
-## When an element last changed, as changed_within reads it: the newer of a folder element's server_updated_at and
-## local_updated_at where either reads as a time, else its updated_at; null when none reads as one.
+## The element's clock, which changed_within and rule 5's order both read: the newest of its updated_at,
+## server_updated_at and local_updated_at that read as a time (a folder element carries the last two), decided element
+## by element; a value that does not read is ignored; null when none reads.
 static func _changed_at(el: Dictionary) -> Variant:
 	var at: Variant = null
-	for key in ["server_updated_at", "local_updated_at"]:
+	for key in ["updated_at", "server_updated_at", "local_updated_at"]:
 		var k: Variant = time_key(el.get(key))
 		if k != null and (at == null or k > at):
 			at = k
-	return at if at != null else time_key(el.get("updated_at"))
+	return at
 
 ## Days from 1970-01-01 to a proleptic Gregorian date (exact integer arithmetic, years 0000-9999).
 static func _days_from_civil(y: int, m: int, d: int) -> int:
@@ -940,8 +941,8 @@ class View:
 		return null
 
 	## changed_within: changed longer ago than that many days before the reading's wall clock. The time read is the
-	## element's updated_at, or for a folder element (one carrying server_updated_at or local_updated_at) the newer of
-	## those two; an element with no readable time is never cut.
+	## element's clock ([method OWLens._changed_at]: the newest of its readable updated_at, server_updated_at and
+	## local_updated_at); an element with no readable clock is never cut.
 	func stale_cut(id: String, recipe: Dictionary, wall: int) -> Variant:
 		if recipe["changed_within"] == null:
 			return null
@@ -965,9 +966,10 @@ class View:
 	func stops_at(id: String, recipe: Dictionary) -> bool:
 		return aid.has(id) and not recipe["types"].has(aid[id])
 
-	## Rule 5's order past the anchors: the schema's type order, newest first by the clock changed_within reads
-	## ([method OWLens._changed_at]: on the wire updated_at, in a folder the newer of server_updated_at and
-	## local_updated_at; one clock per lens), an element with no readable time last, then by id by code point.
+	## Rule 5's order past the anchors: the schema's type order, newest first by the element's clock, the one
+	## changed_within reads ([method OWLens._changed_at]: the newest of its readable updated_at, server_updated_at and
+	## local_updated_at; one clock per lens), an element with no readable clock last of its type, then by id by code
+	## point.
 	func sort(ids: Array) -> Array:
 		var keyed := []
 		for id in ids:
