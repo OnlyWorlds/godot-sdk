@@ -236,6 +236,20 @@ the git log.
   list order. So the mark no longer depends on the order the Relations are listed in, and `OWLens`'s mail reader,
   which reads it, follows. This is the message page's reading at schema-dist serial 123, and the order `OWCharter`'s
   newest Charter already breaks its ties in.
+- Schema pin to `v0.34.0-dist.123` (`6092c39`); the standard stays at 00.34.00, no schema file, `schema.json`,
+  `views.json` or walk reader moved, and the generated files moved in their stamp only. The serial's readings are the
+  four entries above. Cases gained: `record.fixture.json` five (46: lowercase `t` and `z` with seconds, an offset of
+  one hour, half past without seconds, no zone, the leap day of the year 0000), and four of its cases rewritten to the
+  one grammar (an offset written without its colon, `+0100`, is no mark; the leap day of 2028 and the half past of the
+  instant-order case written with seconds; `fluffington-two-games` unchanged in its want, its offset Event now
+  `+0100`): the four cases the record grammar entry above turned red against dist.122 read green here;
+  `message.fixture.json` seven read-mark cases (100); `lens.fixture.json` twelve (233: the clock of three stamps, a
+  clock that cannot be read, the mail window, a note keyed in upper case); `strand.fixture.json` one (27: a mark naming
+  its story in upper case is no strand); `address.fixture.json` fifty-seven of a new kind, `prose`, an address found
+  inside other text at an index (197); `checks.fixture.json` two rules and two cases, a `one_of` over a list (no
+  reader here). Against this branch's readers every case of the five fixtures but the address page's `prose` kind
+  reads as it stands; the `prose` kind asks for a finder this SDK does not have (the whole-string `OWAddress.parse_link`
+  is unchanged, and still refuses `ow://<type>/<id>.` as a bad id).
 - A Charter's skill ids match an Object's own id as written. `OWCharter.charter_of` still finds an id in the Charter's
   text in either case and takes it in lowercase, but now matches it against the ids of the Objects the reader sees as
   they are written, where it lowercased those too. So an Object whose own id is held in upper case is not the Object a
