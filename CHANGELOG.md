@@ -8,6 +8,9 @@ the git log.
 
 ### Added
 
+- `OWTools` repinned at the tools list's `0a7539c` (tools.json sha256 `f1fac743…`), the list the TypeScript SDK
+  4.159.0 and the Python package 0.120.0 bake: Subs is listed, a game that opens a Character (`needs` account, no
+  world link).
 - Report threads (the report profile's rule 9, schema-dist serial 120): `OWReport.threads_of(narratives)` answers a
   `Threads` (`to_dict()` is the fixture's shape): `parents`, each report's parent as `none`, `report`, `board`,
   `missing`, `other` or `self`; `groups`, one `{parent, kind, reports}` per report or board entry some report names,

@@ -111,8 +111,9 @@ func test_the_baked_list_gives_the_sites_row_then_each_listed_tool_with_a_door(t
 func test_a_visitor_sees_the_account_tools_saying_needs_an_account_whatever_signed_in_says(t) -> void:
 	var address := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
 	var n := OWOpeners.NEEDS_AN_ACCOUNT
-	# Atlas opens a public world with no account (opens_public, the list at 9452529), so a visitor's row is live.
-	var want := [["onlyworlds", null], ["atlas", null], ["lantern", n], ["little-lens", null], ["tangle", n]]
+	# Atlas opens a public world with no account (opens_public, the list at 9452529), so a visitor's row is live; Subs
+	# (the list at 0a7539c) opens a Character with an account.
+	var want := [["onlyworlds", null], ["atlas", null], ["lantern", n], ["little-lens", null], ["tangle", n], ["subs", n]]
 	for signed_in in [null, false, true]:
 		for browser in [true, false]:
 			var r := OWOpeners.openers_for(OWTools.ALL, "element", address, {"audience": "public", "signed_in": signed_in, "browser": browser})
@@ -163,7 +164,7 @@ func test_the_baked_list_offers_tangle_on_a_world_and_a_character_only(t) -> voi
 		t.eq(tangle[0]["open"]["element_skips"], ["room", "hidden", "proposed"], "it skips three marks")
 		t.eq(tangle[0]["open"]["needs"], "account", "it needs an account")
 	for row in OWTools.ALL:
-		if row["id"] != "tangle":
+		if row["id"] != "tangle" and row["id"] != "subs":
 			t.eq(row["open"]["element_types"], null, "%s opens every type" % row["id"])
 	var member := {"audience": "member", "signed_in": true}
 	var ids := func(r) -> Array: return r.rows.map(func(x): return x["id"])
@@ -171,8 +172,8 @@ func test_the_baked_list_offers_tangle_on_a_world_and_a_character_only(t) -> voi
 	t.eq(ids.call(world), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle"], "a world's menu")
 	var hero := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
 	var character := OWOpeners.openers_for(OWTools.ALL, "element", hero, member)
-	t.eq(ids.call(character), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle"], "a Character's menu")
-	if character.rows.size() == 5:
+	t.eq(ids.call(character), ["onlyworlds", "atlas", "lantern", "little-lens", "tangle", "subs"], "a Character's menu")
+	if character.rows.size() == 6:
 		t.eq(character.rows[4]["href"], "https://tangle.onlyworlds.com/#/open/%s/element/%s" % [WORLD, ELEMENT], "its element door")
 		t.eq(character.rows[4]["state"], null, "it opens now")
 	var hidden := OWOpeners.openers_for(OWTools.ALL, "element", hero, member, {"element": {"id": ELEMENT, "type": "character", "hidden": true}})
@@ -182,6 +183,37 @@ func test_the_baked_list_offers_tangle_on_a_world_and_a_character_only(t) -> voi
 			continue
 		var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, member)
 		t.ok(r.ok and not ids.call(r).has("tangle"), "not on a %s's menu" % type)
+	t.done()
+
+## Subs (the list at 0a7539c) opens a Character only (element_types ["character"], no world door, skipping room, hidden
+## and proposed): on a Character's menu, on no world's and on no other type's.
+func test_the_baked_list_offers_subs_on_a_character_only(t) -> void:
+	var subs = OWTools.ALL.filter(func(x): return x["id"] == "subs")
+	t.eq(subs.size(), 1, "Subs is a row of the baked list")
+	if subs.size() == 1:
+		t.eq(subs[0]["rung"], "listed", "listed")
+		t.eq(subs[0]["open"]["world"], null, "no world door")
+		t.eq(subs[0]["open"]["element_types"], ["character"], "it opens Characters")
+		t.eq(subs[0]["open"]["element_skips"], ["room", "hidden", "proposed"], "it skips three marks")
+		t.eq(subs[0]["open"]["needs"], "account", "it needs an account")
+	var member := {"audience": "member", "signed_in": true}
+	var ids := func(r) -> Array: return r.rows.map(func(x): return x["id"])
+	var world := OWOpeners.openers_for(OWTools.ALL, "world", {"form": "human", "world": WORLD}, member)
+	t.ok(world.ok and not ids.call(world).has("subs"), "not on a world's menu")
+	var hero := {"form": "human", "world": WORLD, "type": "character", "id": ELEMENT}
+	var character := OWOpeners.openers_for(OWTools.ALL, "element", hero, member)
+	var row: Array = character.rows.filter(func(x): return x["id"] == "subs")
+	t.eq(row.size(), 1, "on a Character's menu")
+	if row.size() == 1:
+		t.eq(row[0]["href"], "https://subs.onlyworlds.com/#/open/%s/element/%s" % [WORLD, ELEMENT], "its element door")
+		t.eq(row[0]["state"], null, "it opens now")
+	var hidden := OWOpeners.openers_for(OWTools.ALL, "element", hero, member, {"element": {"id": ELEMENT, "type": "character", "hidden": true}})
+	t.ok(not ids.call(hidden).has("subs"), "not on a hidden Character's menu")
+	for type in OWTypes.slugs():
+		if type == "character":
+			continue
+		var r := OWOpeners.openers_for(OWTools.ALL, "element", {"form": "human", "world": WORLD, "type": type, "id": ELEMENT}, member)
+		t.ok(r.ok and not ids.call(r).has("subs"), "not on a %s's menu" % type)
 	t.done()
 
 func test_the_baked_list_is_the_list_at_the_pinned_commit(t) -> void:
