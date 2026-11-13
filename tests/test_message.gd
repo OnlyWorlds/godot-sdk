@@ -159,3 +159,96 @@ func test_the_edges_the_packages_pin(t) -> void:
 		{"id": "x2", "type": "narrative", "supertype": "Message", "parent_narrative": "x1"}]
 	t.eq(OWMessage.thread_of(loop, "r"), [], "a loop that never reaches the root ends")
 	t.done()
+
+# -- created_at as the message reader reads it: OWLens.time_key, through unread_for's order -----------------------------
+
+## A message addressed to "a1" by "a3", no created_by (a folder's): unread for a1, whatever its time. [param at] is
+## its created_at; ABSENT leaves the key out.
+const ABSENT := "<absent>"
+
+func _timed(id: String, at: Variant) -> Dictionary:
+	var m := {"id": id, "type": "narrative", "supertype": "Message", "name": id, "story": "", "narrator": "a3",
+		"characters": ["a1"]}
+	if not (at is String and at == ABSENT):
+		m["created_at"] = at
+	return m
+
+func _unread_ids(given: Array) -> Array:
+	return _ids(OWMessage.unread_for(given, "a1", null, null))
+
+func _reversed(list: Array) -> Array:
+	var out := list.duplicate()
+	out.reverse()
+	return out
+
+## The TypeScript SDK's message edge case created-at-order-and-the-readable-rule, its 28 created_at texts in its
+## order and its wanted order: a time with no offset reads as UTC, a fraction counts to its sixth digit (later digits
+## dropped, never rounded), equal instants keep the list's order, and an unreadable time (a date alone among them)
+## comes after every readable one, in the list's order.
+func test_a_time_with_no_offset_is_utc_and_a_fraction_counts_to_its_sixth_digit(t) -> void:
+	var texts := [["t01", "2026-10-26T10:00:00Z"], ["t02", "2026-10-26T12:00:00+02:00"], ["t03", "2026-10-26t09:00:00z"],
+		["t04", "2026-10-26T09:30:00"], ["t05", "2026-10-26T09:30:00.5Z"], ["t06", "2026-10-26T09:30:00.000001Z"],
+		["t07", "2026-02-29T00:00:00Z"], ["t08", "2024-02-29T00:00:00Z"], ["t09", "2026-10-26"],
+		["t10", "2026-10-26 10:00:00Z"], ["t11", " 2026-10-26T10:00:00Z"], ["t12", "2026-10-26T24:00:00Z"],
+		["t13", "2026-10-26T23:59:60Z"], ["t14", "2026-10-26T10:00:00+24:00"], ["t15", "2026-10-26T10:00Z"],
+		["t16", "2026-10-26T10:00:00,5Z"], ["t17", null], ["t18", ABSENT], ["t19", 5], ["t20", "yesterday"],
+		["t21", "0000-01-01T00:00:00+01:00"], ["t22", "9999-12-31T23:59:59.9999999Z"],
+		["t23", "2026-10-26T09:30:00.0000005Z"], ["t24", "2026-10-26T10:00:00-00:30"], ["t25", "2026-10-26T09:61:00Z"],
+		["t26", "2026-1-26T10:00:00Z"],
+		["t27", String.chr(0xFF12) + String.chr(0xFF10) + String.chr(0xFF12) + String.chr(0xFF16) + "-10-26T10:00:00Z"],
+		["t28", "2026-10-26T10:00:00Z\n"]]
+	var given := texts.map(func(p): return _timed(p[0], p[1]))
+	t.eq(_unread_ids(given), ["t21", "t08", "t03", "t04", "t23", "t06", "t05", "t01", "t02", "t24", "t22", "t07", "t09",
+		"t10", "t11", "t12", "t13", "t14", "t15", "t16", "t17", "t18", "t19", "t20", "t25", "t26", "t27", "t28"],
+		"the edge case's order")
+	var z := "2026-10-26T09:00:00Z"
+	var bare := "2026-10-26T09:30:00"
+	var half := "2026-10-26T09:30:00.0000005Z"
+	var micro := "2026-10-26T09:30:00.000001Z"
+	t.eq(OWLens.time_key(bare), OWLens.time_key("2026-10-26T09:30:00Z"), "no offset reads as UTC")
+	t.eq(OWLens.time_key(bare) - OWLens.time_key(z), 1800 * 1000000, "half an hour after 09:00Z")
+	t.eq(OWLens.time_key(half), OWLens.time_key(bare), "the seventh digit is dropped: the same instant as 09:30:00")
+	t.eq(OWLens.time_key(micro) - OWLens.time_key(bare), 1, "the sixth digit counts: one microsecond later")
+	t.eq(OWLens.time_key("2026-10-26"), null, "a date alone is unreadable")
+	var four := [_timed("bare", bare), _timed("z", z), _timed("half", half), _timed("micro", micro),
+		_timed("date", "2026-10-26")]
+	t.eq(_unread_ids(four), ["z", "bare", "half", "micro", "date"], "as given: the equal two keep the list's order")
+	t.eq(_unread_ids(_reversed(four)), ["z", "half", "bare", "micro", "date"], "reversed: the equal two keep it again")
+	t.done()
+
+## The year's two ends: year 0000 reads, and an offset may carry an instant before it or past the end of 9999. The
+## seconds since 1970 are the TypeScript SDK 4.159.0's and onlyworlds 0.120.0's for the same texts; time_key holds
+## microseconds in a 64-bit int, with no float on its path.
+func test_the_years_two_ends_order_as_instants_with_the_packages_seconds(t) -> void:
+	var times := [["E1", "9999-12-31T23:00:00-02:00", 253402304400], ["E2", "0000-01-01T00:00:00Z", -62167219200],
+		["R", "2026-11-12T10:00:00Z", 1794477600], ["E3", "0000-01-01T00:00:00+01:00", -62167222800]]
+	for e in times:
+		var key: Variant = OWLens.time_key(e[1])
+		t.ok(key is int, "%s %s is an int, not a float" % [e[0], e[1]])
+		t.eq(key, e[2] * 1000000, "%s %s" % [e[0], e[1]])
+	var given := times.map(func(e): return _timed(e[0], e[1]))
+	t.eq(_unread_ids(given), ["E3", "E2", "R", "E1"], "as given")
+	t.eq(_unread_ids(_reversed(given)), ["E3", "E2", "R", "E1"], "reversed")
+	t.done()
+
+## The forms, a row each: what reads and what does not. A readable row sorts before a message at 11:00Z, an
+## unreadable one after it.
+func test_the_forms_of_a_time_read_or_do_not(t) -> void:
+	var at_ten := 1794477600 * 1000000
+	var rows := [
+		["lower-case t and z", "2026-11-12t10:00:00z", at_ten],
+		["a ten-digit fraction", "2026-11-12T10:00:00.1234567891Z", at_ten + 123456],
+		["a space for the T", "2026-11-12 10:00:00Z", null],
+		["no seconds", "2026-11-12T10:00Z", null],
+		["an offset without its colon", "2026-11-12T12:00:00+0200", null],
+		["30 February", "2026-02-30T10:00:00Z", null],
+		["hour 24", "2026-11-12T24:00:00Z", null],
+		["second 60", "2026-11-12T10:00:60Z", null],
+		["an offset of 24 hours", "2026-11-12T10:00:00+24:00", null],
+		["a time followed by a line break", "2026-11-12T10:00:00Z\n", null],
+	]
+	for r in rows:
+		t.eq(OWLens.time_key(r[1]), r[2], r[0])
+		var want := ["row", "eleven"] if r[2] != null else ["eleven", "row"]
+		t.eq(_unread_ids([_timed("eleven", "2026-11-12T11:00:00Z"), _timed("row", r[1])]), want, r[0] + ", sorted")
+	t.done()
