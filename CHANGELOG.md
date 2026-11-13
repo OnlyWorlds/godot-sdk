@@ -222,15 +222,14 @@ the git log.
   the server stamped last week, and an element `changed_within` keeps as fresh is never sorted as old in the same
   lens. An element with no readable time still sorts last, and a tie is still broken by id by code point. This is
   the lens page's reading at schema-dist serial 123.
-- The message read mark's tie goes to the higher id, and an unreadable mark is never the mark. `OWMessage.read_mark_of`,
-  of several marks that count, still takes the newest `updated_at`, but two that are the same instant (an instant
-  written two ways, as `10:00:00Z` and `11:00:00+01:00`, included) now tie by the higher id, compared by code point
-  as written, where it kept the first in list order. And a mark whose `updated_at` cannot be read (garbage, absent,
-  null, a date alone) is now never the mark, alone or beside another, where it lost only to a readable one: one such
-  mark alone, or two, now give null, so every message addressed to the reader reads as unread. So the mark no longer
-  depends on the order the Relations are listed in, and `OWLens`'s mail reader, which reads it, follows. This is the
-  message page's reading at schema-dist serial 123; the tie is the order `OWCharter`'s newest Charter already breaks
-  its tie in.
+- The message read mark's ties go to the higher id. `OWMessage.read_mark_of` now reads the message page's sentence:
+  a lone mark is the mark; among several, the newest readable `updated_at` wins; one that cannot be read never beats
+  one that can; among equal instants, or when none can be read, the higher id (code point, as written) is the mark.
+  Two marks at the same instant (an instant written two ways, as `10:00:00Z` and `11:00:00+01:00`, included), and
+  marks none of whose `updated_at` can be read (garbage, absent, null, a date alone), were decided by the first in
+  list order. So the mark no longer depends on the order the Relations are listed in, and `OWLens`'s mail reader,
+  which reads it, follows. This is the message page's reading at schema-dist serial 123, and the order `OWCharter`'s
+  newest Charter already breaks its ties in.
 - A Charter's skill ids match an Object's own id as written. `OWCharter.charter_of` still finds an id in the Charter's
   text in either case and takes it in lowercase, but now matches it against the ids of the Objects the reader sees as
   they are written, where it lowercased those too. So an Object whose own id is held in upper case is not the Object a

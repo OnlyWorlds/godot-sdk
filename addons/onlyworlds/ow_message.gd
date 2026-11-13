@@ -174,10 +174,10 @@ static func edited_by(message: Variant, members: Variant) -> Edit:
 ## [code]created_by[/code], that membership on [param members] plays the reader's Character (null is the owner's
 ## hand); where it carries [code]changed_by[/code], that equals its [code]created_by[/code] (a writer with no creator
 ## beside it is no hand, and is ignored). A mark with neither key (a folder, an export) counts. Of several that count,
-## the newest [code]updated_at[/code] wherever it stands: a mark whose [code]updated_at[/code] cannot be read is
-## never the mark, alone or beside another (so only unreadable ones give null), and two the same instant (an instant
-## written two ways is one instant) tie by the higher id, by code point as written, so the answer never depends on the
-## list's order; a newer mark in another's hand is ignored and the reader's own stands. [param keyless] true for bodies read
+## a lone mark is the mark; among several, the newest readable [code]updated_at[/code] wins wherever it stands, one
+## that cannot be read never beats one that can, and among equal instants (an instant written two ways is one
+## instant), or when none can be read, the higher id (by code point, as written) is the mark, so the answer never
+## depends on the list's order; a newer mark in another's hand is ignored and the reader's own stands. [param keyless] true for bodies read
 ## with no credential, as [method is_to_everyone] takes it: the keyless public reader is served no
 ## [code]created_by[/code] or [code]changed_by[/code] on any body, so no mark counts there and the answer is null. npm
 ## [code]readMarkOf[/code].
@@ -198,10 +198,18 @@ static func read_mark_of(relations: Variant, character_id: Variant, members: Var
 		if has_author and _hand_of(rel, members) != character_id:
 			continue
 		var key: Variant = OWLens.time_key(rel.get("updated_at"))
-		if key == null:
-			continue
-		if mark == null or key > mark_key or (key == mark_key
-				and rel.get("id") is String and mark.get("id") is String and rel["id"] > mark["id"]):
+		var wins: bool
+		if mark == null:
+			wins = true
+		elif key != null and mark_key != null and key != mark_key:
+			wins = key > mark_key
+		elif key != null and mark_key == null:
+			wins = true
+		elif key == null and mark_key != null:
+			wins = false
+		else:   # equal instants, or neither can be read: the higher id
+			wins = rel.get("id") is String and mark.get("id") is String and rel["id"] > mark["id"]
+		if wins:
 			mark = rel
 			mark_key = key
 	return mark

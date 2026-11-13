@@ -188,18 +188,32 @@ func test_the_read_mark_tie_goes_to_the_higher_id_in_either_order(t) -> void:
 		t.eq(OWMessage.read_mark_of([p[2], p[1]], A1, null)["id"], p[3], p[0] + ", listed last to first")
 	t.done()
 
-## The message page's read mark (serial 123): a mark whose updated_at cannot be read is never the mark, alone or
-## beside another. Two unreadable marks give no mark in either order, and so does one alone, whether its updated_at is
-## garbage, absent, null or a date alone. Kills: keeping the first of two unreadable marks, or a lone one.
-func test_an_unreadable_mark_is_never_the_mark(t) -> void:
+## The message page's read mark (serial 123): a lone mark is the mark; among several, the newest readable updated_at
+## wins, one that cannot be read never beats one that can, and among equal instants, or when none can be read, the
+## higher id (code point, as written) is the mark. Each case of several in both list orders. Kills: no mark for a lone
+## or an all-unreadable list, keeping the first of unreadable marks, an unreadable mark beating a readable one.
+func test_the_read_mark_when_updated_at_cannot_be_read(t) -> void:
 	var a := "aaaaaaaa-0000-4000-8000-00000000000a"
 	var b := "aaaaaaaa-0000-4000-8000-00000000000b"
-	t.eq(OWMessage.read_mark_of([_mark(a, "garbage"), _mark(b, ABSENT)], A1, null), null, "both unreadable, a first")
-	t.eq(OWMessage.read_mark_of([_mark(b, ABSENT), _mark(a, "garbage")], A1, null), null, "both unreadable, b first")
+	var c := "aaaaaaaa-0000-4000-8000-00000000000c"
 	for at in ["garbage", ABSENT, null, "2026-10-26"]:
-		t.eq(OWMessage.read_mark_of([_mark(a, at)], A1, null), null, "one alone, " + var_to_str(at))
-	t.eq(OWMessage.read_mark_of([_mark(a, "2026-10-26"), _mark(b, "2026-10-26T10:00:00Z")], A1, null)["id"], b,
-		"control: the readable one beside it is the mark")
+		var lone: Variant = OWMessage.read_mark_of([_mark(a, at)], A1, null)
+		t.eq(lone.get("id") if lone is Dictionary else lone, a, "one alone, " + var_to_str(at) + ", is the mark")
+	var groups := [
+		["all unreadable, the higher id", [_mark(a, "garbage"), _mark(b, ABSENT), _mark(c, "2026-10-26")], c],
+		["two unreadable, the higher id", [_mark(b, "garbage"), _mark(a, null)], b],
+		["readable beats unreadable, the higher id unreadable", [_mark(a, "2026-10-26T10:00:00Z"), _mark(b, "garbage")], a],
+		["readable beats a date alone", [_mark(a, "2026-10-26T10:00:00Z"), _mark(c, "2026-10-26")], a],
+		["readable beats unreadable among three", [_mark(c, ABSENT), _mark(a, "2026-10-26T10:00:00Z"), _mark(b, "x")], a],
+		["equal instants written two ways", [_mark(a, "2026-10-26T11:00:00+01:00"), _mark(b, "2026-10-26T10:00:00Z")], b],
+	]
+	for g in groups:
+		var forward: Array = g[1]
+		var backward: Array = forward.duplicate()
+		backward.reverse()
+		for pair in [["in order", forward], ["reversed", backward]]:
+			var got: Variant = OWMessage.read_mark_of(pair[1], A1, null)
+			t.eq(got.get("id") if got is Dictionary else got, g[2], g[0] + ", " + pair[0])
 	t.done()
 
 # -- created_at as the message reader reads it: OWLens.time_key, through unread_for's order -----------------------------
