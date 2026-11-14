@@ -80,6 +80,9 @@ class Found:
 	## The index just past the address: the text's first character that is not part of it, or its length. A Godot
 	## String index, so it counts code points, as [method String.substr] and [method String.find] do.
 	var end := 0
+	## The index of the address's first character: the index [method read_link_at] was given, and where
+	## [method find_links] found it (serial 128).
+	var start := 0
 
 ## What [method element_address] wrote. [member ok] true: [member address]; false: [member reason], one of
 ## [constant REFUSALS], or "" for a caller's mistake that is no refusal (a key the shape does not hold), with
@@ -313,6 +316,40 @@ static func read_link_at(text: String, index := 0) -> Found:
 	var found := Found.new()
 	found.reading = parse_link(text.substr(index, end - index))
 	found.end = end
+	found.start = index
+	return found
+
+## Every address in a text, in order, each a [Found] ([member Found.start], [member Found.end],
+## [member Found.reading]): what [method read_link_at] reads at each place either prefix ([code]ow://[/code],
+## [code]https://www.onlyworlds.com/w/[/code]) starts, so a start glued to a word is prose and what follows an address
+## is prose as [method read_link_at] says (the address page's find-all, schema-dist serial 128; npm
+## [code]findOwLinks[/code], Python [code]find_ow_links[/code]). The search goes on from the end of each address found,
+## so no two overlap and a prefix inside an address found is no start, and from just past a start that reads nothing.
+## Linear in the text: each prefix's next place is searched once, and a start reads a bounded stretch. Indexes count
+## code points, as a Godot String does (npm counts UTF-16 units, Python code points).
+## [codeblock]
+## var found := OWAddress.find_links("See ow://object/01a1d4ef-0000-7000-8000-000000000084, not elbow://object/01a1d4ef-0000-7000-8000-000000000084.")
+## # one address: found[0].start == 4, found[0].end == 52, found[0].reading.type == "object"
+## [/codeblock]
+static func find_links(text: String) -> Array[Found]:
+	var found: Array[Found] = []
+	var next_text := text.find(TEXT_PREFIX)
+	var next_human := text.find(HUMAN_PREFIX)
+	var at := 0
+	while true:
+		if next_text != -1 and next_text < at:
+			next_text = text.find(TEXT_PREFIX, at)
+		if next_human != -1 and next_human < at:
+			next_human = text.find(HUMAN_PREFIX, at)
+		var start: int = next_human if next_text == -1 else (next_text if next_human == -1 else mini(next_text, next_human))
+		if start == -1:
+			return found
+		var got := read_link_at(text, start)
+		if got == null:
+			at = start + 1
+		else:
+			found.append(got)
+			at = got.end
 	return found
 
 ## Whether [param prefix] is written at [param index] of the text, as written.

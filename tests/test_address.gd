@@ -60,6 +60,14 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 					t.eq(found.end, at + address.length(), "the end")
 					t.eq(text.substr(at, found.end - at), address, "the slice at the index")
 					t.eq(found.reading.to_dict(), _reading(want["reading"]), "its reading")
+		"prose-all":
+			# find_links finds every address in the text, in order; found is each one's slice of the text, never an
+			# index, so it reads the same in every language (serial 128). Each reading is the parser's of its slice.
+			var text: String = c["text"]
+			var all := OWAddress.find_links(text)
+			t.eq(all.map(func(f): return text.substr(f.start, f.end - f.start)), c["found"], "the addresses found, in order")
+			for f in all:
+				t.eq(f.reading.to_dict(), OWAddress.parse_link(text.substr(f.start, f.end - f.start)).to_dict(), "the reading at %d" % f.start)
 		_:
 			t.fail("a case of unknown kind %s" % c["kind"])
 	t.done()
@@ -248,6 +256,31 @@ func test_read_link_at_a_bad_index_or_an_empty_text_reads_nothing(t) -> void:
 	t.ok(OWAddress.read_link_at("ow://x", 99) == null, "past the end")
 	t.ok(OWAddress.read_link_at("", 0) == null, "an empty text")
 	t.ok(OWAddress.read_link_at("OW://object/" + ELEMENT) == null, "the prefix as written, lowercase")
+	t.done()
+
+func test_find_links_finds_every_address_in_order_by_read_link_at_at_each_prefix(t) -> void:
+	# The npm package's doc example: a start glued to a word is prose.
+	var id := "01a1d4ef-0000-7000-8000-000000000084"
+	var one := OWAddress.find_links("See ow://object/%s, not elbow://object/%s." % [id, id])
+	t.eq(one.size(), 1, "one address")
+	if one.size() == 1:
+		t.eq([one[0].start, one[0].end], [4, 52], "where it starts and ends")
+		t.eq([one[0].reading.type, one[0].reading.id], ["object", id], "its reading")
+	# Both forms, in the text's order, whichever prefix comes first; a start that reads nothing is passed by.
+	var text := "Go to https://www.onlyworlds.com/w/%s/object/%s then ow://nothing, then ow://object/%s@3." % [WORLD, ELEMENT, ELEMENT]
+	var all := OWAddress.find_links(text)
+	t.eq(all.map(func(f): return text.substr(f.start, f.end - f.start)),
+		["https://www.onlyworlds.com/w/%s/object/%s" % [WORLD, ELEMENT], "ow://object/%s@3" % ELEMENT], "both, in order")
+	t.eq(all.map(func(f): return f.reading.form), [OWAddress.HUMAN, OWAddress.TEXT], "their forms")
+	# Each is read_link_at's at its start, which counts code points: an emoji before it is one.
+	var emoji := "Built " + String.chr(0x1F6A2) + " ow://object/" + ELEMENT + "."
+	var e := OWAddress.find_links(emoji)
+	t.eq(e.size(), 1, "one address after the emoji")
+	if e.size() == 1:
+		t.eq(e[0].start, emoji.find("ow://"), "its start, in code points")
+		t.eq(e[0].end, OWAddress.read_link_at(emoji, e[0].start).end, "read_link_at's end")
+	t.eq(OWAddress.find_links("").size(), 0, "an empty text")
+	t.eq(OWAddress.find_links("no address here, OW://object/" + ELEMENT).size(), 0, "the prefix as written, lowercase")
 	t.done()
 
 func test_read_link_at_the_sites_form_a_run_cut_inside_a_word_is_no_address(t) -> void:

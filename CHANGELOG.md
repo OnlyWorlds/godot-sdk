@@ -27,6 +27,13 @@ the git log.
   does not glue. One index back is a whole code point here, so a letter above U+FFFF glues as any letter does. Two
   addresses written back to back read as two after an id that ends in a digit and as one after an id that ends in a
   hex letter. The address fixture's fifteen new prose cases run and pass.
+- Every address in a text (the address page's find-all, schema-dist serial 128): `OWAddress.find_links(text)` answers
+  an `Array[Found]`, each what `read_link_at` reads at a place where either prefix starts, in order. The npm package's
+  `findOwLinks` and the Python package's `find_ow_links`. The search goes on from the end of each address found, so no
+  two overlap and a prefix inside an address is no start, and two addresses written back to back are found as two
+  where `read_link_at` ends the first. `Found` gains `start`, the index the address begins at (what `read_link_at`
+  was given). Indexes count code points, as a Godot String does. The address fixture's two `prose-all` cases run and
+  pass.
 - `OWTools` repinned at the tools list's `aa00969` (tools.json sha256 `2140d2b9…`): the OnlyWorlds mapper is listed,
   a world's maps and layouts in the browser, read only. Its `element_types` is null, so its element door is offered
   on every type's menu; it skips map space (a Map, Pin or Marker as served), needs an account and opens a public
