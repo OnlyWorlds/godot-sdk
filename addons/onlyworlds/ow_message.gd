@@ -101,9 +101,10 @@ static func recipients_of(message: Variant) -> Array:
 ## True when the message is addressed to [param character_id]: its id is in [code]characters[/code], or
 ## [code]characters[/code] is empty and keel did not trim it for this reader ([method is_to_everyone]). Nothing else
 ## addresses a message: not [code]narrator[/code], not a name or an id in [code]story[/code], no other link. An empty
-## id ([code]""[/code]) is no Character, not even for a message to everyone. A Note is addressed to nobody.
+## id ([code]""[/code]) is no Character, not even for a message to everyone. Only a message is addressed
+## ([method is_message]): a Note, a Story or any other element is addressed to nobody (serial 128).
 static func is_addressed_to(message: Variant, character_id: Variant) -> bool:
-	if not (message is Dictionary) or is_note(message) or not (character_id is String) or character_id == "":
+	if not is_message(message) or not (character_id is String) or character_id == "":
 		return false
 	if is_to_everyone(message):
 		return true
@@ -114,18 +115,20 @@ static func is_addressed_to(message: Variant, character_id: Variant) -> bool:
 ## [code][][/code], and its [code]x_served_trimmed[/code] not naming [code]characters[/code] (then it is to someone the
 ## reader cannot see). A list that names no valid id ([code][""][/code]) or a value that is not a list is to nobody.
 ## [param keyless] true for a body read with no credential: keel serves it no mark, so it is never asserted to
-## everyone. A Note is to nobody. npm [code]isToEveryone(message, {keyless})[/code].
+## everyone. Only a message is ever to everyone: a Note, a Story or any other element never is (serial 128). npm
+## [code]isToEveryone(message, {keyless})[/code].
 static func is_to_everyone(message: Variant, keyless: bool = false) -> bool:
-	if keyless or not (message is Dictionary) or is_note(message) or has_unseen_recipients(message) == true:
+	if keyless or not is_message(message) or has_unseen_recipients(message) == true:
 		return false
 	var list: Variant = message.get("characters")
 	return list == null or (list is Array and list.is_empty())
 
 ## True when someone this reader cannot see is a recipient: the body's [code]x_served_trimmed[/code] names
 ## [code]characters[/code], whatever is left in the list; never who or how many. Null (unknown) for a body read
-## [param keyless], which keel serves no mark. False for a Note, keyless or not. npm [code]hasUnseenRecipients[/code].
+## [param keyless], which keel serves no mark. False for anything that is not a message (a Note, a Story: it has no
+## recipients; serial 128), keyless or not. npm [code]hasUnseenRecipients[/code].
 static func has_unseen_recipients(message: Variant, keyless: bool = false) -> Variant:
-	if not (message is Dictionary) or is_note(message):
+	if not is_message(message):
 		return false
 	if keyless:
 		return null

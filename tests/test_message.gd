@@ -136,6 +136,30 @@ func test_the_newest_note_by_the_order(t) -> void:
 	t.eq(OWMessage.note_of([_note("n1", "2026-10-26T09:00:00Z")], "", m), null, "an empty id has no line")
 	t.done()
 
+## Serial 128: the message page's own reader gates all four addressing readers on the pair. A Story beside a message,
+## each with the same characters: the Story has no recipients, is addressed to nobody, is never to everyone, and has no
+## unseen recipients, keyless or not.
+func test_the_addressing_readers_answer_only_for_a_message(t) -> void:
+	for characters in [[A1], [], null]:
+		var message := {"type": "narrative", "supertype": "Message", "characters": characters}
+		var story := {"type": "narrative", "supertype": "Story", "characters": characters}
+		t.ok(OWMessage.is_addressed_to(message, A1), "the message is addressed: %s" % [characters])
+		t.ok(not OWMessage.is_addressed_to(story, A1), "a Story is addressed to nobody: %s" % [characters])
+		t.ok(not OWMessage.is_to_everyone(story), "a Story is never to everyone: %s" % [characters])
+		t.eq(OWMessage.recipients_of(story), [], "a Story has no recipients: %s" % [characters])
+	t.ok(OWMessage.is_to_everyone({"type": "narrative", "supertype": "Message", "characters": []}), "a message to everyone")
+	for bare in [{}, {"characters": []}, {"type": "narrative", "characters": []}]:
+		t.ok(not OWMessage.is_to_everyone(bare), "not a message, not to everyone: %s" % [bare])
+		t.ok(not OWMessage.is_addressed_to(bare, A1), "not a message, addressed to nobody: %s" % [bare])
+	var trimmed := {"type": "narrative", "supertype": "Message", "characters": [], "x_served_trimmed": ["characters"]}
+	var trimmed_story := trimmed.duplicate()
+	trimmed_story["supertype"] = "Story"
+	t.eq(OWMessage.has_unseen_recipients(trimmed), true, "the message: someone unseen")
+	t.eq(OWMessage.has_unseen_recipients(trimmed, true), null, "the message read keyless: unknown")
+	t.eq(OWMessage.has_unseen_recipients(trimmed_story), false, "a Story has no recipients to be unseen")
+	t.eq(OWMessage.has_unseen_recipients(trimmed_story, true), false, "keyless or not")
+	t.done()
+
 func test_recipients_of(t) -> void:
 	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Message", "characters": [A1, "", 3.0, A2]}), [A1, A2], "ids only, in order")
 	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Message"}), [], "absent is empty")

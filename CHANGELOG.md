@@ -253,6 +253,10 @@ the git log.
   that names one Character twice gives that Character once, in its first place, ids compared as written; a body that
   is not a message (`OWMessage.is_message`: a Story, a Narrative with no supertype, a body with no pair) now has none,
   where before any body but a Note gave its list. The message fixture's two `recipients` cases run and pass.
+- `OWMessage.is_addressed_to`, `is_to_everyone` and `has_unseen_recipients` answer only for a message (serial 128,
+  the message page's own reader gating all four on the pair): a body that is not a message is addressed to nobody, is
+  never to everyone, and has no unseen recipients, `false` keyless or not; before, any body but a Note was read as a
+  message, so `unread_for` never counts one unread now either. A Note reads as before.
 - Schema pin to `v0.34.1-dist.127` (`f50c526`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 127). No schema
   file or `schema.json` moved; the generated files moved in their stamp only, and `OWViewsTable` in its `views.json`
   sha256: the file's `banners` sentence now defers to the room page's presence rule with no paraphrase of its own, the
