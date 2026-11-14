@@ -11,8 +11,9 @@ extends RefCounted
 ## ...@<step>?lens=<id>                                    a moment and a lens, the moment first
 ## [/codeblock]
 ##
-## [method parse_link] reads one string whole (a link inside other text is the caller's to find first) and refuses it
-## with the first check that fails, in the profile's order. [method element_address] writes: lowercase, the world's
+## [method parse_link] reads one string whole and refuses it with the first check that fails, in the profile's order;
+## [method read_link_at] reads an address found inside other text from the index where its prefix starts, and says
+## where it ends. [method element_address] writes: lowercase, the world's
 ## id (never its slug), the moment before the lens, nothing else. The npm and Python packages' [code]parseOwLink[/code]
 ## and [code]elementAddress[/code]; the fixture beside the profile is this file's test.
 ##
@@ -71,6 +72,14 @@ class Reading:
 	## The canonical address for this reading (a reading by slug refuses as [code]bad_world[/code]).
 	func to_address() -> Written:
 		return OWAddress.element_address(form, world, type, id, lens, moment)
+
+## What [method read_link_at] found: the address read, and the index just past it in the text.
+class Found:
+	## What [method parse_link] reads from [code]text.substr(index, end - index)[/code].
+	var reading: Reading
+	## The index just past the address: the text's first character that is not part of it, or its length. A Godot
+	## String index, so it counts code points, as [method String.substr] and [method String.find] do.
+	var end := 0
 
 ## What [method element_address] wrote. [member ok] true: [member address]; false: [member reason], one of
 ## [constant REFUSALS], or "" for a caller's mistake that is no refusal (a key the shape does not hold), with
@@ -189,6 +198,136 @@ static func parse_link(text: String) -> Reading:
 		var w := _write(r.form, world, type, id, lens, step, "")
 		r.canonical = w.ok and w.address == text
 	return r
+
+# -- an address in prose ----------------------------------------------------------------------------------------------
+
+## The query that continues an address found in prose; no other key does.
+const _LENS_QUERY := "?lens="
+## An id is 36 characters: a lens found in prose ends where its id ends.
+const _ID_LENGTH := 36
+
+static var _type_word_max := 0
+
+## The address that starts exactly at [param index] in a text, found in prose, and where it ends; null when the text
+## there is not an address (the address page's "An address in prose", serial 123; the npm package's
+## [code]readOwLinkAt[/code] and the Python package's [code]read_ow_link_at[/code]).
+##
+## Both forms, [code]ow://[/code] and [code]https://www.onlyworlds.com/w/[/code], the prefix as written (lowercase).
+## In the site's form the run after [code]/w/[/code] is read whole, once: it ends at the first character outside the
+## slug's alphabet (lowercase letters, digits, hyphens) or the id's (hex in either case); exactly an id's form is the
+## id, any other run [method parse_link] reads as a slug is the slug, else there is no address. A run followed by a
+## letter of any script, a combining mark or an underscore is cut inside a word and is no address
+## ([code]/w/mopPetopia.[/code], [code]/w/hyper_ion.[/code]).
+##
+## After the world, or in the text form from the prefix, the path is the longest one [method parse_link] reads. After
+## it the address continues only with [code]@[/code] and a moment (its whole run of an optional minus and digits, taken
+## only when it reads as a step) and then [code]?lens=[/code] and a lens (an id, which ends where its 36 characters
+## end). Any other query key or a fragment is not part of an address found in prose: the address ends before its
+## [code]?[/code], [code]&[/code] or [code]#[/code]. What follows is prose, a full stop included. [method parse_link]
+## itself still reads a string whole: [code]ow://object/<id>.[/code] handed to it is refused.
+##
+## [param index] and [member Found.end] are Godot String indexes, which count code points (not UTF-16 units as in
+## JavaScript), so they match [method String.find] and [method String.substr]. An index below 0 or past the end reads
+## nothing.
+## [codeblock]
+## var line := "Built the gate: ow://object/01a1d4ef-0000-7000-8000-000000000084."
+## var found := OWAddress.read_link_at(line, 16)
+## # found.end == 64: line[64] is the full stop; found.reading.id == "01a1d4ef-0000-7000-8000-000000000084"
+## [/codeblock]
+static func read_link_at(text: String, index := 0) -> Found:
+	var n := text.length()
+	if index < 0 or index > n:
+		return null
+	var human := _starts_at(text, index, HUMAN_PREFIX)
+	var start: int
+	if human:
+		start = index + HUMAN_PREFIX.length()
+	elif _starts_at(text, index, TEXT_PREFIX):
+		start = index + TEXT_PREFIX.length()
+	else:
+		return null
+
+	if _type_word_max == 0:
+		for slug in OWTypes.slugs():
+			_type_word_max = maxi(_type_word_max, slug.length())
+	var end := -1
+	var low := start
+	var run := start
+	if human:
+		# The site's form: the run after /w/ is read whole, once, with no order between an id and a slug.
+		var w := start
+		while w < n and _is_world_run_char(text.unicode_at(w)):
+			w += 1
+		if _is_in_a_word(text, w):
+			return null
+		var world := text.substr(start, w - start)
+		if not is_uuid(world) and not _is_slug(world):
+			return null
+		end = w
+		low = w
+		run = w
+		var element_path_max := 1 + _type_word_max + 1 + _ID_LENGTH
+		while run < n and run - w <= element_path_max and _is_path_char(text.unicode_at(run)):
+			run += 1
+	else:
+		var path_max := _ID_LENGTH + 1 + _type_word_max + 1 + _ID_LENGTH
+		while run < n and run - start <= path_max and _is_path_char(text.unicode_at(run)):
+			run += 1
+
+	var p := run
+	while p > low:
+		if _parses(text, index, p):
+			end = p
+			break
+		p -= 1
+	if end == -1:
+		return null
+
+	# A moment: its whole run of an optional minus and digits, taken only when it reads as a step.
+	if end < n and text.unicode_at(end) == 0x40:
+		var step_end := end + 1
+		if step_end < n and text.unicode_at(step_end) == 0x2D:
+			step_end += 1
+		var digits := step_end
+		while step_end < n and text.unicode_at(step_end) >= 0x30 and text.unicode_at(step_end) <= 0x39:
+			step_end += 1
+		if step_end > digits and _parses(text, index, step_end):
+			end = step_end
+
+	# A lens: an id, which ends where its 36 characters end.
+	if _starts_at(text, end, _LENS_QUERY):
+		var lens_end := end + _LENS_QUERY.length() + _ID_LENGTH
+		if lens_end <= n and is_uuid(text.substr(end + _LENS_QUERY.length(), _ID_LENGTH)) and _parses(text, index, lens_end):
+			end = lens_end
+
+	var found := Found.new()
+	found.reading = parse_link(text.substr(index, end - index))
+	found.end = end
+	return found
+
+## Whether [param prefix] is written at [param index] of the text, as written.
+static func _starts_at(text: String, index: int, prefix: String) -> bool:
+	return index + prefix.length() <= text.length() and text.substr(index, prefix.length()) == prefix
+
+## Whether the text from [param index] to [param end] parses whole as an address.
+static func _parses(text: String, index: int, end: int) -> bool:
+	return parse_link(text.substr(index, end - index)).ok
+
+## The characters a path segment can hold (an id, a slug, a type word in any case) and the slash between them.
+static func _is_path_char(c: int) -> bool:
+	return (c >= 0x30 and c <= 0x39) or (c >= 0x41 and c <= 0x5A) or (c >= 0x61 and c <= 0x7A) or c == 0x2F or c == 0x2D
+
+## The run after /w/: the slug's alphabet (lowercase letters, digits, hyphens) and the id's (hex in either case).
+static func _is_world_run_char(c: int) -> bool:
+	return (c >= 0x30 and c <= 0x39) or (c >= 0x61 and c <= 0x7A) or (c >= 0x41 and c <= 0x46) or c == 0x2D
+
+## Whether the character at [param i] glues a run into a word: a letter of any script, a combining mark (Unicode
+## categories L and M) or an underscore. A Godot String holds code points, so one index is one whole character.
+static func _is_in_a_word(text: String, i: int) -> bool:
+	if i < 0 or i >= text.length():
+		return false
+	var c := text.unicode_at(i)
+	return c == 0x5F or OWUnicode.is_letter_or_mark(c)
 
 # -- write ------------------------------------------------------------------------------------------------------------
 

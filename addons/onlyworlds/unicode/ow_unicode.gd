@@ -74,6 +74,22 @@ static func profile_fold(s: String) -> String:
 		cps[i] = D.FOLD.get(cps[i], cps[i])
 	return _from_cps(cps)
 
+## Whether [param c] is a letter of any script or a combining mark (general category L or M, Unicode 15.1): a binary
+## search of the generated ranges.
+static func is_letter_or_mark(c: int) -> bool:
+	var ranges: Array = D.LETTER_OR_MARK
+	var lo := 0
+	var hi := (ranges.size() >> 1) - 1
+	while lo <= hi:
+		var mid := (lo + hi) >> 1
+		if c < ranges[2 * mid]:
+			hi = mid - 1
+		elif c > ranges[2 * mid + 1]:
+			lo = mid + 1
+		else:
+			return true
+	return false
+
 ## Unicode's White_Space property (PropList 15.1): 25 code points.
 static func _is_white_space(c: int) -> bool:
 	return (c >= 0x09 and c <= 0x0D) or c == 0x20 or c == 0x85 or c == 0xA0 or c == 0x1680 \

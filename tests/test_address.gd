@@ -1,7 +1,7 @@
 extends RefCounted
 ## OWAddress on the address profile's conformance fixture (schema-dist profiles/address.fixture.json, the pinned copy
-## at dist.126): every format case through element_address_from, every parse case through parse_link,
-## each refusal by the reason the fixture names. Then what the fixture leaves open, as the npm and Python packages
+## at dist.126): every format case through element_address_from, every parse case through parse_link, every prose case
+## through read_link_at (serial 123), each refusal by the reason the fixture names. Then what the fixture leaves open, as the npm and Python packages
 ## answer it: the writer's order, a moment of 3.0, an empty string, a key outside the shape.
 
 const P = preload("res://tests/paths.gd")
@@ -9,11 +9,6 @@ const P = preload("res://tests/paths.gd")
 const WORLD := "0199c3a1-7b2e-7c3d-8e4f-5a6b7c8d9e0f"
 const ELEMENT := "019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71"
 const LENS := "019a2b7e-4c1d-7f20-9b3e-1a2c3d4e5f60"
-
-## Why every prose case is skipped: this SDK reads an address only as a whole string, and the finder the cases test
-## (the packages' readOwLinkAt) is not ported yet. Each such case still checks the half above, then is skipped by this
-## reason, counted in the suite's total and named in its output; every other kind runs.
-const PROSE_SKIP := "skipped by kind 'prose': no finder of an address in prose in this SDK yet (OW Gaming #1527)"
 
 var _doc: Dictionary
 
@@ -46,18 +41,22 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 				t.ok(r.ok, "read (refused as %s)" % r.reason)
 				t.eq(r.to_dict(), _reading(c["expect"]), "the reading")
 		"prose":
-			# The half this SDK owns: where the fixture finds an address, the text holds it at the index, and the
-			# whole-string parser reads it as the fixture's reading. The finding itself is skipped, by name.
+			# read_link_at finds the address that starts at the case's index: the slice it covers, and the
+			# whole-string parser's reading of that slice; or nothing, where the fixture finds nothing.
 			var want: Dictionary = c["expect"]
-			if want["address"] != null:
-				var at := int(c["index"])
+			var text: String = c["text"]
+			var at := int(c["index"])
+			var found := OWAddress.read_link_at(text, at)
+			if want["address"] == null:
+				t.ok(found == null, "no address (found %s)" % (text.substr(at, found.end - at) if found != null else ""))
+				t.ok(want["reading"] == null, "no address, no reading")
+			else:
 				var address: String = want["address"]
-				t.eq(c["text"].substr(at, address.length()), address, "the address at the index")
-				var r := OWAddress.parse_link(address)
-				t.ok(r.ok, "the address read whole (refused as %s)" % r.reason)
-				t.eq(r.to_dict(), _reading(want["reading"]), "its reading, whole")
-			t.skip(PROSE_SKIP)
-			return
+				t.ok(found != null, "found an address at %d (the fixture finds %s)" % [at, address])
+				if found != null:
+					t.eq(found.end, at + address.length(), "the end")
+					t.eq(text.substr(at, found.end - at), address, "the slice at the index")
+					t.eq(found.reading.to_dict(), _reading(want["reading"]), "its reading")
 		_:
 			t.fail("a case of unknown kind %s" % c["kind"])
 	t.done()
@@ -189,4 +188,59 @@ func test_a_key_the_shape_does_not_hold_is_an_error_not_a_refusal(t) -> void:
 	# A reading's two flags are keys of the shape, and ignored.
 	t.eq(_refusal('{"form": "text", "world": "%s", "world_is_slug": true, "canonical": "no"}' % WORLD),
 		"wrote ow://" + WORLD, "world_is_slug and canonical ignored")
+	t.done()
+
+# -- an address in prose, beside the fixture ---------------------------------------------------------------------------
+
+func test_read_link_at_the_index_defaults_to_0(t) -> void:
+	var n := 0
+	for c in _fixture()["cases"]:
+		if c["kind"] != "prose" or int(c["index"]) != 0:
+			continue
+		var given := OWAddress.read_link_at(c["text"], 0)
+		var defaulted := OWAddress.read_link_at(c["text"])
+		t.eq(given == null, defaulted == null, c["name"])
+		if given != null and defaulted != null:
+			t.eq(defaulted.end, given.end, c["name"])
+		n += 1
+	t.ok(n > 40, "cases at index 0: %d" % n)
+	t.done()
+
+func test_read_link_at_counts_code_points_so_an_emoji_before_the_address_still_slices_right(t) -> void:
+	# The npm package's case, where the emoji is two UTF-16 units and the index 19; a Godot String counts it as one.
+	var address := "ow://object/%s@4" % ELEMENT
+	var text := "Built " + String.chr(0x1F6A2) + " the gate: " + address + "."
+	var at := text.find("ow://")
+	t.eq(at, 18, "the emoji is one code point: 18 come before the address")
+	var found := OWAddress.read_link_at(text, at)
+	t.ok(found != null, "found")
+	if found != null:
+		t.eq(found.end, at + address.length(), "the end")
+		t.eq(text.substr(at, found.end - at), address, "the slice")
+		t.eq(text.substr(found.end, 1), ".", "the full stop after it")
+		t.eq(found.reading.id, ELEMENT, "the id")
+		t.eq(found.reading.moment, 4, "the moment")
+	t.done()
+
+func test_read_link_at_a_bad_index_or_an_empty_text_reads_nothing(t) -> void:
+	t.ok(OWAddress.read_link_at("ow://x", -1) == null, "an index below 0")
+	t.ok(OWAddress.read_link_at("ow://x", 99) == null, "past the end")
+	t.ok(OWAddress.read_link_at("", 0) == null, "an empty text")
+	t.ok(OWAddress.read_link_at("OW://object/" + ELEMENT) == null, "the prefix as written, lowercase")
+	t.done()
+
+func test_read_link_at_the_sites_form_a_run_cut_inside_a_word_is_no_address(t) -> void:
+	var h := "https://www.onlyworlds.com/w/"
+	t.ok(OWAddress.read_link_at(h + "hyperion" + String.chr(0x1D49C) + ".") == null, "a letter above U+FFFF cuts")
+	t.ok(OWAddress.read_link_at(h + "cafe" + String.chr(0x301) + ".") == null, "a combining mark counts with the letters")
+	t.ok(OWAddress.read_link_at(h + "hyper_ion.") == null, "an underscore")
+	var found := OWAddress.read_link_at(h + "hyperion" + String.chr(0x1F6A2))
+	t.eq(found.end if found != null else -1, (h + "hyperion").length(), "an emoji is no letter: the run ends before it")
+	t.done()
+
+func test_the_letters_and_marks_table(t) -> void:
+	for c in [0x41, 0x7A, 0xE9, 0x301, 0x5D0, 0x938, 0x93F, 0x4E00, 0xAC00, 0x1D49C, 0x20000, 0x2B0, 0x20DD]:
+		t.ok(OWUnicode.is_letter_or_mark(c), "U+%04X is L or M" % c)
+	for c in [0x30, 0x5F, 0x2D, 0x20, 0x2E, 0xD7, 0x1F6A2, 0x10FFFF, 0x0, 0x3000, 0x660]:
+		t.ok(not OWUnicode.is_letter_or_mark(c), "U+%04X is neither" % c)
 	t.done()

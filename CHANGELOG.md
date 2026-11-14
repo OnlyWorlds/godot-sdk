@@ -8,6 +8,19 @@ the git log.
 
 ### Added
 
+- An address found in prose (the address page's "An address in prose", schema-dist serial 123):
+  `OWAddress.read_link_at(text, index = 0)` answers a `Found` (`reading`, `end`): the address that starts exactly at
+  `index` in a text and the index just past it, or null when the text there is not an address. The npm package's
+  `readOwLinkAt` and the Python package's `read_ow_link_at`. Both forms, the prefix as written. Where the address ends
+  is the grammar's, never the next space's: after the path it continues only with `@` and a moment and then `?lens=`
+  and a lens; any other query key, a fragment and a full stop are prose. In the site's form the run after `/w/` is read
+  whole: exactly an id's form is the id, any other legal slug the slug, else no address, and a run followed by a
+  letter of any script, a combining mark or an underscore is cut inside a word and is no address. `index` and `end`
+  count code points, as a Godot String does (npm counts UTF-16 units, Python code points). An index below 0 or past
+  the end reads nothing. `parse_link` is unchanged. The address fixture's 61 prose cases, skipped by kind until now,
+  run against it and pass. `OWUnicode.is_letter_or_mark(c)` reads general category L or M from a table `generate.py`
+  now emits into `ow_unicode_data.gd` (`LETTER_OR_MARK`, 725 ranges of UnicodeData 15.1.0 as schema-dist vendors it,
+  checked equal to Python's `unicodedata`).
 - `OWTools` repinned at the tools list's `aa00969` (tools.json sha256 `2140d2b9…`): the OnlyWorlds mapper is listed,
   a world's maps and layouts in the browser, read only. Its `element_types` is null, so its element door is offered
   on every type's menu; it skips map space (a Map, Pin or Marker as served), needs an account and opens a public

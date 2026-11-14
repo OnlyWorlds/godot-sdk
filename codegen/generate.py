@@ -19,7 +19,8 @@ Standard library only. What it reads and writes:
   -> addons/onlyworlds/ow_views_table.gd          views.json's banners, layouts and rows, and each type's section
                                                   fields in the walk's order, for OWViews; the file is checked first
                                                   (check_views) and refused whole when it fails
-  -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), as GDScript constants
+  -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), and the letters and
+                                                  combining marks an address in prose is cut by, as GDScript constants
   -> tests/data/unicode_vectors.txt               what Python says NFC and the fold give, for the tests
 
 The schema source is `schema.json`, the walk's own output (schema-dist README: "plain JSON, so any language or engine
@@ -623,7 +624,35 @@ def white_space() -> list[int]:
     return [cp for cp in range(0x110000) if not (0xD800 <= cp <= 0xDFFF) and chr(cp).isspace()]
 
 
-def emit_unicode(nfc: dict, folds: dict, spaces: list[int]) -> str:
+def word_ranges() -> list[list[int]]:
+    """The code points that glue an address found in prose into a word (the address page's "An address in prose",
+    serial 123): general category L or M, any letter or combining mark, from the vendored UnicodeData file (a
+    `<..., First>` and `<..., Last>` pair is a range), checked equal to Python's unicodedata. As ranges, first and last
+    inclusive. The underscore, the set's third member, is Pc and the reader's own."""
+    cps, first = set(), None
+    for line in UNICODE_DATA.read_text(encoding="utf-8").splitlines():
+        fields = line.split(";")
+        cp = int(fields[0], 16)
+        if fields[1].endswith(", First>"):
+            first = cp
+            continue
+        lo = first if fields[1].endswith(", Last>") else cp
+        first = None
+        if fields[2][0] in "LM":
+            cps.update(range(lo, cp + 1))
+    oracle = {cp for cp in range(0x110000) if unicodedata.category(chr(cp))[0] in "LM"}
+    if cps != oracle:
+        sys.exit("The letters and marks from the vendored UnicodeData and from Python's unicodedata disagree.")
+    ranges: list[list[int]] = []
+    for cp in sorted(cps):
+        if ranges and ranges[-1][1] == cp - 1:
+            ranges[-1][1] = cp
+        else:
+            ranges.append([cp, cp])
+    return ranges
+
+
+def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int]]) -> str:
     def h(cp):
         return "0x%X" % cp
 
@@ -637,6 +666,8 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int]) -> str:
         f"#   CompositionExclusions-{UNICODE_VERSION}.txt as vendored in schema-dist (fixtures/owworld/), checked",
         f"#   equal to Python {sys.version.split()[0]}'s unicodedata (unidata_version {unicodedata.unidata_version}).",
         "# - WHITE_SPACE: what Python's str.strip() strips, for trimming a world id as the reference checker does.",
+        f"# - LETTER_OR_MARK: general category L or M from UnicodeData-{UNICODE_VERSION}.txt, what glues an address",
+        "#   found in prose into a word.",
         "extends RefCounted",
         "",
         f'const UNICODE_VERSION := "{UNICODE_VERSION}"',
@@ -653,6 +684,9 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int]) -> str:
     out += ["\t%s: %s," % (h(a << 21 | b), h(c)) for (a, b), c in sorted(nfc["compose"].items())]
     out += ["}", "", "## White space as Python's str.isspace() has it.", "const WHITE_SPACE := ["]
     out += ["\t" + ", ".join(h(cp) for cp in spaces) + ","]
+    out += ["]", "", "## Letters and combining marks (general category L or M): ranges as first, last, first, last, ...",
+            "## ascending, each inclusive.", "const LETTER_OR_MARK := ["]
+    out += ["\t%s, %s," % (h(lo), h(hi)) for lo, hi in words]
     out += ["]", ""]
     return "\n".join(out)
 
@@ -722,7 +756,7 @@ def outputs() -> dict[Path, str]:
     if nfc != nfc_tables_from_unicodedata():
         sys.exit("NFC from the vendored files and from Python's unicodedata disagree; read both before trusting either.")
     folds = simple_folds()
-    out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space())
+    out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space(), word_ranges())
     out[ROOT / "tests" / "data" / "unicode_vectors.txt"] = unicode_vectors(nfc, folds)
     return out
 
