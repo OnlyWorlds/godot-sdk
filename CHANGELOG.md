@@ -21,6 +21,12 @@ the git log.
   run against it and pass. `OWUnicode.is_letter_or_mark(c)` reads general category L or M from a table `generate.py`
   now emits into `ow_unicode_data.gd` (`LETTER_OR_MARK`, 725 ranges of UnicodeData 15.1.0 as schema-dist vendors it,
   checked equal to Python's `unicodedata`).
+- `OWAddress.read_link_at` answers null when the address would begin inside a word (schema-dist serial 127): after a
+  letter of any script, a combining mark or an underscore (`elbow://object/<id>` and `_ow://…` are prose), the same
+  set that cuts a run after it; a hyphen, a digit, white space, punctuation or the start of the text before the prefix
+  does not glue. One index back is a whole code point here, so a letter above U+FFFF glues as any letter does. Two
+  addresses written back to back read as two after an id that ends in a digit and as one after an id that ends in a
+  hex letter. The address fixture's fifteen new prose cases run and pass.
 - `OWTools` repinned at the tools list's `aa00969` (tools.json sha256 `2140d2b9…`): the OnlyWorlds mapper is listed,
   a world's maps and layouts in the browser, read only. Its `element_types` is null, so its element door is offered
   on every type's menu; it skips map space (a Map, Pin or Marker as served), needs an account and opens a public

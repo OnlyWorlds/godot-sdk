@@ -21,6 +21,8 @@ func get_cases() -> Array:
 	var out := []
 	for c in _fixture()["cases"]:
 		out.append(["address:" + c["name"], _case.bind(c)])
+	for c in _start_cases():
+		out.append(["start:" + c[0], _start_case.bind(c)])
 	return out
 
 func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
@@ -80,6 +82,23 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(cases.filter(func(c): return c["kind"] == "parse").size(), 104, "parse cases")
 	t.eq(cases.filter(func(c): return c["kind"] == "prose").size(), 76, "prose cases (57 at dist.123, four more at dist.126, fifteen at dist.127)")
 	t.eq(cases.filter(func(c): return c.get("refuse") != null).size(), 75, "refusals: 20 format, 55 parse")
+	t.done()
+
+## index counts code points, as a Godot String does, so the prose loop reads it; index_utf16 (serial 127) is the same
+## place in UTF-16 units, given only where the two differ: the text before the index holds a letter above U+FFFF.
+func test_the_prose_index_is_in_code_points_and_index_utf16_only_where_the_units_differ(t) -> void:
+	var differ := []
+	for c in _fixture()["cases"].filter(func(x): return x["kind"] == "prose"):
+		var before: String = c["text"].substr(0, int(c["index"]))
+		var units := 0
+		for i in before.length():
+			units += 2 if before.unicode_at(i) > 0xFFFF else 1
+		if c.has("index_utf16"):
+			t.eq(int(c["index_utf16"]), units, "%s: index_utf16 is the code point index in UTF-16 units" % c["name"])
+			differ.append(c["name"])
+		else:
+			t.eq(units, int(c["index"]), "%s: no index_utf16, so the two counts agree" % c["name"])
+	t.eq(differ, ["prose-start-glued-astral-letter", "prose-start-astral-letter-then-space"], "the two cases that give index_utf16")
 	t.done()
 
 func test_the_type_words_and_refusals_are_the_fixtures(t) -> void:
@@ -237,6 +256,44 @@ func test_read_link_at_the_sites_form_a_run_cut_inside_a_word_is_no_address(t) -
 	t.ok(OWAddress.read_link_at(h + "hyper_ion.") == null, "an underscore")
 	var found := OWAddress.read_link_at(h + "hyperion" + String.chr(0x1F6A2))
 	t.eq(found.end if found != null else -1, (h + "hyperion").length(), "an emoji is no letter: the run ends before it")
+	t.done()
+
+# -- where an address in prose begins (schema-dist serial 127) ---------------------------------------------------------
+# The mirror of the cut after a run: a letter of any script, a combining mark or an underscore before the prefix glues
+# it into a word, and the text there is prose; anything else, or the start of the text, does not. Written ahead of the
+# fixture and red first on the finder before the rule; the fixture's prose cases now carry the rule, and these stay as
+# this SDK's own vectors (each found at the prefix by String.find, its end checked).
+
+const START_ID := "01a1d4ef-0000-7000-8000-000000000084"
+
+## name, text, the prefix the index is at, found.
+func _start_cases() -> Array:
+	return [
+		["glued-letter", "Built the gate: elbow://object/%s." % START_ID, "ow://", false],
+		["glued-underscore", "tag_ow://object/%s here" % START_ID, "ow://", false],
+		["glued-non-ascii-letter", "caf" + String.chr(0xE9) + "ow://object/" + START_ID, "ow://", false],
+		["glued-combining-mark", "e" + String.chr(0x301) + "ow://object/" + START_ID, "ow://", false],
+		["glued-astral-letter", String.chr(0x1D49C) + "ow://object/" + START_ID, "ow://", false],
+		["after-hyphen", "x-ow://object/" + START_ID, "ow://", true],
+		["after-digit", "3ow://object/" + START_ID, "ow://", true],
+		["after-space", "Built the gate: ow://object/%s." % START_ID, "ow://", true],
+		["after-opening-bracket", "Built the gate (ow://object/%s)." % START_ID, "ow://", true],
+		["after-quote", "Built the gate \"ow://object/%s\"." % START_ID, "ow://", true],
+		["start-of-text", "ow://object/%s was built." % START_ID, "ow://", true],
+		["glued-letter-site-form", "seehttps://www.onlyworlds.com/w/hyperion/object/" + START_ID, "https://", false],
+	]
+
+func _start_case(t, c: Array) -> void:
+	var text: String = c[1]
+	var at := text.find(c[2])
+	var found := OWAddress.read_link_at(text, at)
+	if not c[3]:
+		t.ok(found == null, "the start is glued to a word: found %s at %d" % [text.substr(at, found.end - at) if found != null else "", at])
+	else:
+		t.ok(found != null, "found an address at %d" % at)
+		if found != null:
+			t.eq(found.reading.id, START_ID, "the id")
+			t.eq(found.end, at + ("ow://object/" + START_ID).length(), "the address ends where its id ends")
 	t.done()
 
 func test_the_letters_and_marks_table(t) -> void:
