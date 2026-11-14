@@ -83,16 +83,18 @@ func test_the_table_is_the_file_the_banners_the_layouts_and_every_row(t) -> void
 			t.ok(k in ["id", "kind", "from", "sentence", "lead", "fold", "layout", "banner"], "row %s carries a column OWViews does not read: %s" % [r["id"], k])
 	t.done()
 
-func test_the_fixture_holds_dist117s_cases_and_every_row_is_reached(t) -> void:
+func test_the_fixture_holds_dist127s_cases_and_every_row_is_reached(t) -> void:
 	var f := _fixture()
 	t.eq(f["views"], "views.json", "the fixture's table")
 	var cases: Array = f["cases"]
-	t.eq(cases.size(), 46, "dist.117's fixture holds 46 cases")
-	t.eq(get_cases().size(), 46, "every case runs here, one test each")
+	t.eq(cases.size(), 56, "dist.127's fixture holds 56 cases")
+	t.eq(get_cases().size(), 56, "every case runs here, one test each")
 	t.ok(cases.any(func(c): return c["name"] == "document-a-generic-link-with-one-key-white-space-alone-holds-nothing"),
 		"dist.117's case: a generic link with one key holding and the other White_Space alone holds nothing")
 	var own := cases.filter(func(c): return not c.has("table"))
-	t.eq(cases.size() - own.size(), 2, "two cases read a table of the fixture's own")
+	t.eq(cases.size() - own.size(), 12, "twelve cases read a table of the fixture's own")
+	t.eq(cases.filter(func(c): return c.get("table") == "own-banner-by-presence").size(), 10,
+		"dist.127's ten cases of a row's own banner, read by presence, on a table of the fixture's own")
 	t.eq(own.filter(func(c): return c["expect"].has("order")).size(), 10, "ten of the file's own cases name an order")
 	var seen := {}
 	for c in own:
@@ -177,11 +179,11 @@ func _row(id: String, kind: Dictionary, banner: Array = []) -> Dictionary:
 func _table(rows: Array) -> Dictionary:
 	return {"banners": OWViews.BANNERS, "rows": rows}
 
-## The file's words (version 2's [code]banners[/code] sentence): a row's own [code]banner[/code] marks are "each read by
-## presence as the room profile reads a mark: not null, a string only when something is left after trimming, any other
-## value counts". Serial 126 moved the room profile's reading under it (an empty list or object is no mark) and left the
-## file's words as they were: the mark is read as the room profile reads one, as the TypeScript SDK's [code]carries[/code]
-## reads it through [code]hasMark[/code], so an empty object is no banner.
+## The file's words (the [code]banners[/code] sentence, as serial 127 words it): a row's own [code]banner[/code] marks are
+## "each read by presence exactly as the room profile reads a mark (profiles/room.md, its presence rule); this page states
+## no rule of its own for it". Since serial 126 the room profile reads an empty list or object as no mark, so an empty
+## object is no banner, as the TypeScript SDK's [code]carries[/code] reads it through [code]hasMark[/code]. The fixture's
+## ten own-banner cases (serial 127) hold the same on a table of their own.
 func test_a_rows_own_banner_mark_is_read_by_presence_the_files_words(t) -> void:
 	var table := _table([_row("noted", {"type": "character"}, ["x_note"])])
 	var vectors := [["\"" + WORLD + "\"", true], ["\"  \"", false], ["\"\"", false], ["7", true], ["false", true],

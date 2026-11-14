@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWAddress on the address profile's conformance fixture (schema-dist profiles/address.fixture.json, the pinned copy
-## at dist.126): every format case through element_address_from, every parse case through parse_link, every prose case
+## at dist.127): every format case through element_address_from, every parse case through parse_link, every prose case
 ## through read_link_at (serial 123), each refusal by the reason the fixture names. Then what the fixture leaves open, as the npm and Python packages
 ## answer it: the writer's order, a moment of 3.0, an empty string, a key outside the shape.
 
@@ -42,7 +42,8 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 				t.eq(r.to_dict(), _reading(c["expect"]), "the reading")
 		"prose":
 			# read_link_at finds the address that starts at the case's index: the slice it covers, and the
-			# whole-string parser's reading of that slice; or nothing, where the fixture finds nothing.
+			# whole-string parser's reading of that slice; or nothing, where the fixture finds nothing. A Godot
+			# String counts code points, as index does: a case's index_utf16 (serial 127) is for UTF-16 readers.
 			var want: Dictionary = c["expect"]
 			var text: String = c["text"]
 			var at := int(c["index"])
@@ -74,10 +75,10 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var doc := _fixture()
 	t.eq(doc["profile"], "address", "the profile")
 	var cases: Array = doc["cases"]
-	t.eq(cases.size(), 201, "201 cases")
+	t.eq(cases.size(), 216, "216 cases")
 	t.eq(cases.filter(func(c): return c["kind"] == "format").size(), 36, "format cases")
 	t.eq(cases.filter(func(c): return c["kind"] == "parse").size(), 104, "parse cases")
-	t.eq(cases.filter(func(c): return c["kind"] == "prose").size(), 61, "prose cases (57 at dist.123, four more at dist.126)")
+	t.eq(cases.filter(func(c): return c["kind"] == "prose").size(), 76, "prose cases (57 at dist.123, four more at dist.126, fifteen at dist.127)")
 	t.eq(cases.filter(func(c): return c.get("refuse") != null).size(), 75, "refusals: 20 format, 55 parse")
 	t.done()
 

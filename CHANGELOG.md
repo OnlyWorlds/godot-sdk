@@ -223,6 +223,17 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.127` (`f50c526`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 127). No schema
+  file or `schema.json` moved; the generated files moved in their stamp only, and `OWViewsTable` in its `views.json`
+  sha256: the file's `banners` sentence now defers to the room page's presence rule with no paraphrase of its own, the
+  reading this SDK already followed, and the views fixture's ten new cases of a row's own banner, on a table of the
+  fixture's own, pass unchanged. The address page adds a start rule for an address found in prose (the entry below
+  builds it here); its two cases with a letter above U+FFFF before the address carry `index_utf16` beside `index`,
+  and this SDK reads `index`, since a Godot String counts code points. The map space page says what the layout mark
+  means (a Map that is a drawing of its elements) and who writes it (rule 12): this SDK writes no `x_layout`, and the
+  three new layout cases pass unchanged. The checks fixture's three presence cases and the spine fixture's one have no
+  reader here. The fixtures' counts follow: address 216 (76 prose), views 56 (12 on a table of the fixture's own),
+  map space 29 layout cases.
 - Schema pin to `v0.34.1-dist.126` (`86e2ff4`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 126). No schema
   file, `schema.json` or `views.json` moved, and the generated files moved in their stamp only. The room, charter,
   review and checks pages read a mark by one presence: null, a blank string, an empty list and an empty object are
