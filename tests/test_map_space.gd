@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWMapSpace on the map space profile's conformance fixture (schema-dist profiles/map-space.fixture.json, the pinned
-## copy at dist.119, its sha256 checked against the manifest): every case by name, the whole answer compared by value
+## copy at dist.126, its sha256 checked against the manifest): every case by name, the whole answer compared by value
 ## and as bytes, key order included. Beside it, what the fixture leaves open in Godot: the same rows given as ints,
 ## a boolean that is no number, a whole value past the reader's int range, the page's reading A, a caller's mistake,
 ## rows that are no element, and a reading that never moves the elements.
@@ -55,11 +55,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "map-space", "the profile")
 	t.eq(f["profile_page"], "profiles/map-space.md", "its page")
-	t.eq(f["cases"].size(), 35, "35 cases (34 at dist.106)")
+	t.eq(f["cases"].size(), 39, "39 cases (34 at dist.106, 35 at dist.119)")
 	var names := {}
 	for c in f["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 35, "each case named once")
+	t.eq(names.size(), 39, "each case named once")
 	t.ok(names.has("layout-map-read-as-before"), "dist.119's case: a layout map read as any Map (rule 11)")
 	t.done()
 
@@ -256,13 +256,15 @@ func _layout_case(t, c: Dictionary) -> void:
 ## map-without-a-string-id names two, a row with no id and one whose id is 7).
 func test_the_replay_reads_every_row_a_case_names(t) -> void:
 	var by_index: Array = _fixture()["layout_cases"].filter(func(c): return c.has("map_index"))
-	t.eq(by_index.map(func(c): return c["name"]), ["map-without-a-string-id"], "dist.111 names one case's Maps by map_index")
+	t.eq(by_index.map(func(c): return c["name"]), ["map-without-a-string-id", "layout-map-empty-id-is-no-map"],
+		"dist.111 names one case's Maps by map_index, dist.126 a second (a Map whose id is an empty string)")
 	var errors := []
 	t.eq(_read_layouts(by_index[0], errors).size(), 2, "its two rows, each read")
+	t.eq(_read_layouts(by_index[1], errors).size(), 1, "its one row, read")
 	var rows := 0
 	for c in _fixture()["layout_cases"]:
 		rows += _read_layouts(c, errors).size()
-	t.eq(rows, 23 - 1 + 2, "every row a case names, read once (23 cases, one of them naming two rows)")
+	t.eq(rows, 26 - 2 + 2 + 1, "every row a case names, read once (26 cases, one of them naming two rows)")
 	t.eq(errors, [], "every case names its Map rows")
 	t.done()
 
@@ -278,17 +280,17 @@ func test_an_escaped_surrogate_pair_is_one_code_point_in_code_point_order(t) -> 
 	t.eq(OWMapSpace.layout_of(board, [board], pins).hand, ["p" + String.chr(0xFFFF), "p" + String.chr(0x1F6A2)], "U+FFFF first")
 	t.done()
 
-func test_the_fixture_holds_twenty_three_layout_cases_beside_its_cases(t) -> void:
+func test_the_fixture_holds_twenty_six_layout_cases_beside_its_cases(t) -> void:
 	var f := _fixture()
 	t.ok(f.get("layout_cases") is Array, "layout_cases beside cases")
-	t.eq(f["layout_cases"].size(), 23, "23 layout cases (17 at dist.110, 21 at dist.111)")
+	t.eq(f["layout_cases"].size(), 26, "26 layout cases (17 at dist.110, 21 at dist.111, 23 at dist.119)")
 	var names := {}
 	for c in f["layout_cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 23, "each layout case named once")
+	t.eq(names.size(), 26, "each layout case named once")
 	t.ok(names.has("parentless-layout-beside-ground") and names.has("ground-beside-parentless-layout"),
 		"dist.119's two cases: a layout Map and its ground, neither with a parent_map, each read in turn")
-	t.eq(f["cases"].size(), 35, "the map space reading's 35 cases beside them")
+	t.eq(f["cases"].size(), 39, "the map space reading's 39 cases beside them")
 	t.done()
 
 ## The map space reading is unchanged by rules 8 to 10: on every layout case its answer carries no layout key.

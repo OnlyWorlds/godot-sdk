@@ -102,7 +102,7 @@ func test_the_room_pairs_are_the_room_profiles(t) -> void:
 		words.append(OWUnicode.profile_fold(p["type"]) + "/" + OWUnicode.profile_fold(p["supertype"]))
 	t.eq(words, OWLens.ROOM_PAIRS, "the room fixture's pairs")
 	t.eq(room["mark"]["field"], OWLens.ROOM_MARK, "the room fixture's mark")
-	t.eq(room["cases"].size(), 35, "35 room cases")
+	t.eq(room["cases"].size(), 38, "38 room cases")
 	t.done()
 
 ## The profiles' fold is trim then simple case folding, never NFC: a decomposed e and acute stays two code points.

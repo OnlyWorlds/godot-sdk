@@ -210,6 +210,14 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.126` (`86e2ff4`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 126). No schema
+  file, `schema.json` or `views.json` moved, and the generated files moved in their stamp only. The room, charter,
+  review and checks pages read a mark by one presence: null, a blank string, an empty list and an empty object are
+  absent (the entry below builds it here). The map space page reads a link whose value is an empty string as no
+  link, as an empty id is no id: this SDK already read every link and id so, and the fixture's seven new cases pass
+  unchanged. The address page gains four prose cases, skipped here by kind as serial 123's are (no finder of an
+  address in prose). The fixtures' counts follow: address 201 (61 prose), charter 41, map space 39 cases and 26
+  layout cases (a second case names its Map by `map_index`), room 38.
 - Schema pin to `v0.34.1-dist.124` (`094107b`); the standard moves to canonical 00.34.01 (`OWSchemaPin.CANONICAL`
   is now `"00.34.01"`, `SERIAL` 124), the first canonical move since serial 103. One description moved and no field:
   Map's `hierarchy` orders the maps that stand side by side (floors, decks, layers), the maps with the same
