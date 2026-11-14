@@ -46,7 +46,8 @@ func _case(t, c: Dictionary) -> void:
 	var got := a.to_dict()
 	for k in want:
 		t.eq(got.get(k), want[k], k)
-	t.eq(JSON.stringify(got), JSON.stringify(want), "byte for byte, key order included")
+	# sort_keys false: JSON.stringify sorts a Dictionary's keys by default, which would hide the order.
+	t.eq(JSON.stringify(got, "", false), JSON.stringify(want, "", false), "byte for byte, key order included")
 	t.done()
 
 func test_the_fixture_is_the_pinned_one(t) -> void:
