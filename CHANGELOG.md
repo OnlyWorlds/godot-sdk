@@ -229,6 +229,14 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.128` (`7ffb61c`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 128). No schema
+  file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. A multi-link names each
+  element once: a reader served a list that names one element twice reads it once, in its first place, on the lens,
+  landing and message pages (the entries below build it here). The address page adds a find-all with a new kind of
+  case, `prose-all`. The folder spec is at 0.3.24 (the vendored folder check's `FORMAT_VERSION`); this SDK stamps no
+  `format_version`. The spine fixture's new case has no reader here. The fixtures' counts follow: address 218 (two
+  `prose-all`), lens 235 (resolve 134, graph 56), message 102 (two `recipients`); landing's doubled-target case now
+  wants one edge.
 - Schema pin to `v0.34.1-dist.127` (`f50c526`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 127). No schema
   file or `schema.json` moved; the generated files moved in their stamp only, and `OWViewsTable` in its `views.json`
   sha256: the file's `banners` sentence now defers to the room page's presence rule with no paraphrase of its own, the
