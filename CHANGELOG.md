@@ -210,6 +210,13 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.124` (`094107b`); the standard moves to canonical 00.34.01 (`OWSchemaPin.CANONICAL`
+  is now `"00.34.01"`, `SERIAL` 124), the first canonical move since serial 103. One description moved and no field:
+  Map's `hierarchy` orders the maps that stand side by side (floors, decks, layers), the maps with the same
+  `parent_map`, without one the maps of the same `location`, without either the maps of the world itself; lower is
+  deeper or earlier, and nesting is said by `parent_map` and `location`, not by the number (`OWMap.hierarchy`'s doc
+  comment follows). No fixture, `views.json` or walk reader moved, and the other generated files moved in their stamp
+  only. No reader in this SDK changes.
 - An element held in upper case answers no rows, not a refusal. `OWOpeners.openers_for` with an options `element`
   whose own `id` is the address's id in upper case (the address's id is read in either case and taken in lowercase,
   the element's is read as written) now answers ok with no rows, the site's own row included: no address can name
