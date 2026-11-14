@@ -82,13 +82,21 @@ static func is_message(element: Variant) -> bool:
 static func is_note(element: Variant) -> bool:
 	return _matches(element, PAIR_TYPE, NOTE_SUPERTYPE)
 
-## The Character ids in the message's [code]characters[/code], in the field's order, entries that are not ids left
-## out. Empty (absent, null or [code][][/code]) is addressed to every member unless keel trimmed it; ask
-## [method is_addressed_to] for "is it for X". A Note has none. npm [code]recipientsOf[/code].
+## The Character ids in the message's [code]characters[/code], each once, in the order of its first place (a list
+## served with one Character twice is read once, serial 128), entries that are not ids left out and ids compared as
+## written. Empty (absent, null or [code][][/code]) is addressed to every member unless keel trimmed it; ask
+## [method is_addressed_to] for "is it for X". Only a message has recipients ([method is_message]): a Note, a Story or
+## any other element has none, whatever its [code]characters[/code] holds (serial 128). npm [code]recipientsOf[/code].
 static func recipients_of(message: Variant) -> Array:
-	if not (message is Dictionary) or is_note(message) or not (message.get("characters") is Array):
+	if not is_message(message) or not (message.get("characters") is Array):
 		return []
-	return message["characters"].filter(func(c): return c is String and c != "")
+	var out := []
+	var met := {}
+	for c in message["characters"]:
+		if c is String and c != "" and not met.has(c):
+			met[c] = true
+			out.append(c)
+	return out
 
 ## True when the message is addressed to [param character_id]: its id is in [code]characters[/code], or
 ## [code]characters[/code] is empty and keel did not trim it for this reader ([method is_to_everyone]). Nothing else

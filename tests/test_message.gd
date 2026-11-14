@@ -32,6 +32,8 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 			t.eq(OWMessage.is_message(c["element"]), c["is_message"], "is_message")
 		"addressed":
 			t.eq(OWMessage.is_addressed_to(c["message"], c["character"]), c["addressed"], "is_addressed_to")
+		"recipients":
+			t.eq(OWMessage.recipients_of(c["message"]), c["recipients"], "recipients_of")
 		"sent_by":
 			t.eq(OWMessage.is_sent_by(c["message"], c["character"]), c["sent_by"], "is_sent_by")
 		"sender":
@@ -139,6 +141,14 @@ func test_recipients_of(t) -> void:
 	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Message"}), [], "absent is empty")
 	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Message", "characters": null}), [], "null is empty")
 	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Note", "characters": [A1]}), [], "a Note has none")
+	# Serial 128: each once, in its first place, ids compared as written; only a message has any.
+	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Message", "characters": [A2, A1, A2, A1]}), [A2, A1], "each once, in its first place")
+	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Message", "characters": [A1, A1.to_upper(), A1]}), [A1, A1.to_upper()], "another spelling is another entry")
+	t.eq(OWMessage.recipients_of({"type": " Narrative ", "supertype": " MESSAGE ", "characters": [A1]}), [A1], "the pair trimmed and folded")
+	t.eq(OWMessage.recipients_of({"characters": [A1]}), [], "no pair: not a message")
+	t.eq(OWMessage.recipients_of({"type": "narrative", "supertype": "Story", "characters": [A1]}), [], "a Story has none")
+	t.eq(OWMessage.recipients_of({"type": "narrative", "characters": [A1]}), [], "no supertype: not a message")
+	t.eq(OWMessage.recipients_of(null), [], "null has none")
 	t.done()
 
 ## A list that names no valid id, or a value that is not a list, addresses nobody, never everyone; a Note's unseen

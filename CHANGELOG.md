@@ -242,6 +242,10 @@ the git log.
   not a node is counted once in `edges_cut`. An edge's `index` is still its place in the list as served. Ids are
   compared as written. `OWLanding.landing_of` reads the graph it is given, so a doubled target is one edge there too.
   The lens fixture's case 143 and the new graph case pass.
+- `OWMessage.recipients_of` answers each recipient once, and only for a message (serial 128): a `characters` list
+  that names one Character twice gives that Character once, in its first place, ids compared as written; a body that
+  is not a message (`OWMessage.is_message`: a Story, a Narrative with no supertype, a body with no pair) now has none,
+  where before any body but a Note gave its list. The message fixture's two `recipients` cases run and pass.
 - Schema pin to `v0.34.1-dist.127` (`f50c526`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 127). No schema
   file or `schema.json` moved; the generated files moved in their stamp only, and `OWViewsTable` in its `views.json`
   sha256: the file's `banners` sentence now defers to the room page's presence rule with no paraphrase of its own, the
