@@ -179,11 +179,13 @@ func _table(rows: Array) -> Dictionary:
 
 ## The file's words (version 2's [code]banners[/code] sentence): a row's own [code]banner[/code] marks are "each read by
 ## presence as the room profile reads a mark: not null, a string only when something is left after trimming, any other
-## value counts".
+## value counts". Serial 126 moved the room profile's reading under it (an empty list or object is no mark) and left the
+## file's words as they were: the mark is read as the room profile reads one, as the TypeScript SDK's [code]carries[/code]
+## reads it through [code]hasMark[/code], so an empty object is no banner.
 func test_a_rows_own_banner_mark_is_read_by_presence_the_files_words(t) -> void:
 	var table := _table([_row("noted", {"type": "character"}, ["x_note"])])
 	var vectors := [["\"" + WORLD + "\"", true], ["\"  \"", false], ["\"\"", false], ["7", true], ["false", true],
-		["{}", true], ["null", false]]
+		["{}", false], ["[]", false], ["{\"by\":\"x\"}", true], ["null", false]]
 	for vec in vectors:
 		var el := {"type": "character", "x_note": JSON.parse_string(vec[0])}
 		var v := OWViews._view_in(table, el)

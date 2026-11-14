@@ -511,13 +511,18 @@ static func _reading_aid_key(element: Variant) -> String:
 	var key := OWUnicode.profile_fold(element["type"]) + "/" + OWUnicode.profile_fold(element["supertype"])
 	return key if READING_AID_PAIRS.has(key) and _has_mark(element, READING_AID_MARK) else ""
 
-## A mark counts by presence: any value but null, and a string only when something is left after trimming Unicode's
-## White_Space. The value is never compared.
+## A mark counts by presence: any value but null, a string only when something is left after trimming Unicode's
+## White_Space, an Array or a Dictionary only when it holds something (serial 126: one presence for the room, charter
+## and review marks, since a compact reader leaves an empty list or object out). The value is never compared.
 static func _has_mark(el: Dictionary, field: String) -> bool:
 	if not el.has(field) or el[field] == null:
 		return false
 	var v: Variant = el[field]
-	return not (v is String) or OWUnicode.trim_white_space(v) != ""
+	if v is String:
+		return OWUnicode.trim_white_space(v) != ""
+	if v is Array or v is Dictionary:
+		return not v.is_empty()
+	return true
 
 ## True when [param element] carries the hidden mark on its own body (folder spec §4.8): [code]hidden[/code] present
 ## and not null or false, so a doubt counts as hidden. The lens and graph readers read it (with the world's hidden list
@@ -529,22 +534,19 @@ static func is_hidden(element: Variant) -> bool:
 	return mark != null and not (mark is bool and mark == false)
 
 ## True when [param element] is proposed as a reader reads it (schema-dist [code]profiles/review.md[/code] rule 1,
-## serial 87): its [code]x_review_proposed[/code] is present as a mark counts by presence, and for this mark an empty
-## Array or Dictionary is absent too, so an empty mark ([code]""[/code], White_Space only, [code][][/code],
-## [code]{}[/code]) is settled, never a doubt. Any other value counts, a doubt (a string, a number, a list) with a mark,
-## and is never compared. keel's [code]doubt_or_mark[/code], the npm SDK's [code]handsOnAsProposed[/code].
+## serial 87): its [code]x_review_proposed[/code] is present as a mark counts by presence ([method _has_mark], the one
+## presence since serial 126), so an empty mark ([code]""[/code], White_Space only, [code][][/code], [code]{}[/code]) is
+## settled, never a doubt. Any other value counts, a doubt (a string, a number, a list) with a mark, and is never
+## compared. keel's [code]doubt_or_mark[/code], the npm SDK's [code]handsOnAsProposed[/code].
 static func is_proposed(element: Variant) -> bool:
-	if not (element is Dictionary) or not _has_mark(element, PROPOSED_MARK):
-		return false
-	var v: Variant = element[PROPOSED_MARK]
-	return not ((v is Array or v is Dictionary) and v.is_empty())
+	return element is Dictionary and _has_mark(element, PROPOSED_MARK)
 
 ## True when [param element] is a reading aid (schema-dist [code]profiles/room.md[/code], [code]profiles/lens.md[/code]
 ## rule 4): the world's charter ([code]law[/code], supertype [code]Charter[/code]), its guide ([code]construct[/code],
 ## supertype [code]Guide[/code]) or one of its domains ([code]construct[/code], supertype [code]Domain[/code]), the type
 ## and supertype each trimmed and folded, the whole word, AND the mark [code]x_charter_of[/code] (the id of the world the
 ## aid belongs to). The mark counts when present and not null; a string mark only when something is left after
-## trimming. Both, always: the pair without the mark is lore (a kingdom's Charter in a novel's world is a Law like any
+## trimming; a list or an object only when it holds something. Both, always: the pair without the mark is lore (a kingdom's Charter in a novel's world is a Law like any
 ## other). A reading aid is not a room element. A lore view leaves it out by default; in a lens, one a hop reaches is
 ## kept only when [code]types[/code] names its pair, and one the lens names as an anchor is kept and followed. The npm
 ## SDK's [code]isCharterElement[/code], the Python package's [code]is_charter_element[/code].

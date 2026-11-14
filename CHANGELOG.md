@@ -218,6 +218,15 @@ the git log.
   unchanged. The address page gains four prose cases, skipped here by kind as serial 123's are (no finder of an
   address in prose). The fixtures' counts follow: address 201 (61 prose), charter 41, map space 39 cases and 26
   layout cases (a second case names its Map by `map_index`), room 38.
+- A room or charter mark that is an empty Array or an empty Dictionary is no mark (serial 126). `OWLens._has_mark`
+  reads `x_room_of` and `x_charter_of` as the review mark was already read: null, a blank String, `[]` and `{}` are
+  absent, since a compact reader leaves an empty list or object out and the same element must read the same in either
+  served form. Everything that reads the two marks follows: `OWLens._is_room_element`, `OWLens.is_charter_element` and
+  `OWCharter`, the lens and the graph, the openers' marks, `OWReport`, the views' row match and a row's own banner
+  (`{}` is no banner, as the TypeScript SDK's `carries` reads it through `hasMark`). `OWLens.is_proposed` reads the
+  review mark through the same `_has_mark`, its own empty check folded into it (no reading moves there). A list or object with something in it,
+  a number and `false` are still marks. The room fixture's `mark-empty-list` and `mark-empty-object` and the charter
+  fixture's two empty-mark cases pass.
 - Schema pin to `v0.34.1-dist.124` (`094107b`); the standard moves to canonical 00.34.01 (`OWSchemaPin.CANONICAL`
   is now `"00.34.01"`, `SERIAL` 124), the first canonical move since serial 103. One description moved and no field:
   Map's `hierarchy` orders the maps that stand side by side (floors, decks, layers), the maps with the same

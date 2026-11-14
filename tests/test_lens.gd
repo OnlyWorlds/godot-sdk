@@ -683,23 +683,24 @@ func test_hops_not_served_counts_a_room_element_or_aid_only_when_types_would_kee
 	t.done()
 
 ## A mark (x_room_of, x_charter_of) counts by presence: any value but null; a string only when something is left after
-## trimming Unicode's White_Space (25 code points, so a lone U+001F is a mark); the value is never compared.
+## trimming Unicode's White_Space (25 code points, so a lone U+001F is a mark); a list or an object only when it holds
+## something (serial 126); the value is never compared.
 func test_a_mark_counts_by_presence(t) -> void:
 	var message := func(mark: Variant, has: bool = true) -> Dictionary:
 		var el := {"id": "m", "type": "narrative", "name": "Memo", "supertype": "Message"}
 		if has:
 			el["x_room_of"] = mark
 		return el
-	for mark in ["w1", 7, 0, false, true, {"a": 1}, [], "\u001f", "​", "﻿", " w1 "]:
+	for mark in ["w1", 7, 0, false, true, {"a": 1}, ["w1"], "\u001f", "​", "﻿", " w1 "]:
 		t.eq(OWLens._is_room_element(message.call(mark)), true, "x_room_of %s is a mark" % var_to_str(mark))
-	for mark in ["", "  ", " 　\u0085 \t\n", null]:
+	for mark in ["", "  ", " 　\u0085 \t\n", null, [], {}]:
 		t.eq(OWLens._is_room_element(message.call(mark)), false, "x_room_of %s is no mark" % var_to_str(mark))
 	t.eq(OWLens._is_room_element(message.call(null, false)), false, "no x_room_of is no mark")
 	var charter := func(mark: Variant) -> Dictionary:
 		return {"id": "k", "type": "law", "name": "Rules", "supertype": "Charter", "x_charter_of": mark}
-	for mark in ["w1", 7, 0, false, {"a": 1}, "\u001f", "﻿"]:
+	for mark in ["w1", 7, 0, false, {"a": 1}, ["w1"], "\u001f", "﻿"]:
 		t.eq(OWLens.is_charter_element(charter.call(mark)), true, "x_charter_of %s is a mark" % var_to_str(mark))
-	for mark in ["", "  ", " 　", null]:
+	for mark in ["", "  ", " 　", null, [], {}]:
 		t.eq(OWLens.is_charter_element(charter.call(mark)), false, "x_charter_of %s is no mark" % var_to_str(mark))
 	# Through a reader: a room element is out of a public reader's view and out of an unlensed graph.
 	var world := {"elements": [
