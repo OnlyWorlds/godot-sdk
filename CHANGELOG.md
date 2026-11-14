@@ -8,6 +8,22 @@ the git log.
 
 ### Added
 
+- The default layout method: `OWLayout.layout_by_kind(graph)` and `OWLayout.layout_around(graph, focus, steps = 1)`,
+  a world's default picture and one element's, the npm package's `layoutByKind` and `layoutAround` (4.167.0) and the
+  Python package's `layout_by_kind` and `layout_around` (0.127.0). By kind: each kind of element gets a point on a
+  circle, links act as springs and neighbours push apart for a fixed number of seeded steps, and the answer is fitted
+  into a frame of -1 to 1. Around: the focus at 0, 0, its neighbours on rings round it, and with `steps` 2 their
+  neighbours fanned out beyond. Each takes an `OWGraph.Graph` or a `{nodes, edges}` Dictionary, puts it in one order
+  first, and answers `{method, version: 1, points}` (points in the order the nodes were handed in, 64-bit floats, never
+  a `Vector2`) or `{error}` naming what it cannot read. By kind gives the npm package's points to the last bit, around
+  within 1e-12. The kinds' anchors are a table of bit patterns (`ow_layout_anchors.gd`, written by the new
+  `codegen/generate_layout.py` from the shared fixture), never a decimal: Godot 4.7.2's JSON reads 56 of the fixture's
+  506 anchors and 871 of its 6,464 wanted coordinates as a neighbouring double, so the same script writes the wants as
+  bits too (`tests/data/by-kind.bits.json`, naming the fixture's sha256). The fixture (`tests/data/by-kind.json`, the
+  npm package's bytes) runs whole in `tests/test_layout.gd`: 12 by-kind cases bit for bit, 7 around cases.
+  `tools/twin_run.gd` answers the layout twin's two kinds as well, and takes a `from to` range of cases: on 1,500
+  random graphs against npm, 159,081 by-kind points equal to the bit and 705 around runs within 1e-12.
+
 - An address found in prose (the address page's "An address in prose", schema-dist serial 123):
   `OWAddress.read_link_at(text, index = 0)` answers a `Found` (`reading`, `end`): the address that starts exactly at
   `index` in a text and the index just past it, or null when the text there is not an address. The npm package's
