@@ -237,6 +237,11 @@ the git log.
   `format_version`. The spine fixture's new case has no reader here. The fixtures' counts follow: address 218 (two
   `prose-all`), lens 235 (resolve 134, graph 56), message 102 (two `recipients`); landing's doubled-target case now
   wants one edge.
+- `OWGraph.world_graph` reads each element of a list once (serial 128): a schema multi-link, `x_lens_leads_to` or
+  `x_spine_depends_on` that names one target twice is one edge, in its first place, and a repeat to a target that is
+  not a node is counted once in `edges_cut`. An edge's `index` is still its place in the list as served. Ids are
+  compared as written. `OWLanding.landing_of` reads the graph it is given, so a doubled target is one edge there too.
+  The lens fixture's case 143 and the new graph case pass.
 - Schema pin to `v0.34.1-dist.127` (`f50c526`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 127). No schema
   file or `schema.json` moved; the generated files moved in their stamp only, and `OWViewsTable` in its `views.json`
   sha256: the file's `banners` sentence now defers to the room page's presence rule with no paraphrase of its own, the

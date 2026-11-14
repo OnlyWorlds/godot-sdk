@@ -63,7 +63,8 @@ class Graph:
 ## reading aid a lens keeps is marked [code]reading_aid[/code] too, as a room element a lens keeps is marked
 ## [code]room[/code] (serial 104). [code]hidden[/code] or [code]proposed[/code] from any rung but the owner's, or any
 ## flag from a public reader, is refused by name before anything is read (the first in the order hidden, proposed,
-## rooms, map_space, reading_aids).
+## rooms, map_space, reading_aids). A list names each element once: one that names a target twice is one edge, or one
+## link counted, in its first place, and its index stays that place in the list as served (serial 128).
 static func world_graph(world: Variant, reader: Variant, options: Variant = null) -> Graph:
 	var g := Graph.new()
 	if options == null:
@@ -181,9 +182,14 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		g.nodes.append(node)
 
 	var cut_edges := {}
-	var visit := func(source: String, field: String, target: Variant, index: int) -> void:
+	var visit := func(source: String, field: String, target: Variant, index: int, met: Dictionary) -> void:
 		if not (target is String) or not r.by_id.has(target):
 			return
+		# A multi-link names each element once: a repeat is read once, in its first place, an edge or a cut alike
+		# (schema-dist serial 128). Ids are compared as written.
+		if met.has(target):
+			return
+		met[target] = true
 		if node_ids.has(target):
 			g.edges.append({"source": source, "field": field, "target": target, "index": index})
 			return
@@ -204,21 +210,25 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			var v: Variant = el.get(lf[0])
 			var list: Array = (v if v is Array else []) if lf[1] else [v]
 			var served := 0
+			var met := {}
 			for i in list.size():
 				var t: Variant = list[i]
 				var in_served: bool = seen_owner or (t is String and r._served_as(t, target))
 				# An id of another type than the field's target names nothing, as the lens reader keys a link (the
-				# profile's ruling 1): a dangling link, neither an edge nor counted.
+				# profile's ruling 1): a dangling link, neither an edge nor counted. A repeat still counts in the served
+				# list, so an index points into the list as served.
 				if t is String and r.type_of.get(t) == target:
-					visit.call(source, lf[0], t, i if seen_owner else served)
+					visit.call(source, lf[0], t, i if seen_owner else served, met)
 				if in_served:
 					served += 1
-		# A declared extension link is served as stored to every reader.
+		# A declared extension link is served as stored to every reader, and names each element once as a multi-link
+		# does.
 		for field in DECLARED_LINKS:
 			var v: Variant = el.get(field)
 			if v is Array:
+				var met := {}
 				for i in v.size():
-					visit.call(source, field, v[i], i)
+					visit.call(source, field, v[i], i, met)
 	g.edges.sort_custom(func(a, b) -> bool:
 		if a["source"] != b["source"]:
 			return a["source"] < b["source"]
