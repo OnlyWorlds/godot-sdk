@@ -21,6 +21,8 @@ func get_cases() -> Array:
 	var out := []
 	for c in _fixture()["cases"]:
 		out.append(["address:" + c["name"], _case.bind(c)])
+	for c in _start_cases():
+		out.append(["start:" + c[0], _start_case.bind(c)])
 	return out
 
 func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
@@ -236,6 +238,42 @@ func test_read_link_at_the_sites_form_a_run_cut_inside_a_word_is_no_address(t) -
 	t.ok(OWAddress.read_link_at(h + "hyper_ion.") == null, "an underscore")
 	var found := OWAddress.read_link_at(h + "hyperion" + String.chr(0x1F6A2))
 	t.eq(found.end if found != null else -1, (h + "hyperion").length(), "an emoji is no letter: the run ends before it")
+	t.done()
+
+# -- where an address in prose begins (staged: ruled 2026-11-14, publishes with a later serial) ------------------------
+# The mirror of the cut after a run: a letter of any script, a combining mark or an underscore before the prefix glues
+# it into a word, and the text there is prose; anything else, or the start of the text, does not.
+
+const START_ID := "01a1d4ef-0000-7000-8000-000000000084"
+
+## name, text, the prefix the index is at, found.
+func _start_cases() -> Array:
+	return [
+		["glued-letter", "Built the gate: elbow://object/%s." % START_ID, "ow://", false],
+		["glued-underscore", "tag_ow://object/%s here" % START_ID, "ow://", false],
+		["glued-non-ascii-letter", "caf" + String.chr(0xE9) + "ow://object/" + START_ID, "ow://", false],
+		["glued-combining-mark", "e" + String.chr(0x301) + "ow://object/" + START_ID, "ow://", false],
+		["glued-astral-letter", String.chr(0x1D49C) + "ow://object/" + START_ID, "ow://", false],
+		["after-hyphen", "x-ow://object/" + START_ID, "ow://", true],
+		["after-digit", "3ow://object/" + START_ID, "ow://", true],
+		["after-space", "Built the gate: ow://object/%s." % START_ID, "ow://", true],
+		["after-opening-bracket", "Built the gate (ow://object/%s)." % START_ID, "ow://", true],
+		["after-quote", "Built the gate \"ow://object/%s\"." % START_ID, "ow://", true],
+		["start-of-text", "ow://object/%s was built." % START_ID, "ow://", true],
+		["glued-letter-site-form", "seehttps://www.onlyworlds.com/w/hyperion/object/" + START_ID, "https://", false],
+	]
+
+func _start_case(t, c: Array) -> void:
+	var text: String = c[1]
+	var at := text.find(c[2])
+	var found := OWAddress.read_link_at(text, at)
+	if not c[3]:
+		t.ok(found == null, "the start is glued to a word: found %s at %d" % [text.substr(at, found.end - at) if found != null else "", at])
+	else:
+		t.ok(found != null, "found an address at %d" % at)
+		if found != null:
+			t.eq(found.reading.id, START_ID, "the id")
+			t.eq(found.end, at + ("ow://object/" + START_ID).length(), "the address ends where its id ends")
 	t.done()
 
 func test_the_letters_and_marks_table(t) -> void:

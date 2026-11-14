@@ -226,6 +226,12 @@ static var _type_word_max := 0
 ## [code]?[/code], [code]&[/code] or [code]#[/code]. What follows is prose, a full stop included. [method parse_link]
 ## itself still reads a string whole: [code]ow://object/<id>.[/code] handed to it is refused.
 ##
+## An address begins at the start of the text or after a character that does not glue it to a word: after a letter of
+## any script, a combining mark or an underscore the start is inside a word and this answers null
+## ([code]elbow://object/<id>[/code]); a hyphen, a digit, white space or punctuation before it does not glue
+## ([code]x-ow://[/code], [code]3ow://[/code], [code](ow://[/code]). The same set read from both ends (staged: ruled
+## 2026-11-14, publishes with a later serial).
+##
 ## [param index] and [member Found.end] are Godot String indexes, which count code points (not UTF-16 units as in
 ## JavaScript), so they match [method String.find] and [method String.substr]. An index below 0 or past the end reads
 ## nothing.
@@ -237,6 +243,10 @@ static var _type_word_max := 0
 static func read_link_at(text: String, index := 0) -> Found:
 	var n := text.length()
 	if index < 0 or index > n:
+		return null
+	# A start glued to a word is prose, the mirror of the cut after a run (staged: ruled 2026-11-14, publishes with a
+	# later serial). One index back is one whole code point in a Godot String, so a letter above U+FFFF glues too.
+	if index > 0 and _is_in_a_word(text, index - 1):
 		return null
 	var human := _starts_at(text, index, HUMAN_PREFIX)
 	var start: int
