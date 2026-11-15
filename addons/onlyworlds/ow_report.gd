@@ -42,6 +42,140 @@ class Threads:
 	func to_dict() -> Dictionary:
 		return {"parents": parents, "groups": groups, "lints": lints}
 
+## [method read_line]'s answer: one line of a report's [code]consequences[/code] (the report profile's rule 10).
+class Line:
+	## The line as read.
+	var line := ""
+	## The words a reader shows: the line with its address taken out where nothing the writer wrote is lost, else the
+	## whole line.
+	var words := ""
+	## The element the line names, written [code]ow://<type>/<id>[/code] with the id in lowercase, or null when no
+	## address in the line names an element of this world (which is no fault).
+	var address: Variant = null
+	## What [method OWAddress.parse_link] reads in the address as written, or null.
+	var reading: OWAddress.Reading = null
+	## Where the address as written starts in [member line] (a Godot String index: code points), or null.
+	var start: Variant = null
+	## The index just past the address as written, or null.
+	var end: Variant = null
+
+	## The line in the fixture's shape.
+	func to_dict() -> Dictionary:
+		return {"line": line, "address": address, "words": words}
+
+## The closing marks, character by character (code points): a question mark is none, since after an address it
+## begins a query.
+const _CLOSING := {0x2E: true, 0x2C: true, 0x3B: true, 0x3A: true, 0x21: true, 0x29: true, 0x5D: true, 0x7D: true,
+	0x27: true, 0x22: true, 0x2019: true, 0x201D: true, 0xBB: true}
+## The pairs an address may stand in, each opener's code point with its closer's (a brace makes no pair).
+const _PAIRS := {0x28: 0x29, 0x5B: 0x5D, 0x22: 0x22, 0x27: 0x27, 0x201C: 0x201D, 0x2018: 0x2019, 0xAB: 0xBB}
+
+## One line of a report's [code]consequences[/code], read as the report profile reads it (rule 10, parts 2 and 3):
+## the element it names and the words a reader shows. The npm package's [code]readReportLine[/code] (4.169.0) and the
+## Python package's twin; the page's lines fixture is the test.
+##
+## The line's address is the last address in it, found as the address profile finds one in prose
+## ([method OWAddress.find_links]), that names an element of this world: an [code]ow://[/code] or site address,
+## canonical or not, whose world is [param world] or is left out, with a type word and an id. An address of another
+## world, one whose world is a slug, a world's own address or a lens with no element is prose and stays in the words; a
+## line with only those has no address, which is no fault. Whether the element still exists is the caller's to read.
+##
+## The address leaves the shown words only when nothing the writer wrote is lost: it is canonical, carries no moment and
+## no lens, and stands apart (before it the line's start, White_Space or one colon; after it the line's end,
+## White_Space or a closing mark, [code]. , ; : ! ) ] } ' "[/code] and the right single and double quotation marks and
+## the right guillemet), alone or inside a matched pair ([code]()[/code], [code][][/code], [code]""[/code],
+## [code]''[/code], the curly double and single quotes, the guillemets). Then it goes with the White_Space on both sides
+## and one colon before it (and the White_Space before that colon), and the two halves join with one space, or none
+## when the second is empty or begins with a closing mark. In every other shape, and when nothing stands before the
+## address, the whole line is shown as written, still naming its element.
+##
+## The line is read as given, untrimmed: [method read_lines] splits and trims a whole text. [param world] is this
+## world's id, lowercase as the world holds it, compared exactly with the address's world (whose hex is read
+## lowercase); null, or anything that is not a String, and only an address with no world names an element here.
+## [codeblock]
+## var got := OWReport.read_line("Renamed the Consul's Steinway: ow://object/01a1d4ef-0000-7000-8000-000000000084.")
+## # got.words == "Renamed the Consul's Steinway.", got.address == "ow://object/01a1d4ef-0000-7000-8000-000000000084"
+## [/codeblock]
+static func read_line(line: String, world: Variant = null) -> Line:
+	var out := Line.new()
+	out.line = line
+	out.words = line
+	# Part 2: the last address that names an element of this world, from the text alone.
+	var here: OWAddress.Found = null
+	for f in OWAddress.find_links(line):
+		var r := f.reading
+		if r.type == null or r.id == null:
+			continue
+		if r.world == null or (not r.world_is_slug and world is String and r.world == world):
+			here = f
+	if here == null:
+		return out
+	var reading := here.reading
+	var start := here.start
+	var end := here.end
+	out.address = "ow://%s/%s" % [reading.type, reading.id]
+	out.reading = reading
+	out.start = start
+	out.end = end
+	# Part 3: it leaves the words only when nothing the writer wrote is lost.
+	if not reading.canonical or reading.moment != null or reading.lens != null:
+		return out
+	var from := start
+	var to := end
+	if start > 0 and _PAIRS.has(line.unicode_at(start - 1)):
+		# A matched pair goes with it (3a); an opener not closed right after keeps the whole line.
+		if end >= line.length() or line.unicode_at(end) != _PAIRS[line.unicode_at(start - 1)]:
+			return out
+		from = start - 1
+		to = end + 1
+	var apart_before := from == 0 or OWUnicode._is_white_space(line.unicode_at(from - 1)) or line.unicode_at(from - 1) == 0x3A
+	var apart_after := to == line.length() or OWUnicode._is_white_space(line.unicode_at(to)) or _CLOSING.has(line.unicode_at(to))
+	if not apart_before or not apart_after:
+		return out
+	# The White_Space on both sides goes, and one colon before it with the White_Space before that colon (3c).
+	var left := _trim_end(line.substr(0, from))
+	if left.ends_with(":"):
+		left = _trim_end(left.substr(0, left.length() - 1))
+	var right := _trim_start(line.substr(to))
+	# Nothing stands before the address (3b): the whole line stays, so a line is never shown empty.
+	if left == "":
+		return out
+	if right == "":
+		out.words = left
+	elif _CLOSING.has(right.unicode_at(0)):
+		out.words = left + right
+	else:
+		out.words = left + " " + right
+	return out
+
+## Every line of a report's [code]consequences[/code], each read by [method read_line] (the report profile's rule 10,
+## part 1). The text is split at every carriage return and every line feed, so a CRLF is one break and nothing else
+## breaks a line (U+000B, U+000C, U+2028, U+2029 and U+0085 stay inside it); each piece is trimmed of Unicode
+## White_Space at both ends, and a piece with nothing left is no line. A byte order mark is no White_Space: a line of
+## one alone is a line. The npm package's [code]readReportLines[/code].
+static func read_lines(text: String, world: Variant = null) -> Array[Line]:
+	var out: Array[Line] = []
+	var start := 0
+	for i in text.length() + 1:
+		if i == text.length() or text.unicode_at(i) == 0x0A or text.unicode_at(i) == 0x0D:
+			var line := OWUnicode.trim_white_space(text.substr(start, i - start))
+			if line != "":
+				out.append(read_line(line, world))
+			start = i + 1
+	return out
+
+static func _trim_end(s: String) -> String:
+	var b := s.length()
+	while b > 0 and OWUnicode._is_white_space(s.unicode_at(b - 1)):
+		b -= 1
+	return s.substr(0, b)
+
+static func _trim_start(s: String) -> String:
+	var a := 0
+	while a < s.length() and OWUnicode._is_white_space(s.unicode_at(a)):
+		a += 1
+	return s.substr(a)
+
 ## True when [param element] is a report: the pair [code]narrative[/code] + [code]Report[/code] (each trimmed and
 ## folded) and the mark [code]x_room_of[/code] by presence. The room profile's matcher, [OWLens]'s.
 static func is_report(element: Variant) -> bool:

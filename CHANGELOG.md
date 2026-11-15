@@ -8,6 +8,17 @@ the git log.
 
 ### Added
 
+- A line of a report's `consequences`, read as every reader reads it (the report profile's rule 10, schema-dist serial
+  129): `OWReport.read_line(line, world = null)` and `OWReport.read_lines(text, world = null)`, the npm package's
+  `readReportLine` and `readReportLines` (4.169.0) and the Python package's twins. `read_lines` splits a text at every
+  carriage return and line feed, trims each piece of White_Space and drops the empty ones. `read_line` answers an
+  `OWReport.Line`: `line`, `address` (the element it names, `ow://<type>/<id>` with the id in lowercase, or null),
+  `reading`, `start` and `end` (the address as written, code points) and `words` (what a reader shows). The line's
+  address is the last one `OWAddress.find_links` finds that names an element of this world; an address of another
+  world, a slug, a world alone or a lens with no element stays prose. The address leaves the words only when it is
+  canonical, has no moment and no lens, and stands apart, alone or in a matched pair, and a colon before it goes too;
+  otherwise the whole line is shown, still naming its element. The page's lines fixture (101 cases and 16 texts) runs
+  whole in `tests/test_report_lines.gd`, read from the vendored folder.
 - The default layout method: `OWLayout.layout_by_kind(graph)` and `OWLayout.layout_around(graph, focus, steps = 1)`,
   a world's default picture and one element's, the npm package's `layoutByKind` and `layoutAround` (4.167.0) and the
   Python package's `layout_by_kind` and `layout_around` (0.127.0). By kind: each kind of element gets a point on a
@@ -255,8 +266,8 @@ the git log.
 - Schema pin to `v0.34.1-dist.129` (`8796c07`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 129). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The report page gains rule
   10, a line of a report's `consequences` read the same in every reader, and its second fixture,
-  `profiles/report-lines.fixture.json` (101 cases and 16 texts), read from the vendored folder (the entry above builds
-  it here).
+  `profiles/report-lines.fixture.json` (101 cases and 16 texts), read from the vendored folder (the `### Added` entry
+  for `read_line` builds it here).
 - Schema pin to `v0.34.1-dist.128` (`7ffb61c`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 128). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. A multi-link names each
   element once: a reader served a list that names one element twice reads it once, in its first place, on the lens,
