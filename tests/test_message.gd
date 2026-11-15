@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWMessage on the message profile's conformance fixture (schema-dist profiles/message.fixture.json, the pinned copy
-## at dist.130, its sha256 checked against the manifest): every case replayed by name through the reader its kind names,
+## at dist.131, its sha256 checked against the manifest): every case replayed by name through the reader its kind names,
 ## the fixture's pairs held equal to the reader's constants, and then what the fixture leaves open, as the profile's
 ## text and the npm and Python packages answer it.
 
@@ -73,13 +73,13 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in doc["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(doc["cases"].size(), 103, "103 cases (dist.130)")
-	t.eq(counts, {"pair": 10, "addressed": 11, "recipients": 2, "sent_by": 3, "sender": 14, "unread": 22, "mark": 18,
-		"thread": 4, "unseen": 3, "everyone": 4, "edited": 4, "note": 8}, "by kind")
+	t.eq(doc["cases"].size(), 120, "120 cases (dist.131)")
+	t.eq(counts, {"pair": 15, "addressed": 12, "recipients": 3, "sent_by": 4, "sender": 15, "unread": 24, "mark": 19,
+		"thread": 5, "unseen": 4, "everyone": 5, "edited": 5, "note": 9}, "by kind")
 	var names := {}
 	for c in doc["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 103, "every case's name is its own")
+	t.eq(names.size(), 120, "every case's name is its own")
 	t.done()
 
 func test_the_pairs_are_the_fixtures(t) -> void:

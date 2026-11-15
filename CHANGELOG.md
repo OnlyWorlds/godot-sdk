@@ -265,6 +265,14 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.131` (`0dc4ab7`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 131). No schema
+  file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The room page defines its
+  fold exactly (simple case folding by the C and S rows of CaseFolding.txt 15.1, never lower-casing or full folding),
+  which `OWUnicode.profile_fold` already does, and the room and message pages say a value that is not an object is no
+  element: every reader answers for it as for a body that is not a message, and none fails. The fixtures gain cases:
+  room 10 (48), message 17 (120), lens 7 (242), calendar 1 (78, 35 calendars, 229 steps). The calendar parity vectors
+  were regenerated from the TypeScript SDK 4.133.2 at the same commit, for the fixture's new calendar (35 named, 149
+  validate rows). The import-map page reads the room page's fold instead of copying it.
 - Schema pin to `v0.34.1-dist.130` (`f8c5ce8`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 130). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The message page says the
   order a reader asks in: whether a body is a message first, then whether it was served without a credential, so a

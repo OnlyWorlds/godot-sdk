@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCalendar on the calendar profile's conformance fixture (schema-dist profiles/calendar.fixture.json, the pinned copy
-## at dist.108, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
+## at dist.131, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
 ## calendar's every step read to the fixture's words and breakdown; then what the fixture leaves open, as the profile's
 ## text and the npm and Python packages answer it, and where Godot's one number type could change an answer.
 
@@ -72,11 +72,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 				t.eq(s["breakdown"].keys(), KEYS.keys(), "%s: the breakdown's keys, every one compared" % c["name"])
 		else:
 			t.ok(not c.has("steps"), "%s: a refused value reads no step" % c["name"])
-	t.eq(doc["cases"].size(), 77, "77 cases")
-	t.eq(valid, 34, "34 calendars")
+	t.eq(doc["cases"].size(), 78, "78 cases")
+	t.eq(valid, 35, "35 calendars")
 	t.eq(doc["cases"].size() - valid, 43, "43 refusals")
-	t.eq(steps, 209, "209 steps")
-	t.eq(names.size(), 77, "every case's name is its own")
+	t.eq(steps, 229, "229 steps")
+	t.eq(names.size(), 78, "every case's name is its own")
 	t.done()
 
 # -- what the fixture leaves open -------------------------------------------------------------------------------------

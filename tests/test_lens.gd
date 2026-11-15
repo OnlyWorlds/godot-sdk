@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWLens on the lens profile's conformance fixture (schema-dist profiles/lens.fixture.json, the pinned copy at
-## dist.128, its sha256 checked against the manifest): the pair and the template, the legal values of x_lens, where a
+## dist.131, its sha256 checked against the manifest): the pair and the template, the legal values of x_lens, where a
 ## seat's choice lives, every resolution over the fixture's ten worlds and their readers, and the invariants. The
 ## graph kind is test_lens_graph.gd's. The profile's tables are held equal to the fixture's and to the generated models.
 
@@ -70,8 +70,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 235, "235 cases")
-	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 134, "invariant": 4, "uses": 5, "graph": 56, "degree": 5}, "by kind")
+	t.eq(_fixture()["cases"].size(), 242, "242 cases")
+	t.eq(counts, {"shape": 6, "keys": 25, "resolve": 141, "invariant": 4, "uses": 5, "graph": 56, "degree": 5}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:
@@ -102,7 +102,7 @@ func test_the_room_pairs_are_the_room_profiles(t) -> void:
 		words.append(OWUnicode.profile_fold(p["type"]) + "/" + OWUnicode.profile_fold(p["supertype"]))
 	t.eq(words, OWLens.ROOM_PAIRS, "the room fixture's pairs")
 	t.eq(room["mark"]["field"], OWLens.ROOM_MARK, "the room fixture's mark")
-	t.eq(room["cases"].size(), 38, "38 room cases")
+	t.eq(room["cases"].size(), 48, "48 room cases")
 	t.done()
 
 ## The profiles' fold is trim then simple case folding, never NFC: a decomposed e and acute stays two code points.
