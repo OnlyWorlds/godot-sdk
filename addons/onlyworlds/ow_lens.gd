@@ -495,8 +495,12 @@ static func _floor_div(a: int, b: int) -> int:
 # -- the room profile's matcher and the schema's links ------------------------------------------------------------------
 
 ## A room element: its type and supertype, trimmed and folded, one of the room profile's pairs, and the mark
-## [code]x_room_of[/code], counted by presence as the reading aid's is ([method _has_mark]). Both, always.
-static func _is_room_element(el: Dictionary) -> bool:
+## [code]x_room_of[/code], counted by presence as the reading aid's is ([method _has_mark]). Both, always. A value
+## that is not a Dictionary (null, an Array, a String, a number, a bool) is no element and so no room element: false,
+## never a script error (serial 131).
+static func _is_room_element(el: Variant) -> bool:
+	if not (el is Dictionary):
+		return false
 	var type: Variant = el.get("type")
 	var supertype: Variant = el.get("supertype")
 	if not (type is String and supertype is String) or not _has_mark(el, ROOM_MARK):
