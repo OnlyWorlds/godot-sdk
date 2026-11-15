@@ -263,6 +263,12 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.130` (`f8c5ce8`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 130). No schema
+  file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The message page says the
+  order a reader asks in: whether a body is a message first, then whether it was served without a credential, so a
+  body that is not a message answers false from `OWMessage.has_unseen_recipients` whatever the key. Its fixture gains
+  that case, `keyless-non-message-is-not-unseen` (103 in all), which `OWMessage` already answered; no reader changes.
+  The report page names its readers of lines.
 - Schema pin to `v0.34.1-dist.129` (`8796c07`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 129). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The report page gains rule
   10, a line of a report's `consequences` read the same in every reader, and its second fixture,
