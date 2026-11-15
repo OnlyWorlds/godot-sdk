@@ -240,9 +240,11 @@ the git log.
   (polled between frames, or blocking): no scene tree needed, unlike `HTTPRequest`.
 - The wire checks: every request the read calls make is held to keel's OpenAPI document (`tests/data/keel-wire.json`,
   vendored from the Unity SDK), every key the models read to what keel serves. The vendored document follows keel's
-  (at `c1d6b0ff0cdd`: the Pin list takes `element`, the Pins that place that element of any type, `""` for the Pins
-  placing nothing); `list` already sends any field-named filter as given, so `{"filter": {"element": id}}` needs no
-  change here and the document's words, not the client's, are what moved.
+  (at `591762dc2b30`: the Pin list takes `element`, the Pins that place that element of any type, `""` for the Pins
+  placing nothing; a read-only sign-in's token answers carry `scope`; the AI lens answer carries `charged`; the member
+  rows carry `follows_sponsor`, and two 422 codes, `seat_above_sponsor` and `seat_follows_sponsor`, are listed);
+  `list` already sends any field-named filter as given, so `{"filter": {"element": id}}` needs no change here, and no
+  path, method, parameter or request key moved: the document's words, not the client's, are what moved.
 
 ### Fixed
 
