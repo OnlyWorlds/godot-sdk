@@ -252,6 +252,11 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.129` (`8796c07`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 129). No schema
+  file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The report page gains rule
+  10, a line of a report's `consequences` read the same in every reader, and its second fixture,
+  `profiles/report-lines.fixture.json` (101 cases and 16 texts), read from the vendored folder (the entry above builds
+  it here).
 - Schema pin to `v0.34.1-dist.128` (`7ffb61c`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 128). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. A multi-link names each
   element once: a reader served a list that names one element twice reads it once, in its first place, on the lens,

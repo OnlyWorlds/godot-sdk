@@ -4,8 +4,8 @@ extends RefCounted
 ## The schema-dist this SDK's models were generated from: the tag, and the sha256 of its MANIFEST.json (a tag
 ## can move; the manifest hash recorded here makes a moved tag visible).
 
-const TAG := "v0.34.1-dist.128"
-const MANIFEST_SHA256 := "b23105d518aac8035339a81165e5973512df2a7538920b1e7ccf4c783b600428"
+const TAG := "v0.34.1-dist.129"
+const MANIFEST_SHA256 := "6c1ac5d18e6d62dcf5c294fb8f9ad33a733eee7b6fa011e121e0855472c54705"
 const CANONICAL := "00.34.01"
-const SERIAL := 128
-const PUBLISHED := "2026-11-14"
+const SERIAL := 129
+const PUBLISHED := "2026-11-15"
