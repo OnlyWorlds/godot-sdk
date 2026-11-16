@@ -265,6 +265,15 @@ the git log.
 
 ### Changed
 
+- Schema pin to `v0.34.1-dist.132` (`c2a4652`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 132). No schema
+  file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The distribution now
+  carries the default layouts page, `profiles/layout.md`, and its fixture, `layout.fixture.json`: the `by-kind` and
+  `around` methods `OWLayout` implements, written out step by step, with 17 `by-kind` cases and 10 `around` (five and
+  three more than before), and `unplaced`, the reading of which elements a saved layout map does not place (15 cases;
+  not implemented here). `tests/test_layout.gd` now reads the distribution's fixture from the vendored folder in place
+  of the npm SDK's `by-kind.json`, and its wants from `tests/data/layout.bits.json`, which `codegen/generate_layout.py`
+  makes from it; every case passes and no method changes. The map-space page's rule 8 names the layouts page as the
+  page of the method words, reads a method word whole, and says reading or drawing a layout map writes nothing.
 - Schema pin to `v0.34.1-dist.131` (`0dc4ab7`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 131). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The room page defines its
   fold exactly (simple case folding by the C and S rows of CaseFolding.txt 15.1, never lower-casing or full folding),
