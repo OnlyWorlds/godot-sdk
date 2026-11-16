@@ -113,7 +113,8 @@ static func is_charter_element(element: Variant) -> bool:
 ## each once in the order written, kept when it is an Object of this world the reader sees, the first five kept. Its
 ## name, rules and text are read as stored: the Charter is every member rung's to read whole (D152), as keel reads its
 ## row. [code]guide[/code] the same among marked Guides, [code]{id, type, name}[/code]. Each entry's
-## [code]type[/code] is the element's own, folded as the lens folds it ([code]law[/code], [code]construct[/code]). [code]domains[/code] is every marked
+## [code]type[/code] is its pair's own word ([code]law[/code], [code]construct[/code]), whatever spelling the
+## element's type is stored in. [code]domains[/code] is every marked
 ## Domain the reader sees: first in the order of the Guide's [code]constructs[/code] as the reader is served them (an
 ## id named twice keeps its first place, an entry that is no marked Domain or one the reader cannot see is skipped),
 ## then the rest by folded name and then id. Each as the reader is served it: [code]sentence[/code] the description
@@ -138,14 +139,15 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 	if law != null:
 		var stored: Dictionary = r.by_id[law]
 		var rules: Variant = stored.get(RULES_FIELD)
-		out.charter = {"id": law, "type": r.type_of[law], "name": _name(stored.get("name")),
+		# Each entry's type is its pair's own word (law, construct), whatever spelling the element's type is stored in.
+		out.charter = {"id": law, "type": "law", "name": _name(stored.get("name")),
 			"rules": [] if rules == null else (rules.duplicate(true) if rules is Array or rules is Dictionary else rules),
 			"skill": _skill(r, stored.get("description"))}
 	var domains := _marked(r, "construct/domain")
 	var order := []
 	var guide: Variant = _newest(r, _marked(r, "construct/guide"))
 	if guide != null:
-		out.guide = {"id": guide, "type": r.type_of[guide], "name": _name(r.by_id[guide].get("name"))}
+		out.guide = {"id": guide, "type": "construct", "name": _name(r.by_id[guide].get("name"))}
 		var listed: Variant = r.body(guide).get("constructs")
 		for i in (listed if listed is Array else []):
 			if i is String and domains.has(i) and not order.has(i):
@@ -157,7 +159,7 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 		return fa < fb if fa != fb else a < b)
 	for d in order + rest:
 		var body := r.body(d)
-		out.domains.append({"id": d, "type": r.type_of[d], "name": _name(body.get("name")),
+		out.domains.append({"id": d, "type": "construct", "name": _name(body.get("name")),
 			"sentence": first_line(body.get("description")),
 			"hubs": [] if body.get("known_of") == true else _hubs(r, d, body)})
 	return out

@@ -140,6 +140,19 @@ func test_a_slot_without_a_name_reads_an_empty_string(t) -> void:
 			{"id": "019a7f00-0000-7000-8000-000000000322", "type": "location", "name": ""}, var_to_str(name))
 	t.done()
 
+## A type is matched to a slot trimmed and folded, and the slot says its kind word (serial 134, amendment 1): the story
+## stored as " Narrative " fills the slot as narrative. Kills: the stored spelling written.
+func test_a_story_stored_in_another_spelling_fills_its_slot_as_narrative(t) -> void:
+	var world: Dictionary = _fixture()["worlds"]["harbour"].duplicate(true)
+	for el in world["elements"]:
+		if el["id"] == STORY:
+			el["type"] = " Narrative "
+	var want := OWStrand.strand_of(_fixture()["worlds"]["harbour"], {"rung": "owner"}).to_dict()
+	var got := OWStrand.strand_of(world, {"rung": "owner"})
+	t.eq(got.narrative["type"] if got.narrative is Dictionary else null, "narrative", "the slot's kind word")
+	t.eq(got.to_dict(), want, "the strand as for narrative")
+	t.done()
+
 ## Each filled slot is written {id, type, name}, the page's order (serial 134), its type the slot's kind.
 func test_a_filled_slot_is_id_type_name(t) -> void:
 	var got := OWStrand.strand_of(_fixture()["worlds"]["harbour"], {"rung": "owner"})

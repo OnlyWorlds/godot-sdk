@@ -84,6 +84,21 @@ func test_each_entry_is_written_in_the_pages_order(t) -> void:
 		t.eq(d.keys(), ["id", "type", "name", "sentence", "hubs"], "a Domain")
 	t.done()
 
+## The packet says the pair's own word (serial 134, amendment 1): a Charter stored as " Law " and a Domain stored as
+## "CONSTRUCT" are aids, written law and construct. Kills: the stored spelling.
+func test_a_type_stored_in_another_spelling_is_written_as_the_pairs_word(t) -> void:
+	var world := {"id": "w", "elements": [
+		{"id": "019a7f00-0000-7000-8000-0000000002c0", "type": " Law ", "name": "Rules", "supertype": "Charter",
+			"x_charter_of": "w"},
+		{"id": "019a7f00-0000-7000-8000-0000000002c1", "type": "CONSTRUCT", "name": "Docks", "supertype": "Domain",
+			"x_charter_of": "w"},
+	]}
+	var got := OWCharter.charter_of(world, {"rung": "owner"})
+	t.eq(got.charter["type"] if got.charter is Dictionary else null, "law", "the Charter")
+	t.eq(got.domains.size(), 1, "the Domain is an aid")
+	t.eq(got.domains[0]["type"] if got.domains.size() == 1 else null, "construct", "the Domain")
+	t.done()
+
 ## The lens profile's first_line: trimmed, cut at the first line feed or carriage return, trimmed again.
 func test_first_line(t) -> void:
 	t.eq(OWCharter.first_line("  One.  \nTwo."), "One.", "trimmed both sides of the cut")

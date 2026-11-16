@@ -89,17 +89,17 @@ static func strand_of(world: Variant, reader: Variant) -> Strand:
 	var story: String = mark["narrative"]
 	if not _seen(r, story, "narrative"):
 		return out
-	out.narrative = _slot(r, story)
+	out.narrative = _slot(r, story, "narrative")
 	if _seen(r, happening, "event") and _listed(r, story, "events", happening):
-		out.event = _slot(r, happening)
+		out.event = _slot(r, happening, "event")
 		if _seen(r, then, "location") and _listed(r, happening, "locations", then):
-			out.location = _slot(r, then)
+			out.location = _slot(r, then, "location")
 	var hero: Variant = r.body(story).get("protagonist")
 	if _seen(r, hero, "character"):
-		out.character = _slot(r, hero)
+		out.character = _slot(r, hero, "character")
 		var where: Variant = r.body(hero).get("location")
 		if _seen(r, where, "location"):
-			out.now = _slot(r, where)
+			out.now = _slot(r, where, "location")
 	if out.now != null and out.location != null:
 		out.same = out.now["id"] == out.location["id"]
 	return out
@@ -138,10 +138,11 @@ static func _member_ok(v: Variant) -> bool:
 static func _seen(r: OWLens.View, id: Variant, kind: String) -> bool:
 	return id is String and r.view.has(id) and r.type_of.get(id) == kind
 
-## A filled slot: its type as the lens folds it, its name as the reader is served it ("" when it has none).
-static func _slot(r: OWLens.View, id: String) -> Dictionary:
+## A filled slot: its type the slot's kind word, never the stored spelling (serial 134; [method _seen] matched the
+## type trimmed and folded), its name as the reader is served it ("" when it has none).
+static func _slot(r: OWLens.View, id: String, kind: String) -> Dictionary:
 	var name: Variant = r.body(id).get("name")
-	return {"id": id, "type": r.type_of[id], "name": name if name is String else ""}
+	return {"id": id, "type": kind, "name": name if name is String else ""}
 
 ## True when the body [param holder] is served lists [param id] in [param field]: membership, never position.
 static func _listed(r: OWLens.View, holder: String, field: String, id: String) -> bool:
