@@ -1,9 +1,15 @@
 extends RefCounted
-## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json, the pinned copy
-## at dist.126, its sha256 checked against the manifest): every case, the 35 charter readings (charterOf and
-## domainsOf) and the 6 element cases (isCharterElement), and the profile's tables held equal to the fixture's.
+## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json): every case, the
+## 35 charter readings (charterOf and domainsOf, the packet compared whole) and the 6 element cases (isCharterElement),
+## and the profile's tables held equal to the fixture's.
+##
+## Serial 134 (each packet entry carries its type) is staged, not published: its fixture is held apart in
+## tests/data/serial-134/, its sha256 the staged one, so the vendored dist and its manifest stay the pin's. When the pin
+## reaches 134, point CHARTER back at res://codegen/schema-dist/profiles/charter.fixture.json, check it against the
+## manifest again, and drop the staged copy.
 
-const CHARTER := "res://codegen/schema-dist/profiles/charter.fixture.json"
+const CHARTER := "res://tests/data/serial-134/charter.fixture.json"
+const STAGED_SHA256 := "b87b5e88e81d60e971b0620a1d9fb0367d8b5d03bcd5671777208dfb078f8f01"
 
 var _doc: Dictionary
 
@@ -33,9 +39,7 @@ func _reads(t, c: Dictionary) -> void:
 	var got := OWCharter.charter_of(world, reader)
 	t.eq(got.error, "", "no caller's mistake")
 	var want: Dictionary = c["want"]
-	t.eq(got.charter, want["charter"], "charter")
-	t.eq(got.guide, want["guide"], "guide")
-	t.eq(got.domains, want["domains"], "domains")
+	t.eq(got.to_dict(), want, "the packet, whole")
 	t.eq(OWCharter.domains_of(world, reader), want["domains"], "domains_of is the list alone")
 	t.done()
 
@@ -44,8 +48,7 @@ func _element(t, c: Dictionary) -> void:
 	t.done()
 
 func test_the_fixture_is_the_pinned_one(t) -> void:
-	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/MANIFEST.json"))["files"]
-	t.eq(FileAccess.get_sha256(CHARTER), manifest["profiles/charter.fixture.json"], "the fixture's bytes are the dist's")
+	t.eq(FileAccess.get_sha256(CHARTER), STAGED_SHA256, "the fixture's bytes are serial 134's staged copy")
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
@@ -67,6 +70,18 @@ func test_the_tables_are_the_fixtures(t) -> void:
 	for h in f["hub_fields"]:
 		hubs.append([h["field"], h["type"]])
 	t.eq(hubs, OWCharter.hub_fields(), "the hub fields are the generated Construct's links, in the schema's order")
+	t.done()
+
+## Each entry is written in the page's order, type beside id (serial 134): the fixture's key order carries no meaning,
+## so the replay's whole compare cannot see it.
+func test_each_entry_is_written_in_the_pages_order(t) -> void:
+	var harbour: Dictionary = _fixture()["worlds"]["harbour"]
+	var got := OWCharter.charter_of(harbour, {"rung": "owner"})
+	t.eq(got.charter.keys() if got.charter is Dictionary else null, ["id", "type", "name", "rules", "skill"], "the Charter")
+	t.eq(got.guide.keys() if got.guide is Dictionary else null, ["id", "type", "name"], "the Guide")
+	t.ok(got.domains.size() > 0, "harbour has Domains")
+	for d in got.domains:
+		t.eq(d.keys(), ["id", "type", "name", "sentence", "hubs"], "a Domain")
 	t.done()
 
 ## The lens profile's first_line: trimmed, cut at the first line feed or carriage return, trimmed again.

@@ -30,11 +30,15 @@ static var _hub_fields := []
 ## What [method charter_of] answers. [member error] is "" unless the call itself was a mistake (a world without an
 ## elements list, a rung outside the four): then it names the mistake and nothing is read.
 class Packet:
-	## [code]{id, name, rules, skill}[/code], or null when the reader sees no marked Charter.
+	## [code]{id, type, name, rules, skill}[/code], [code]type[/code] [code]law[/code], or null when the reader sees no
+	## marked Charter. Each entry's [code]type[/code] is the element's type in the standard's lowercase word (serial
+	## 134): a reader handed the packet alone fetches an id by its type.
 	var charter: Variant = null
-	## [code]{id, name}[/code], or null when the reader sees no marked Guide.
+	## [code]{id, type, name}[/code], [code]type[/code] [code]construct[/code], or null when the reader sees no marked
+	## Guide.
 	var guide: Variant = null
-	## Each [code]{id, name, sentence, hubs}[/code], in the profile's order.
+	## Each [code]{id, type, name, sentence, hubs}[/code], [code]type[/code] [code]construct[/code], in the profile's
+	## order.
 	var domains := []
 	## The world's strand as the key reads it, fourth at the door (an [OWStrand.Strand]), read by [method served] from
 	## a front door's packet; null when the packet carries none, and from [method charter_of], which reads the three
@@ -53,7 +57,9 @@ class Packet:
 ## A front door's packet as the server serves it: [code]reading_aids[/code] in a [code]GET /me[/code] answer or an
 ## agent's join answer ([param answer], the parsed body), read as served and never recomputed (who sees what is the
 ## server's reading for the key). The Charter, the Guide and the Domains are copied as served (a Charter or Guide that
-## is not a Dictionary reads null, Domains that are not an Array none); [code]strand[/code] is read by
+## is not a Dictionary reads null, Domains that are not an Array none); an entry served with no String
+## [code]type[/code] (a server from before serial 134) gets its aid's fixed type beside [code]id[/code]
+## ([code]law[/code], [code]construct[/code]); [code]strand[/code] is read by
 ## [method OWStrand.served], six null slots an empty strand, an absent key null (a server from before serial 100).
 ## Null when the answer carries no packet (a player's join answer, an older server). The answer is never changed.
 static func served(answer: Variant) -> Packet:
@@ -61,13 +67,27 @@ static func served(answer: Variant) -> Packet:
 		return null
 	var aids: Dictionary = answer["reading_aids"]
 	var out := Packet.new()
-	out.charter = aids["charter"].duplicate(true) if aids.get("charter") is Dictionary else null
-	out.guide = aids["guide"].duplicate(true) if aids.get("guide") is Dictionary else null
+	out.charter = _typed(aids["charter"], "law") if aids.get("charter") is Dictionary else null
+	out.guide = _typed(aids["guide"], "construct") if aids.get("guide") is Dictionary else null
 	var listed: Variant = aids.get("domains")
 	for d in (listed if listed is Array else []):
 		if d is Dictionary:
-			out.domains.append(d.duplicate(true))
+			out.domains.append(_typed(d, "construct"))
 	out.strand = OWStrand.served(aids.get("strand"))
+	return out
+
+## A served entry, copied: as served when it carries a String [code]type[/code], else with [param fixed] as its
+## [code]type[/code] right after [code]id[/code], the page's order.
+static func _typed(entry: Dictionary, fixed: String) -> Dictionary:
+	if entry.get("type") is String:
+		return entry.duplicate(true)
+	var out := {}
+	if entry.has("id"):
+		out["id"] = entry["id"]
+	out["type"] = fixed
+	for k in entry:
+		if k != "id" and k != "type":
+			out[k] = entry[k].duplicate(true) if entry[k] is Array or entry[k] is Dictionary else entry[k]
 	return out
 
 ## True when [param element] is a reading aid: [method OWLens.is_charter_element], the pair AND the mark.
@@ -92,7 +112,8 @@ static func is_charter_element(element: Variant) -> bool:
 ## description names (any [code]ow://[/code] form, a site address or a bare id: every 8-4-4-4-12 hex run), lowercase,
 ## each once in the order written, kept when it is an Object of this world the reader sees, the first five kept. Its
 ## name, rules and text are read as stored: the Charter is every member rung's to read whole (D152), as keel reads its
-## row. [code]guide[/code] the same among marked Guides, [code]{id, name}[/code]. [code]domains[/code] is every marked
+## row. [code]guide[/code] the same among marked Guides, [code]{id, type, name}[/code]. Each entry's
+## [code]type[/code] is the element's own, folded as the lens folds it ([code]law[/code], [code]construct[/code]). [code]domains[/code] is every marked
 ## Domain the reader sees: first in the order of the Guide's [code]constructs[/code] as the reader is served them (an
 ## id named twice keeps its first place, an entry that is no marked Domain or one the reader cannot see is skipped),
 ## then the rest by folded name and then id. Each as the reader is served it: [code]sentence[/code] the description
@@ -117,14 +138,14 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 	if law != null:
 		var stored: Dictionary = r.by_id[law]
 		var rules: Variant = stored.get(RULES_FIELD)
-		out.charter = {"id": law, "name": _name(stored.get("name")),
+		out.charter = {"id": law, "type": r.type_of[law], "name": _name(stored.get("name")),
 			"rules": [] if rules == null else (rules.duplicate(true) if rules is Array or rules is Dictionary else rules),
 			"skill": _skill(r, stored.get("description"))}
 	var domains := _marked(r, "construct/domain")
 	var order := []
 	var guide: Variant = _newest(r, _marked(r, "construct/guide"))
 	if guide != null:
-		out.guide = {"id": guide, "name": _name(r.by_id[guide].get("name"))}
+		out.guide = {"id": guide, "type": r.type_of[guide], "name": _name(r.by_id[guide].get("name"))}
 		var listed: Variant = r.body(guide).get("constructs")
 		for i in (listed if listed is Array else []):
 			if i is String and domains.has(i) and not order.has(i):
@@ -136,7 +157,8 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 		return fa < fb if fa != fb else a < b)
 	for d in order + rest:
 		var body := r.body(d)
-		out.domains.append({"id": d, "name": _name(body.get("name")), "sentence": first_line(body.get("description")),
+		out.domains.append({"id": d, "type": r.type_of[d], "name": _name(body.get("name")),
+			"sentence": first_line(body.get("description")),
 			"hubs": [] if body.get("known_of") == true else _hubs(r, d, body)})
 	return out
 

@@ -1,11 +1,17 @@
 extends RefCounted
-## OWStrand on the strand profile's conformance fixture (schema-dist profiles/strand.fixture.json, the pinned copy at
-## dist.123, its sha256 checked against the manifest): every case's six slots by name, and the mark held equal to the
-## fixture's. Beside it, what the fixture leaves open: the public rung on a closed and an open world, the mark shapes
-## that are no mark (an empty-string member among them), a story alone, a non-list multi-link, a nameless slot, a
-## caller's mistake, and a reading that never moves the world.
+## OWStrand on the strand profile's conformance fixture (schema-dist profiles/strand.fixture.json): every case's six
+## slots by name, and the mark held equal to the fixture's. Beside it, what the fixture leaves open: the public rung on
+## a closed and an open world, the mark shapes that are no mark (an empty-string member among them), a story alone, a
+## non-list multi-link, a nameless slot, the slot's key order, a caller's mistake, and a reading that never moves the
+## world.
+##
+## Serial 134 (each filled slot carries its type) is staged, not published: its fixture is held apart in
+## tests/data/serial-134/, its sha256 the staged one, so the vendored dist and its manifest stay the pin's. When the pin
+## reaches 134, point STRAND back at res://codegen/schema-dist/profiles/strand.fixture.json, check it against the
+## manifest again, and drop the staged copy.
 
-const STRAND := "res://codegen/schema-dist/profiles/strand.fixture.json"
+const STRAND := "res://tests/data/serial-134/strand.fixture.json"
+const STAGED_SHA256 := "c8586c1745c9d8ec6532c2283a64886fcb7910ad825c281eb7d5181d6e5f16ee"
 const STORY := "019a7f00-0000-7000-8000-000000000301"
 const EMPTY := {"narrative": null, "event": null, "location": null, "character": null, "now": null, "same": null}
 
@@ -38,8 +44,7 @@ func _reads(t, c: Dictionary) -> void:
 	t.done()
 
 func test_the_fixture_is_the_pinned_one(t) -> void:
-	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/MANIFEST.json"))["files"]
-	t.eq(FileAccess.get_sha256(STRAND), manifest["profiles/strand.fixture.json"], "the fixture's bytes are the dist's")
+	t.eq(FileAccess.get_sha256(STRAND), STAGED_SHA256, "the fixture's bytes are serial 134's staged copy")
 	var f := _fixture()
 	t.eq(f["profile"], "strand", "the profile")
 	t.eq(f["cases"].size(), 27, "27 cases")
@@ -131,8 +136,17 @@ func test_a_slot_without_a_name_reads_an_empty_string(t) -> void:
 					el.erase("name")
 				else:
 					el["name"] = name
-		t.eq(OWStrand.strand_of(world, {"rung": "owner"}).now, {"id": "019a7f00-0000-7000-8000-000000000322", "name": ""},
-			var_to_str(name))
+		t.eq(OWStrand.strand_of(world, {"rung": "owner"}).now,
+			{"id": "019a7f00-0000-7000-8000-000000000322", "type": "location", "name": ""}, var_to_str(name))
+	t.done()
+
+## Each filled slot is written {id, type, name}, the page's order (serial 134), its type the slot's kind.
+func test_a_filled_slot_is_id_type_name(t) -> void:
+	var got := OWStrand.strand_of(_fixture()["worlds"]["harbour"], {"rung": "owner"})
+	for slot in ["narrative", "event", "location", "character", "now"]:
+		var v: Variant = got.to_dict()[slot]
+		t.eq(v.keys() if v is Dictionary else null, ["id", "type", "name"], slot)
+	t.eq(got.now["type"], "location", "now a location")
 	t.done()
 
 static func _with(m: Dictionary, key: String, value: Variant) -> Dictionary:

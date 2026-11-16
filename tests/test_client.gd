@@ -379,7 +379,7 @@ func test_get_element_answer_not_an_object(t) -> void:
 
 # -- me, members, health, the world -------------------------------------------------------------------------------------
 
-const ME := "{\"world\":{\"id\":\"w1\",\"name\":\"W\"},\"scope\":\"write\",\"kind\":\"owner\",\"role\":\"owner\",\"membership\":null,\"character\":null,\"lenses\":[],\"reading_aids\":{\"charter\":{\"id\":\"l1\",\"name\":\"House\",\"rules\":[],\"skill\":[]},\"guide\":null,\"domains\":[{\"id\":\"d1\",\"name\":\"Port\",\"sentence\":\"S\",\"hubs\":[]}],\"strand\":{\"narrative\":{\"id\":\"n1\",\"name\":\"Tale\"},\"event\":null,\"location\":null,\"character\":null,\"now\":null,\"same\":null}}}"
+const ME := "{\"world\":{\"id\":\"w1\",\"name\":\"W\"},\"scope\":\"write\",\"kind\":\"owner\",\"role\":\"owner\",\"membership\":null,\"character\":null,\"lenses\":[],\"reading_aids\":{\"charter\":{\"id\":\"l1\",\"type\":\"law\",\"name\":\"House\",\"rules\":[],\"skill\":[]},\"guide\":null,\"domains\":[{\"id\":\"d1\",\"type\":\"construct\",\"name\":\"Port\",\"sentence\":\"S\",\"hubs\":[]}],\"strand\":{\"narrative\":{\"id\":\"n1\",\"type\":\"narrative\",\"name\":\"Tale\"},\"event\":null,\"location\":null,\"character\":null,\"now\":null,\"same\":null}}}"
 
 func test_me_and_its_reading_aids(t) -> void:
 	var fake = Fake.new()
@@ -392,7 +392,7 @@ func test_me_and_its_reading_aids(t) -> void:
 	t.ok(aids != null, "OWCharter.served reads its reading_aids")
 	t.eq(aids.charter["name"], "House", "")
 	t.eq(aids.domains.size(), 1, "")
-	t.eq(aids.strand.narrative, {"id": "n1", "name": "Tale"}, "the strand fourth")
+	t.eq(aids.strand.narrative, {"id": "n1", "type": "narrative", "name": "Tale"}, "the strand fourth")
 	t.done()
 
 func test_members_reads_the_rows(t) -> void:

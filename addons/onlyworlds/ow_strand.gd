@@ -15,7 +15,9 @@ const MARK := "x_strand"
 ## The mark's three members, in the profile's order; only [code]narrative[/code] is required.
 const MEMBERS := ["narrative", "event", "location"]
 
-## What [method strand_of] answers. Each filled slot is [code]{id, name}[/code], an empty one null. [member error] is
+## What [method strand_of] answers. Each filled slot is [code]{id, type, name}[/code], [code]type[/code] the kind the
+## slot holds in the standard's lowercase word ([code]now[/code] a [code]location[/code]; serial 134: a reader handed
+## the strand alone fetches an id by its type), an empty one null. [member error] is
 ## "" unless the call itself was a mistake (a world without an elements list, a rung outside the four): then it names
 ## the mistake and nothing is read.
 class Strand:
@@ -103,27 +105,29 @@ static func strand_of(world: Variant, reader: Variant) -> Strand:
 	return out
 
 ## The six slots as a server serves them ([code]reading_aids.strand[/code] on [code]GET /me[/code] and an agent's join
-## reply, read by [method OWCharter.served]): read as served, never recomputed. A slot is [code]{id, name}[/code] or
-## null (one that is not a Dictionary with a String [code]id[/code] reads empty, a name that is not a String ""), and
+## reply, read by [method OWCharter.served]): read as served, never recomputed. A slot is [code]{id, type, name}[/code]
+## or null (one that is not a Dictionary with a String [code]id[/code] reads empty, a name that is not a String "", a
+## slot with no String [code]type[/code], as a server from before serial 134 serves it, the kind the slot holds), and
 ## [code]same[/code] a bool or null. Null when [param slots] is not a Dictionary (the key absent).
 static func served(slots: Variant) -> Strand:
 	if not slots is Dictionary:
 		return null
 	var out := Strand.new()
-	out.narrative = _served_slot(slots.get("narrative"))
-	out.event = _served_slot(slots.get("event"))
-	out.location = _served_slot(slots.get("location"))
-	out.character = _served_slot(slots.get("character"))
-	out.now = _served_slot(slots.get("now"))
+	out.narrative = _served_slot(slots.get("narrative"), "narrative")
+	out.event = _served_slot(slots.get("event"), "event")
+	out.location = _served_slot(slots.get("location"), "location")
+	out.character = _served_slot(slots.get("character"), "character")
+	out.now = _served_slot(slots.get("now"), "location")
 	var same: Variant = slots.get("same")
 	out.same = same if same is bool else null
 	return out
 
-static func _served_slot(v: Variant) -> Variant:
+static func _served_slot(v: Variant, kind: String) -> Variant:
 	if not (v is Dictionary and v.get("id") is String):
 		return null
+	var type: Variant = v.get("type")
 	var name: Variant = v.get("name")
-	return {"id": v["id"], "name": name if name is String else ""}
+	return {"id": v["id"], "type": type if type is String else kind, "name": name if name is String else ""}
 
 ## The event's or the place's member: a non-empty String is an id, null or absent is unset; anything else (an empty
 ## string, a number, a Dictionary) makes the whole value no mark.
@@ -134,10 +138,10 @@ static func _member_ok(v: Variant) -> bool:
 static func _seen(r: OWLens.View, id: Variant, kind: String) -> bool:
 	return id is String and r.view.has(id) and r.type_of.get(id) == kind
 
-## A filled slot, its name as the reader is served it ("" when it has none).
+## A filled slot: its type as the lens folds it, its name as the reader is served it ("" when it has none).
 static func _slot(r: OWLens.View, id: String) -> Dictionary:
 	var name: Variant = r.body(id).get("name")
-	return {"id": id, "name": name if name is String else ""}
+	return {"id": id, "type": r.type_of[id], "name": name if name is String else ""}
 
 ## True when the body [param holder] is served lists [param id] in [param field]: membership, never position.
 static func _listed(r: OWLens.View, holder: String, field: String, id: String) -> bool:

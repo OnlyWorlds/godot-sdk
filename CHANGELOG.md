@@ -266,6 +266,14 @@ the git log.
 
 ### Changed
 
+- The reading aids and the strand say what type each of their elements is (the charter and strand profiles, serial
+  134): `OWCharter.charter_of` writes the Charter `{id, type, name, rules, skill}` (`law`), the Guide `{id, type, name}`
+  and each Domain `{id, type, name, sentence, hubs}` (`construct`), and `OWStrand.strand_of` each filled slot
+  `{id, type, name}` (the kind the slot holds, `now` a `location`), each type the element's own as the lens folds it.
+  A reader handed the packet alone fetches an id by its type. `OWCharter.served` and `OWStrand.served` keep a served
+  `type`, and give an entry served without one (a keel from before serial 134) its fixed type beside `id`. The charter
+  test compares each case's packet whole, so a key added later cannot pass unseen. Serial 134's two fixtures are held
+  in `tests/data/serial-134/` until the pin reaches it; every case passes.
 - Schema pin to `v0.34.1-dist.132` (`c2a4652`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 132). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only. The distribution now
   carries the default layouts page, `profiles/layout.md`, and its fixture, `layout.fixture.json`: the `by-kind` and

@@ -6,18 +6,18 @@ extends RefCounted
 ## (accounts/front_door.py) field for field, the slots as keel's tests/test_strand_front_door.py serves them.
 
 const FULL := {
-	"narrative": {"id": "019a7f00-0000-7000-8000-000000000301", "name": "The Night the Lighthouse Went Dark"},
-	"event": {"id": "019a7f00-0000-7000-8000-000000000311", "name": "The lamp fails"},
-	"location": {"id": "019a7f00-0000-7000-8000-000000000321", "name": "The Lighthouse"},
-	"character": {"id": "019a7f00-0000-7000-8000-000000000331", "name": "Ilse the Keeper"},
-	"now": {"id": "019a7f00-0000-7000-8000-000000000322", "name": "The Docks"},
+	"narrative": {"id": "019a7f00-0000-7000-8000-000000000301", "type": "narrative", "name": "The Night the Lighthouse Went Dark"},
+	"event": {"id": "019a7f00-0000-7000-8000-000000000311", "type": "event", "name": "The lamp fails"},
+	"location": {"id": "019a7f00-0000-7000-8000-000000000321", "type": "location", "name": "The Lighthouse"},
+	"character": {"id": "019a7f00-0000-7000-8000-000000000331", "type": "character", "name": "Ilse the Keeper"},
+	"now": {"id": "019a7f00-0000-7000-8000-000000000322", "type": "location", "name": "The Docks"},
 	"same": false,
 }
 const EMPTY := {"narrative": null, "event": null, "location": null, "character": null, "now": null, "same": null}
 
 func _me(strand: Variant) -> Dictionary:
-	var aids := {"charter": {"id": "law-1", "name": "House rules", "rules": [], "skill": []},
-		"guide": {"id": "con-g", "name": "Start here"}, "domains": []}
+	var aids := {"charter": {"id": "law-1", "type": "law", "name": "House rules", "rules": [], "skill": []},
+		"guide": {"id": "con-g", "type": "construct", "name": "Start here"}, "domains": []}
 	if strand != null:
 		aids["strand"] = strand
 	return {"world": {"id": "w1", "name": "W"}, "kind": "owner", "front_door": {"charter": "law-1"},
@@ -67,14 +67,37 @@ func test_a_served_slot_is_read_as_served(t) -> void:
 		"now": {"id": "loc-1", "name": null}, "same": true}))
 	t.eq(aids.strand.same, true, "same, as served")
 	t.eq(aids.strand.event, null, "an empty slot")
-	t.eq(aids.strand.location, {"id": "loc-1", "name": ""}, "a nameless slot reads an empty name")
-	t.eq(aids.strand.now, {"id": "loc-1", "name": ""}, "the place, now")
+	t.eq(aids.strand.location, {"id": "loc-1", "type": "location", "name": ""}, "a nameless slot reads an empty name")
+	t.eq(aids.strand.now, {"id": "loc-1", "type": "location", "name": ""}, "the place, now")
+	t.done()
+
+func test_entries_served_without_a_type_read_their_fixed_type(t) -> void:
+	# A keel from before serial 134 serves {id, name}: each aid's type is fixed by its pair, each slot's by its slot.
+	var me := {"reading_aids": {"charter": {"id": "law-1", "name": "House rules", "rules": [], "skill": []},
+		"guide": {"id": "con-g", "name": "Start here"},
+		"domains": [{"id": "con-d1", "name": "The Harbour", "sentence": "", "hubs": []}],
+		"strand": {"narrative": {"id": "n-1", "name": "N"}, "event": {"id": "e-1", "name": "E"},
+			"location": {"id": "loc-1", "name": "L"}, "character": {"id": "c-1", "name": "C"},
+			"now": {"id": "loc-2", "name": "M"}, "same": false}}}
+	var before := me.duplicate(true)
+	var aids := OWCharter.served(me)
+	t.eq(aids.charter["type"], "law", "the Charter")
+	t.eq(aids.guide["type"], "construct", "the Guide")
+	t.eq(aids.domains[0]["type"], "construct", "a Domain")
+	t.eq(aids.charter.keys(), ["id", "type", "name", "rules", "skill"], "the page's order")
+	t.eq(aids.domains[0].keys(), ["id", "type", "name", "sentence", "hubs"], "the page's order")
+	var s: OWStrand.Strand = aids.strand
+	t.eq([s.narrative["type"], s.event["type"], s.location["type"], s.character["type"], s.now["type"]],
+		["narrative", "event", "location", "character", "location"], "each slot's kind, now a location")
+	t.eq(s.now.keys(), ["id", "type", "name"], "the page's order")
+	t.eq(me, before, "the answer is as it was")
 	t.done()
 
 func test_an_agents_join_answer_carries_the_strand(t) -> void:
 	# keel's test: the hero hidden from the new seat, so the hero's two slots and same are null.
-	var partial := {"narrative": {"id": "n-1", "name": "The Gang"}, "event": {"id": "e-1", "name": "The Crossing"},
-		"location": {"id": "loc-1", "name": "The River"}, "character": null, "now": null, "same": null}
+	var partial := {"narrative": {"id": "n-1", "type": "narrative", "name": "The Gang"},
+		"event": {"id": "e-1", "type": "event", "name": "The Crossing"},
+		"location": {"id": "loc-1", "type": "location", "name": "The River"}, "character": null, "now": null, "same": null}
 	var joined := {"kind": "agent", "key": "ow_w_seat", "front_door": {"charter": null},
 		"reading_aids": {"charter": null, "guide": null, "domains": [], "strand": partial}}
 	var aids := OWCharter.served(joined)
