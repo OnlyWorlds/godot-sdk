@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json): every case, the
-## 35 charter readings (charterOf and domainsOf, the packet compared whole) and the 6 element cases (isCharterElement),
+## 38 charter readings (charterOf and domainsOf, the packet compared whole) and the 6 element cases (isCharterElement),
 ## and the profile's tables held equal to the fixture's.
 ##
 ## Serial 134 (each packet entry carries its type) is staged, not published: its fixture is held apart in
@@ -9,7 +9,7 @@ extends RefCounted
 ## manifest again, and drop the staged copy.
 
 const CHARTER := "res://tests/data/serial-134/charter.fixture.json"
-const STAGED_SHA256 := "b87b5e88e81d60e971b0620a1d9fb0367d8b5d03bcd5671777208dfb078f8f01"
+const STAGED_SHA256 := "55b089c760b1542f28383d542d9c33e32a1c04782e7b9a5b97c3bc0c309578e3"
 
 var _doc: Dictionary
 
@@ -52,8 +52,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 41, "41 cases")
-	t.eq(counts, {"charter": 35, "element": 6}, "by kind")
+	t.eq(_fixture()["cases"].size(), 44, "44 cases")
+	t.eq(counts, {"charter": 38, "element": 6}, "by kind")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:

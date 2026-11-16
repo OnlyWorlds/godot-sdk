@@ -11,7 +11,7 @@ extends RefCounted
 ## manifest again, and drop the staged copy.
 
 const STRAND := "res://tests/data/serial-134/strand.fixture.json"
-const STAGED_SHA256 := "c8586c1745c9d8ec6532c2283a64886fcb7910ad825c281eb7d5181d6e5f16ee"
+const STAGED_SHA256 := "16e5685403053cb9142dc1dd1aa84c3366421e90b08146f2b7049cf89fb619e2"
 const STORY := "019a7f00-0000-7000-8000-000000000301"
 const EMPTY := {"narrative": null, "event": null, "location": null, "character": null, "now": null, "same": null}
 
@@ -47,9 +47,9 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	t.eq(FileAccess.get_sha256(STRAND), STAGED_SHA256, "the fixture's bytes are serial 134's staged copy")
 	var f := _fixture()
 	t.eq(f["profile"], "strand", "the profile")
-	t.eq(f["cases"].size(), 27, "27 cases")
-	t.eq(f["cases"].filter(func(c): return c["kind"] == "strand").size(), 27, "every case a strand case")
-	t.eq(f["worlds"].size(), 24, "24 worlds")
+	t.eq(f["cases"].size(), 28, "28 cases")
+	t.eq(f["cases"].filter(func(c): return c["kind"] == "strand").size(), 28, "every case a strand case")
+	t.eq(f["worlds"].size(), 25, "25 worlds")
 	t.eq(f["mark"]["field"], OWStrand.MARK, "the mark's field")
 	t.eq(f["mark"]["members"], OWStrand.MEMBERS, "the mark's members, in order")
 	t.done()
