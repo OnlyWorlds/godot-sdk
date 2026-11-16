@@ -1,19 +1,18 @@
 extends RefCounted
-## OWLayout.layout_by_kind and layout_around on the shared fixture: the npm SDK's test/fixtures/layout/by-kind.json at
-## commit 556bd93 (release 4.167.0's cases, edges numbered within each source's field list), the same bytes the Python
-## package (onlyworlds 0.127.0) holds, vendored byte for byte in tests/data/by-kind.json. by-kind compares exactly, every
+## OWLayout.layout_by_kind and layout_around on the shared fixture: the pinned dist's profiles/layout.fixture.json (the
+## default layouts page, profiles/layout.md, serial 132), read from the vendored folder. by-kind compares exactly, every
 ## x and y bit for bit: the method is chaotic, so two runtimes agree bit for bit or not at all. around compares within
-## 1e-12: each of its points is one cosine and one sine, and runtimes' cosines may differ in the last place.
+## 1e-12: each of its points is one cosine and one sine, and runtimes' cosines may differ in the last place. The
+## fixture's third suite, unplaced, is not read: the package has no unplaced reader.
 ##
 ## Godot's JSON reads some of the fixture's 17-digit decimals as a neighbouring double, so the graphs (whose numbers are
-## small integers) are read from the fixture, and the wants from tests/data/by-kind.bits.json, which
+## small integers) are read from the fixture, and the wants from tests/data/layout.bits.json, which
 ## codegen/generate_layout.py writes from the same fixture with an exact reader and which names the fixture's sha256.
-## When the fixture moves: re-vendor it (tools/layout-pin/vendor.py in the maintainer's tree), run
-## codegen/generate_layout.py, and update the hash.
+## When the pin moves the fixture: run codegen/generate_layout.py and update the hash.
 
-const FIXTURE := "res://tests/data/by-kind.json"
-const FIXTURE_SHA256 := "06a023eace0f906e50737932d6f1bd83178e64acc72c6668d75c56540b36ff57"
-const BITS := "res://tests/data/by-kind.bits.json"
+const FIXTURE := "res://codegen/schema-dist/profiles/layout.fixture.json"
+const FIXTURE_SHA256 := "6860a7654f1a92e31269cbbdd2a08049035bd19caebc2f9083b320be4872000e"
+const BITS := "res://tests/data/layout.bits.json"
 const AROUND_TOLERANCE := 1e-12
 
 var _doc: Dictionary
@@ -110,15 +109,18 @@ func _ring(t, name: String) -> void:
 				"%s: %s (%s, %s) against (%s, %s)" % [name, p["id"], String.num_scientific(p["x"]), String.num_scientific(p["y"]), String.num_scientific(wx), String.num_scientific(wy)])
 	t.done()
 
-func test_the_fixture_is_the_npm_sdks_bytes_with_twelve_exact_cases_and_seven_rings(t) -> void:
-	t.eq(FileAccess.get_sha256(FIXTURE), FIXTURE_SHA256, "the fixture's bytes are the npm SDK's")
+func test_the_fixture_is_the_pinned_dists_bytes_with_seventeen_exact_cases_and_ten_rings(t) -> void:
+	# The fixture also holds unplaced (15 cases), which no test here reads: the package has no unplaced reader.
+	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/MANIFEST.json"))["files"]
+	t.eq(FileAccess.get_sha256(FIXTURE), FIXTURE_SHA256, "the fixture's bytes are the ones this test pins")
+	t.eq(manifest["profiles/layout.fixture.json"], FIXTURE_SHA256, "the fixture's bytes are the pinned dist's")
 	t.eq(_wants()["fixture_sha256"], FIXTURE_SHA256, "the bits file was made from this fixture")
 	t.eq(OWLayoutAnchors.FIXTURE_SHA256, FIXTURE_SHA256, "the anchor table was made from this fixture")
-	t.eq(_fixture()["compare"].keys(), ["cases", "around"], "the compare block")
-	t.eq(_fixture()["cases"].size(), 12, "twelve exact cases")
-	t.eq(_fixture()["around"].size(), 7, "seven rings")
-	t.eq(_wants()["cases"].size(), 12, "the bits file's exact cases")
-	t.eq(_wants()["around"].size(), 7, "the bits file's rings")
+	t.eq(_fixture()["compare"].keys(), ["cases", "around", "unplaced"], "the compare block")
+	t.eq(_fixture()["cases"].size(), 17, "seventeen exact cases")
+	t.eq(_fixture()["around"].size(), 10, "ten rings")
+	t.eq(_wants()["cases"].size(), 17, "the bits file's exact cases")
+	t.eq(_wants()["around"].size(), 10, "the bits file's rings")
 	t.done()
 
 func test_the_anchor_table_is_the_fixtures_anchors_bit_for_bit(t) -> void:
@@ -348,7 +350,8 @@ func test_min_and_max_are_javascripts(t) -> void:
 	t.done()
 
 ## U+FF5A (one UTF-16 code unit, 0xFF5A) sorts before U+1D400 (a surrogate pair, 0xD835 0xDC00) by code point, after it by
-## UTF-16 code unit. The fixture's names never set the two orders apart; this pair does.
+## UTF-16 code unit. The fixture's names-by-code-point-not-utf-16 case sets the two orders apart as well (serial 132);
+## this pair is the smallest that does.
 func test_around_names_order_by_code_point_not_by_utf16_code_unit(t) -> void:
 	var astral := char(0x1D400)
 	var wide := char(0xFF5A)
