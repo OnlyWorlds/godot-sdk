@@ -58,7 +58,7 @@ class Packet:
 ## agent's join answer ([param answer], the parsed body), read as served and never recomputed (who sees what is the
 ## server's reading for the key). The Charter, the Guide and the Domains are copied as served (a Charter or Guide that
 ## is not a Dictionary reads null, Domains that are not an Array none); an entry served with no String
-## [code]type[/code] (a server from before serial 134) gets its aid's fixed type beside [code]id[/code]
+## [code]type[/code] (a server from before serial 133) gets its aid's fixed type beside [code]id[/code]
 ## ([code]law[/code], [code]construct[/code]); [code]strand[/code] is read by
 ## [method OWStrand.served], six null slots an empty strand, an absent key null (a server from before serial 100).
 ## Null when the answer carries no packet (a player's join answer, an older server). The answer is never changed.

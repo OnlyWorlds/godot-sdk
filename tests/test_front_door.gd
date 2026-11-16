@@ -72,7 +72,7 @@ func test_a_served_slot_is_read_as_served(t) -> void:
 	t.done()
 
 func test_entries_served_without_a_type_read_their_fixed_type(t) -> void:
-	# A keel from before serial 134 serves {id, name}: each aid's type is fixed by its pair, each slot's by its slot.
+	# A keel from before serial 133 serves {id, name}: each aid's type is fixed by its pair, each slot's by its slot.
 	var me := {"reading_aids": {"charter": {"id": "law-1", "name": "House rules", "rules": [], "skill": []},
 		"guide": {"id": "con-g", "name": "Start here"},
 		"domains": [{"id": "con-d1", "name": "The Harbour", "sentence": "", "hubs": []}],

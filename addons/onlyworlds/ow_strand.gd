@@ -16,7 +16,7 @@ const MARK := "x_strand"
 const MEMBERS := ["narrative", "event", "location"]
 
 ## What [method strand_of] answers. Each filled slot is [code]{id, type, name}[/code], [code]type[/code] the kind the
-## slot holds in the standard's lowercase word ([code]now[/code] a [code]location[/code]; serial 134: a reader handed
+## slot holds in the standard's lowercase word ([code]now[/code] a [code]location[/code]; serial 133: a reader handed
 ## the strand alone fetches an id by its type), an empty one null. [member error] is
 ## "" unless the call itself was a mistake (a world without an elements list, a rung outside the four): then it names
 ## the mistake and nothing is read.
@@ -107,7 +107,7 @@ static func strand_of(world: Variant, reader: Variant) -> Strand:
 ## The six slots as a server serves them ([code]reading_aids.strand[/code] on [code]GET /me[/code] and an agent's join
 ## reply, read by [method OWCharter.served]): read as served, never recomputed. A slot is [code]{id, type, name}[/code]
 ## or null (one that is not a Dictionary with a String [code]id[/code] reads empty, a name that is not a String "", a
-## slot with no String [code]type[/code], as a server from before serial 134 serves it, the kind the slot holds), and
+## slot with no String [code]type[/code], as a server from before serial 133 serves it, the kind the slot holds), and
 ## [code]same[/code] a bool or null. Null when [param slots] is not a Dictionary (the key absent).
 static func served(slots: Variant) -> Strand:
 	if not slots is Dictionary:
@@ -138,7 +138,7 @@ static func _member_ok(v: Variant) -> bool:
 static func _seen(r: OWLens.View, id: Variant, kind: String) -> bool:
 	return id is String and r.view.has(id) and r.type_of.get(id) == kind
 
-## A filled slot: its type the slot's kind word, never the stored spelling (serial 134; [method _seen] matched the
+## A filled slot: its type the slot's kind word, never the stored spelling (serial 133; [method _seen] matched the
 ## type trimmed and folded), its name as the reader is served it ("" when it has none).
 static func _slot(r: OWLens.View, id: String, kind: String) -> Dictionary:
 	var name: Variant = r.body(id).get("name")

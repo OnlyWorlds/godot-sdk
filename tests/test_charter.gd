@@ -1,15 +1,10 @@
 extends RefCounted
-## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json): every case, the
-## 41 charter readings (charterOf and domainsOf, the packet compared whole) and the 6 element cases (isCharterElement),
-## and the profile's tables held equal to the fixture's.
-##
-## Serial 134 (each packet entry carries its type) is staged, not published: its fixture is held apart in
-## tests/data/serial-134/, its sha256 the staged one, so the vendored dist and its manifest stay the pin's. When the pin
-## reaches 134, point CHARTER back at res://codegen/schema-dist/profiles/charter.fixture.json, check it against the
-## manifest again, and drop the staged copy.
+## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json, the pinned copy
+## at dist.133, its sha256 checked against the manifest): every case, the 41 charter readings (charterOf and domainsOf,
+## the packet compared whole) and the 6 element cases (isCharterElement), and the profile's tables held equal to the
+## fixture's.
 
-const CHARTER := "res://tests/data/serial-134/charter.fixture.json"
-const STAGED_SHA256 := "ba80d4e276ed81a7c185dcd66c3d6ea7af9c9e49fb947bacde2d52136acb2cd5"
+const CHARTER := "res://codegen/schema-dist/profiles/charter.fixture.json"
 
 var _doc: Dictionary
 
@@ -48,7 +43,8 @@ func _element(t, c: Dictionary) -> void:
 	t.done()
 
 func test_the_fixture_is_the_pinned_one(t) -> void:
-	t.eq(FileAccess.get_sha256(CHARTER), STAGED_SHA256, "the fixture's bytes are serial 134's staged copy")
+	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/MANIFEST.json"))["files"]
+	t.eq(FileAccess.get_sha256(CHARTER), manifest["profiles/charter.fixture.json"], "the fixture's bytes are the dist's")
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
@@ -72,7 +68,7 @@ func test_the_tables_are_the_fixtures(t) -> void:
 	t.eq(hubs, OWCharter.hub_fields(), "the hub fields are the generated Construct's links, in the schema's order")
 	t.done()
 
-## Each entry is written in the page's order, type beside id (serial 134): the fixture's key order carries no meaning,
+## Each entry is written in the page's order, type beside id (serial 133): the fixture's key order carries no meaning,
 ## so the replay's whole compare cannot see it.
 func test_each_entry_is_written_in_the_pages_order(t) -> void:
 	var harbour: Dictionary = _fixture()["worlds"]["harbour"]
@@ -84,7 +80,7 @@ func test_each_entry_is_written_in_the_pages_order(t) -> void:
 		t.eq(d.keys(), ["id", "type", "name", "sentence", "hubs"], "a Domain")
 	t.done()
 
-## The packet says the pair's own word (serial 134, amendment 1): a Charter stored as " Law " and a Domain stored as
+## The packet says the pair's own word (serial 133, amendment 1): a Charter stored as " Law " and a Domain stored as
 ## "CONSTRUCT" are aids, written law and construct. Kills: the stored spelling.
 func test_a_type_stored_in_another_spelling_is_written_as_the_pairs_word(t) -> void:
 	var world := {"id": "w", "elements": [
