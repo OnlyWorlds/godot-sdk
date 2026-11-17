@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json, the pinned copy
-## at dist.133, its sha256 checked against the manifest): every case, the 41 charter readings (charterOf and domainsOf,
+## at dist.134, its sha256 checked against the manifest): every case, the 41 charter readings (charterOf and domainsOf,
 ## the packet compared whole) and the 6 element cases (isCharterElement), and the profile's tables held equal to the
 ## fixture's.
 
