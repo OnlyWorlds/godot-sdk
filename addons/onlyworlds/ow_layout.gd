@@ -306,6 +306,39 @@ static func layout_around(graph: Variant, focus: Variant, steps: Variant = 1) ->
 			points.append({"id": x["id"], "depth": depth[j], "x": at_x[j], "y": at_y[j]})
 	return {"method": "around", "version": 1, "points": points}
 
+## Lay out a whole graph in three dimensions by its links (the default layouts page, [code]by-links-3d[/code]; the
+## implementation is [OWLayoutByLinks3d]). The largest part of the graph that no single element's removal parts (its
+## body) is cut into groups round its most linked elements, the groups are packed apart in directions read from a table
+## ([OWLayoutDirections]), and 300 seeded force steps settle each group round its point; what hangs off the body fans
+## out from it. When the world has a Map that holds three or more of the graph's elements by a Pin, the one that holds
+## the most (a tie to the greater id) is a flat plate with each of its pinned elements at its Pin, and a Map over a place
+## on it a small plate above it. Every other piece of linked elements is laid out the same way on its own: one with a
+## pinned or held element stands where those points put it, the rest on a ring beside the main shape. An element linked
+## to no other and pinned on no map is not placed, and is listed in [code]unplaced[/code].
+##
+## [param graph] is an [OWGraph.Graph] or [code]{nodes, edges}[/code], of any types, in any order; leave Map, Pin and
+## Marker out of it. [param elements] is the world's elements as served (only Maps and Pins are read, through
+## [method OWMapSpace.map_space] and [method OWMapSpace.layout_of], and a layout map is never the plate), or null for
+## none. [param held]: points an earlier answer gave, a Dictionary of element id to [code][x, y, z][/code], so those
+## elements stand where they stood and the rest is laid out round them; [param held_unit] the step they were rounded
+## to (whole numbers: 1), from 0 to an eighth of a rest. Null for either is absent. The same input gives the same
+## points in every runtime: to the last bit for every element placed [code]centre[/code], [code]with[/code] or
+## [code]map[/code] off the ring, and within 6e-8 for the rest.
+##
+## Answers [code]{method: "by-links-3d", version: 2, points, centres, unplaced}[/code]: one
+## [code]{id, x, y, z, how, group, part, held}[/code] per placed element in the order the nodes were handed in (x, y, z
+## 64-bit floats, a rest 60 units); [code]how[/code] [code]centre[/code], [code]with[/code], [code]arm[/code],
+## [code]link[/code] or [code]map[/code]; [code]group[/code] the id of the centre it stands with, or null;
+## [code]part[/code] null where [code]group[/code] is an id, else [code]map[/code] or [code]one-link[/code];
+## [code]held[/code] true when it stands at its held point. [code]centres[/code]: the main shape's centres in rank order,
+## then each other piece's. [code]unplaced[/code]: the ids not placed, in code point order. A refusal the page names
+## answers [code]{error, code}[/code], [code]code[/code] one of [code]held-not-object[/code],
+## [code]held-not-point[/code], [code]held-unit[/code] (all three before anything runs) or [code]held-box[/code] (the
+## held points one piece's run holds wider apart than 768 rests); a graph that is not [code]{nodes, edges}[/code], a node
+## without a String id or two nodes with one id answer [code]{error}[/code].
+static func layout_by_links_3d(graph: Variant, elements: Variant = null, held: Variant = null, held_unit: Variant = null) -> Dictionary:
+	return OWLayoutByLinks3d.layout(graph, elements, held, held_unit)
+
 ## What a saved [code]by-kind[/code] layout map does not place (the default layouts' page, [code]unplaced[/code]): the
 ## ids of the graph's nodes that are not in [param placed], by id in code point order. [code]by-kind[/code] places
 ## every node, so every node counts.
