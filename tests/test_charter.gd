@@ -137,7 +137,7 @@ func test_first_line(t) -> void:
 ## A caller's mistake is no reading: the message names it, and the packet is empty.
 func test_a_callers_mistake_is_named(t) -> void:
 	t.ok(OWCharter.charter_of({"no": "elements"}, {"rung": "owner"}).error.contains("world"), "a world without elements")
-	t.ok(OWCharter.charter_of({"elements": []}, {"rung": "king"}).error.contains("rung"), "a rung outside the four")
+	t.ok(OWCharter.charter_of({"elements": []}, {"rung": "king"}).error.contains("rung"), "a rung outside the five")
 	var bad := OWCharter.charter_of(3, {"rung": "owner"})
 	t.eq(bad.to_dict(), {"charter": null, "guide": null, "domains": []}, "nothing read")
 	t.eq(OWCharter.domains_of(3, {"rung": "owner"}), [], "domains_of: an empty list")

@@ -113,7 +113,8 @@ static func is_charter_element(element: Variant) -> bool:
 ## each once in the order written, kept when it is an Object of this world the reader sees, the first five kept. Its
 ## name, rules and text are read as stored: the Charter is every member rung's to read whole (D152), as keel reads its
 ## row, but the hidden mark wins over that (serial 135): a Charter the hidden mark keeps from a reader is not that
-## reader's, whole or as a stub. [code]guide[/code] the same among marked Guides, [code]{id, type, name}[/code]. Each entry's
+## reader's, whole or as a stub; the mark keeps nothing from a keeper (the owner or a co-builder) or from the one who
+## made it, a contributor's own hidden Charter listed in its [code]whole[/code] (serial 138). [code]guide[/code] the same among marked Guides, [code]{id, type, name}[/code]. Each entry's
 ## [code]type[/code] is its pair's own word ([code]law[/code], [code]construct[/code]), whatever spelling the
 ## element's type is stored in. [code]domains[/code] is every marked
 ## Domain the reader sees: first in the order of the Guide's [code]constructs[/code] as the reader is served them (an

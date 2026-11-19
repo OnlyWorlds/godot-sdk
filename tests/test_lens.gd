@@ -1114,3 +1114,30 @@ func test_a_hidden_element_in_a_guests_known_of_is_not_in_its_view_no_stub_no_ro
 	var own := OWLens.resolve(world, "F", {"rung": "guest", "whole": ["F", "e05"]}).rows
 	t.eq(own.size() == 1 and own[0].get("hidden") == true, true, "a hidden id in whole stays its own creation, marked")
 	t.done()
+
+## Serial 138: the hidden mark keeps an element from every reader but a keeper and the one who made it. A co-builder is
+## served the bodies as stored, the hidden one marked, and none of the owner's counts; a contributor sees its own hidden
+## creation, listed in its whole, and no other. Kills: a co-builder trimmed like a member, or counted like the owner; a
+## contributor's whole read as a guest's (only the listed ids).
+func test_serial_138_a_keeper_and_a_maker_read_the_hidden(t) -> void:
+	var world := {"elements": [
+		{"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "characters": ["a", "ghost"], "x_lens": {"depth": 0}},
+		{"id": "a", "type": "character", "name": "A", "friends": ["p", "h", "k"]},
+		{"id": "p", "type": "character", "name": "P", "x_review_proposed": {"by": null, "at": "2026-10-03T12:00:00Z"}},
+		{"id": "h", "type": "character", "name": "H", "hidden": true},
+		{"id": "k", "type": "character", "name": "K", "hidden": true}]}
+	var keeper := OWLens.View.new(world, {"rung": "co-builder"}, null)
+	t.eq(keeper.view.keys(), ["L", "a", "h", "k"], "the whole world but the proposed")
+	t.eq(keeper.body("a")["friends"], ["p", "h", "k"], "a keeper's body as stored, nothing trimmed")
+	t.ok(not keeper.body("a").has(OWLens.SERVED_TRIMMED), "nothing trimmed, nothing marked")
+	t.eq(keeper.body("h").get("hidden"), true, "the hidden one marked")
+	t.eq(OWLens.resolve(world, "L", {"rung": "co-builder"}).cut, {}, "a co-builder is not the owner")
+	t.eq(OWLens.resolve(world, "L", {"rung": "owner"}).cut, {"anchor_not_visible": 1}, "the owner counts the dangling anchor")
+	var maker := OWLens.View.new(world, {"rung": "contributor", "whole": ["h"]}, null)
+	t.eq(maker.view.keys(), ["L", "a", "h"], "its own hidden creation, and not another's")
+	t.eq(maker.body("a")["friends"], ["p", "h"], "a link to its own hidden creation kept, to another's left out")
+	t.eq(maker.body("h").get("hidden"), true, "its body of its own hidden creation carries the mark")
+	t.ok(not maker.body("a").has("hidden"), "an unmarked body carries no hidden key")
+	var other := OWLens.View.new(world, {"rung": "contributor"}, null)
+	t.eq(other.view.keys(), ["L", "a"], "no hidden element for a contributor that made none")
+	t.done()

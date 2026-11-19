@@ -8,6 +8,13 @@ the git log.
 
 ### Added
 
+- A co-builder, and a contributor's own hidden creations (the lens profile, serial 138): the hidden mark keeps an
+  element from every reader but a keeper (the owner or a co-builder) and the one who made it. `OWLens.RUNGS` gains
+  `co-builder`, which reads the whole world as the owner does, hidden elements included and bodies as stored, with none
+  of the owner's two counts. A contributor reader's `whole` lists the hidden elements it made: each is in its view and
+  its body carries `hidden: true`. The lens readers, `OWCharter.charter_of` and `design_parts_of`, the strand reader
+  and the graph read both through the view; the graph's `hidden` and `proposed` flags stay the owner's alone, as the
+  page says today. Serial 138's three lens cases and one charter case on the two rules pass.
 - A talk on an Object or a Construct (the room and report profiles, serial 135): `OWLens.talks_of(element)` answers
   each `{type, id}` a line in the room (the pair `narrative` + `Message` and the mark) names in its `objects`
   (`object`) or `constructs` (`construct`), read from the line alone, and `OWReport.talks_of(element)` the same of a

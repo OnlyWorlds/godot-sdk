@@ -87,8 +87,9 @@ const HANDS := ["created_by", "changed_by", "changed_via", "changed_client"]
 ## held equal to it by the tests). A type not named here has none.
 const PUBLIC_FIELDS := {"character": ["physicality", "height", "weight", "species", "reputation"]}
 
-## The readers' four rungs.
-const RUNGS := ["owner", "contributor", "guest", "public"]
+## The readers' five rungs. A co-builder (serial 138) is a keeper beside the owner: the whole world as the owner reads
+## it, hidden elements included and bodies as stored, and none of the owner's two counts.
+const RUNGS := ["owner", "co-builder", "contributor", "guest", "public"]
 
 ## The served mark: the fields a body served to a reader below the owner lost an id from, where that changes what it
 ## means (keel elements/serialize.py). Names only, never an id or a count; never on the public rung, never written.
@@ -141,8 +142,9 @@ class Reading:
 ## [code]members[/code] (the members list, which proves a message's sender) and the world's now ([code]now[/code], else
 ## [code]time_current[/code] as a folder spells it, else [code]time_range_current[/code] as the API serves it).
 ## [param lens] is a lens body or the id of a lens the reader is served whole. [param reader] is a Dictionary:
-## [code]rung[/code] (owner, contributor, guest or public), [code]character[/code] (for the mail rule), a guest's
-## [code]whole[/code] and [code]known_of[/code], and on an owner [code]as[/code] (another reader: its view, the
+## [code]rung[/code] (owner, co-builder, contributor, guest or public), [code]character[/code] (for the mail rule), a
+## guest's [code]whole[/code] and [code]known_of[/code], a contributor's [code]whole[/code] (the hidden elements it
+## made, which the hidden mark does not keep from it; serial 138), and on an owner [code]as[/code] (another reader: its view, the
 ## owner's two counts). [param options]: [code]as_of[/code] (the reading's date, a whole number in the world's unit;
 ## absent: the world's now; none: no fence and the window cuts nothing) and [code]clock[/code] (the reading's wall
 ## clock, a date-time, for the mail rule's thirty days and [code]changed_within[/code]; absent: the machine's time).
@@ -182,7 +184,7 @@ static func _world_now(world: Dictionary) -> Variant:
 
 static func _check_reader(reader: Variant, where: String) -> String:
 	if not (reader is Dictionary and RUNGS.has(reader.get("rung"))):
-		return "%s: a reader is a Dictionary whose rung is owner, contributor, guest or public; got %s" % [where, var_to_str(reader)]
+		return "%s: a reader is a Dictionary whose rung is owner, co-builder, contributor, guest or public; got %s" % [where, var_to_str(reader)]
 	if reader.get("as") != null:
 		return _check_reader(reader["as"], where + ".as")
 	return ""
@@ -689,10 +691,12 @@ class View:
 		for id in order:
 			var sees := false
 			match seen_rung:
-				"owner":
+				"owner", "co-builder":
 					sees = true
 				"contributor":
-					sees = not hidden.has(id)
+					# The hidden mark keeps an element from every reader but a keeper and the one who made it: a
+					# contributor's own hidden creations, listed in its whole, come in whole (serial 138).
+					sees = not hidden.has(id) or whole_ids.has(id)
 				"public":
 					sees = not hidden.has(id) and not room.has(id)
 				_:
@@ -772,8 +776,8 @@ class View:
 				out.append(t)
 		return out
 
-	## The body this reader is served, a copy: a stub for a known-of element; the owner reading as itself, the body as
-	## stored; any other reader, the body as keel serves it ([method _trim]). A stored [constant OWLens.SERVED_TRIMMED]
+	## The body this reader is served, a copy: a stub for a known-of element; a keeper (the owner reading as itself, or
+	## a co-builder), the body as stored; any other reader, the body as keel serves it ([method _trim]). A stored [constant OWLens.SERVED_TRIMMED]
 	## is never served (keel's serialize pops it before any trim): only the mark this serving makes reaches a reader. The
 	## hidden mark is served as [code]hidden: true[/code], so a [code]full[/code] row of a hidden element carries it.
 	func body(id: String) -> Dictionary:
@@ -783,15 +787,15 @@ class View:
 		var type: String = type_of[id]
 		var b := el.duplicate(true)
 		b.erase(OWLens.SERVED_TRIMMED)
-		# The owner reading as itself is served as keel serves a reader with no viewer: nothing redacted, a link to a
-		# proposed element kept too.
-		if seen_rung != "owner":
+		# A keeper (the owner reading as itself, or a co-builder) is served as keel serves a reader with no viewer:
+		# nothing redacted, a link to a proposed element kept too.
+		if seen_rung != "owner" and seen_rung != "co-builder":
 			_trim(b, type)
 		if stubs.has(id):
 			b = _known_of(b, type)
 		# A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
-		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below the
-		# owner only a guest's own creation carries it, a body it sees whole.
+		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below a
+		# keeper only a contributor's or a guest's own creation carries it, a body it sees whole.
 		if hidden.has(id):
 			b["hidden"] = true
 		else:
