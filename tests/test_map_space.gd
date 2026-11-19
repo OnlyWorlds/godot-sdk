@@ -56,11 +56,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "map-space", "the profile")
 	t.eq(f["profile_page"], "profiles/map-space.md", "its page")
-	t.eq(f["cases"].size(), 39, "39 cases (34 at dist.106, 35 at dist.119)")
+	t.eq(f["cases"].size(), 43, "43 cases (34 at dist.106, 35 at dist.119, 39 at dist.126, 43 at dist.137)")
 	var names := {}
 	for c in f["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 39, "each case named once")
+	t.eq(names.size(), 43, "each case named once")
 	t.ok(names.has("layout-map-read-as-before"), "dist.119's case: a layout map read as any Map (rule 11)")
 	t.done()
 
@@ -265,7 +265,7 @@ func test_the_replay_reads_every_row_a_case_names(t) -> void:
 	var rows := 0
 	for c in _fixture()["layout_cases"]:
 		rows += _read_layouts(c, errors).size()
-	t.eq(rows, 29 - 2 + 2 + 1, "every row a case names, read once (29 cases, one of them naming two rows)")
+	t.eq(rows, 32 - 2 + 2 + 1, "every row a case names, read once (32 cases, one of them naming two rows)")
 	t.eq(errors, [], "every case names its Map rows")
 	t.done()
 
@@ -281,17 +281,17 @@ func test_an_escaped_surrogate_pair_is_one_code_point_in_code_point_order(t) -> 
 	t.eq(OWMapSpace.layout_of(board, [board], pins).hand, ["p" + String.chr(0xFFFF), "p" + String.chr(0x1F6A2)], "U+FFFF first")
 	t.done()
 
-func test_the_fixture_holds_twenty_nine_layout_cases_beside_its_cases(t) -> void:
+func test_the_fixture_holds_thirty_two_layout_cases_beside_its_cases(t) -> void:
 	var f := _fixture()
 	t.ok(f.get("layout_cases") is Array, "layout_cases beside cases")
-	t.eq(f["layout_cases"].size(), 29, "29 layout cases (17 at dist.110, 21 at dist.111, 23 at dist.119, 26 at dist.126)")
+	t.eq(f["layout_cases"].size(), 32, "32 layout cases (17 at dist.110, 21 at dist.111, 23 at dist.119, 26 at dist.126, 29 at dist.127, 32 at dist.137)")
 	var names := {}
 	for c in f["layout_cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 29, "each layout case named once")
+	t.eq(names.size(), 32, "each layout case named once")
 	t.ok(names.has("parentless-layout-beside-ground") and names.has("ground-beside-parentless-layout"),
 		"dist.119's two cases: a layout Map and its ground, neither with a parent_map, each read in turn")
-	t.eq(f["cases"].size(), 39, "the map space reading's 39 cases beside them")
+	t.eq(f["cases"].size(), 43, "the map space reading's 43 cases beside them")
 	t.done()
 
 ## The map space reading is unchanged by rules 8 to 10: on every layout case its answer carries no layout key.

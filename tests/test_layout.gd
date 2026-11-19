@@ -11,7 +11,7 @@ extends RefCounted
 ## When the pin moves the fixture: run codegen/generate_layout.py and update the hash.
 
 const FIXTURE := "res://codegen/schema-dist/profiles/layout.fixture.json"
-const FIXTURE_SHA256 := "6860a7654f1a92e31269cbbdd2a08049035bd19caebc2f9083b320be4872000e"
+const FIXTURE_SHA256 := "392b5b19b21d5beb1994692f51a8d8df3ef431f93bc279a7fc42ab0b0db508a5"
 const BITS := "res://tests/data/layout.bits.json"
 const AROUND_TOLERANCE := 1e-12
 

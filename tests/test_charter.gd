@@ -75,8 +75,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var names := {}
 	for c in _fixture()["design_cases"]:
 		names[c["name"]] = true
-	t.eq(_fixture()["design_cases"].size(), 13, "13 design cases (serial 135)")
-	t.eq(names.size(), 13, "each design case named once")
+	t.eq(_fixture()["design_cases"].size(), 16, "16 design cases (13 at serial 135, 16 at serial 138)")
+	t.eq(names.size(), 16, "each design case named once")
 	t.eq(OWCharter.DESIGN_STATES, ["in design", "locked"], "the two design states")
 	t.done()
 

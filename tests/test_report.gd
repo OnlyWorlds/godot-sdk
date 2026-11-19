@@ -68,9 +68,9 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var talks := {}
 	for c in f["talk_cases"]:
 		talks[c["name"]] = true
-	t.eq(f["talk_cases"].size(), 6, "6 talk cases (serial 135)")
-	t.eq(talks.size(), 6, "each talk case named once")
-	t.eq(get_cases().size(), 35, "every case runs here, one test each")
+	t.eq(f["talk_cases"].size(), 9, "9 talk cases (6 at serial 135, 9 at serial 138)")
+	t.eq(talks.size(), 9, "each talk case named once")
+	t.eq(get_cases().size(), 38, "every case runs here, one test each")
 	t.done()
 
 # -- beside the fixture ------------------------------------------------------------------------------------------------
