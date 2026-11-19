@@ -2,7 +2,10 @@ class_name OWLayout
 extends RefCounted
 ## Two layout methods for a world nobody laid out, read from its graph as [method OWGraph.world_graph] answers it (the
 ## npm SDK's [code]layoutByKind[/code] and [code]layoutAround[/code], 4.167.0, and the Python package's
-## [code]layout_by_kind[/code] and [code]layout_around[/code], 0.127.0).
+## [code]layout_by_kind[/code] and [code]layout_around[/code], 0.127.0); a third, [method layout_by_links_3d], lays a
+## whole world out in three dimensions by its links ([OWLayoutByLinks3d]); and for each method an [code]unplaced[/code]
+## reading, which elements a saved layout Map of it does not place ([method unplaced_by_kind],
+## [method unplaced_around], [method unplaced_by_links_3d]).
 ##
 ## [b]by-kind[/b]: each kind of element gets a point on a circle, links act as springs, neighbours push apart, for a fixed
 ## number of seeded steps; the answer is fitted into a square. [b]around[/b]: one element at the centre, its neighbours on

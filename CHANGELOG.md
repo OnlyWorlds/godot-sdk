@@ -8,6 +8,28 @@ the git log.
 
 ### Added
 
+- A third layout method, `by-links-3d` (the default layouts page, serial 137 on):
+  `OWLayout.layout_by_links_3d(graph, elements = null, held = null, held_unit = null)` lays a whole world out in three
+  dimensions by its links. The largest part of the graph that no single element's removal parts is cut into groups
+  round its most linked elements, packed apart in directions read from a table (`OWLayoutDirections`, generated from the
+  pinned dist's own table by `codegen/generate_layout_3d.py`, never computed), and settled by 300 seeded force steps;
+  what hangs off it fans out. Where the world's Maps hold three or more of its elements by a Pin, the fullest Map is a
+  flat plate with each pinned element at its Pin (a layout map is never the plate), and a Map over a place on it a
+  small plate above. Every other piece of linked elements is laid out on its own: one with a pinned or held element
+  stands where those points put it, the rest on a ring beside the main shape. `held` hands back points an earlier
+  answer gave, so those elements stand where they stood; `held_unit` is the step they were rounded to. An element
+  linked to no other and pinned on no map is listed in `unplaced`. Answers `{method, version, points, centres,
+  unplaced}`, each point `{id, x, y, z, how, group, part, held}` in 64-bit floats; a refusal the page names answers
+  `{error, code}` (`held-not-object`, `held-not-point`, `held-unit`, `held-box`). Every one of the method fixture's 116
+  cases passes: each list exactly, every point to the last bit where the page promises it and within 6e-8 where it
+  allows the runtime's cosine, sine and arcsine (an `arm` or `link` element, a piece on the ring).
+- The `unplaced` reading for every layout method: `OWLayout.unplaced_by_kind(graph, placed)`,
+  `unplaced_around(graph, focus, placed, steps = 1)` and `unplaced_by_links_3d(graph, placed)` answer
+  `{method, unplaced}`, the ids of the nodes the method counts that are not in `placed` (the elements a saved layout
+  Map's Pins stand for), in code point order. A member of `placed` that is not a non-empty String names no element;
+  `placed` is an Array, a `PackedStringArray` or a Dictionary used as a set. Every `unplaced` case of both layout
+  fixtures passes (17 and 9), and a saved `by-links-3d` Map read back through `OWMapSpace` gives its answer's own
+  `unplaced`.
 - A co-builder, and a contributor's own hidden creations (the lens profile, serial 138): the hidden mark keeps an
   element from every reader but a keeper (the owner or a co-builder) and the one who made it. `OWLens.RUNGS` gains
   `co-builder`, which reads the whole world as the owner does, hidden elements included and bodies as stored, with none

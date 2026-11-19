@@ -106,6 +106,7 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
 | `codegen/generate.py` | the emitter (Python standard library); `--check` is the drift guard; `test_generate_views.py` holds each of its refusals of `views.json` red |
 | `codegen/PIN`, `codegen/schema-dist/` | the pinned schema-dist (tag and manifest sha256), vendored verbatim; never edit it |
 | `codegen/generate_tools.py`, `codegen/tools-pin.json`, `codegen/tools/` | the OnlyWorlds tools list at its own pin (commit and sha256, the npm and Python packages' pin), vendored byte for byte, and its emitter into the **generated** `addons/onlyworlds/ow_tools.gd`; `--check` is its drift guard, `test_generate_tools.py` holds it red on a one-byte change |
+| `codegen/generate_layout.py`, `codegen/generate_layout_3d.py` | the layout methods' shared tables (the by-kind anchors, the by-links-3d directions) from the pinned dist's fixtures into the **generated** `addons/onlyworlds/ow_layout_anchors.gd` and `ow_layout_directions.gd` as bit patterns, and the fixtures' numbers as bits for the tests (`tests/data/layout.bits.json`, `layout-by-links-3d.bits.json`); `--check` is each one's drift guard |
 | `tests/` | the headless suite; `tests/data/unicode_vectors.txt` is generated; `tests/data/keel-wire.json` is keel's wire document, vendored from the Unity SDK (`test_client_wire.gd` names its commit and checks its sha256) |
 | `tools/` | `pack.gd`, `extract.gd` (shell tools), `check_writer.py` (the reference checker's verdict on a file), `probe_numbers.gd`, `twin_run.gd` (the lens and graph readers over a file of random worlds, one answer per line in the npm runner's shape, for a side-by-side compare) |
 | `demo/moppetopia_map.tscn` | a world in a scene: the root Map's image with its Pins |
@@ -115,6 +116,8 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
 ```sh
 python codegen/generate.py --check                               # the pin holds, the generated files are current
 python codegen/generate_tools.py --check                         # the tools list's pin holds, ow_tools.gd is current
+python codegen/generate_layout.py --check                        # the by-kind anchors and the layout bits are current
+python codegen/generate_layout_3d.py --check                     # the by-links-3d directions and bits are current
 python codegen/test_generate_views.py                            # generate.py refuses a views.json that breaks a rule
 godot --headless --path . --import                               # per clone, and after any pull that adds a class_name
 godot --headless --path . --script res://tests/run.gd            # exits 0 only when every test passes

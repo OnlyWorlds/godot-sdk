@@ -178,6 +178,60 @@ func test_the_directions_table_is_the_vendored_table_bit_for_bit(t) -> void:
 	t.eq(off, 0, "directions that differ from the table's bits")
 	t.done()
 
+## The page's saved Map (A saved by-links-3d Map): an answer saved as a Map marked by-links-3d, one whole-number Pin per
+## placed element, reads back as a layout map of that method; its Pins' elements, as the map-space reading answers them,
+## are placed, and the reading is the answer's own unplaced, and an element the world gains since is unplaced too. Handed
+## back as the world's elements, the saved Map is no plate: the answer does not move.
+func test_a_saved_by_links_3d_map_reads_back_as_a_layout_map_and_its_unplaced_is_the_answers(t) -> void:
+	var i := -1
+	for k in _fixture()["cases"].size():
+		if _fixture()["cases"][k]["name"] == "a saved layout Map beside a real Map":
+			i = k
+	t.ok(i >= 0, "the case is in the fixture")
+	if i < 0:
+		t.done()
+		return
+	var input := _input(i)
+	var graph := {"nodes": input["nodes"], "edges": input["edges"]}
+	var answer := OWLayout.layout_by_links_3d(graph)
+	t.eq(answer.get("error", ""), "", "an answer")
+	t.ok(not answer.get("unplaced", []).is_empty(), "the case leaves elements unplaced")
+
+	var types := {}
+	for x in graph["nodes"]:
+		types[x["id"]] = x["type"]
+	var map := {"id": "saved", "type": "map", "name": "saved", "x_layout": {"method": answer["method"]}}
+	var elements: Array = [map]
+	var k := 0
+	for p in answer["points"]:
+		elements.append({"id": "pin%03d" % k, "type": "pin", "map": "saved", "element_type": types[p["id"]], "element_id": p["id"],
+			"x": int(round(p["x"])), "y": int(round(p["y"])), "z": int(round(p["z"]))})
+		k += 1
+	var maps := elements.filter(func(e): return e["type"] == "map")
+	var pins := elements.filter(func(e): return e["type"] == "pin")
+	var layout := OWMapSpace.layout_of(map, maps, pins)
+	t.eq(layout.error, "", "layout_of reads it")
+	t.eq(layout.layout, "by-links-3d", "a layout map of by-links-3d")
+
+	var placed := []
+	for p in OWMapSpace.map_space(elements).pins:
+		if p["map"] == "saved":
+			placed.append(p["element_id"])
+	t.eq(placed.size(), answer["points"].size(), "one Pin per placed element, each read")
+	t.eq(OWLayout.unplaced_by_links_3d(graph, placed).get("unplaced"), answer["unplaced"], "the reading is the answer's own unplaced")
+	var grown := graph.duplicate(true)
+	grown["nodes"].append({"id": "zz-new", "type": "character"})
+	t.eq(OWLayout.unplaced_by_links_3d(grown, placed).get("unplaced"), answer["unplaced"] + ["zz-new"], "an element gained since is unplaced too")
+
+	var again := OWLayout.layout_by_links_3d(graph, elements)
+	var same: bool = again.get("points", []).size() == answer["points"].size()
+	for q in mini(again.get("points", []).size(), answer["points"].size()):
+		var a: Dictionary = again["points"][q]
+		var b: Dictionary = answer["points"][q]
+		same = same and a["id"] == b["id"] and _hex(a["x"]) == _hex(b["x"]) and _hex(a["y"]) == _hex(b["y"]) and _hex(a["z"]) == _hex(b["z"])
+	t.ok(same, "laid out again with the saved Map among the elements, every point the same (the saved Map is no plate)")
+	t.done()
+
 func test_the_golden_angle_is_the_pages_expression_and_the_packages_literal(t) -> void:
 	t.eq(_hex(OWLayoutByLinks3d.gold()), "4003331febfa4bfb", "PI * (3 - sqrt(5)), 2.399963229728653 to the bit")
 	t.done()
