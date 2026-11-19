@@ -200,7 +200,9 @@ test whose world is missing is skipped, never passed.
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
   each with its sentence and hubs, the Charter's skill Objects as keel's `charter_skill` finds them. Every case of the
-  profile's fixture (22).
+  profile's fixture (22). `OWCharter.design_parts_of(world, reader)` (serial 135) is every Object or Construct that
+  reader is served whole whose subtype, trimmed and folded, is `in design` or `locked`, each `{type, id, state}`, only
+  in a world where `charter_of` finds a Charter for that reader; every case of the fixture's `design_cases`.
 - **The strand** (the strand profile, serial 98): `OWStrand.strand_of(world, reader)` is the world's one story in
   miniature as that reader sees it, `{narrative, event, location, character, now, same}`: the story the World's
   `x_strand` names, one of its events and that event's place, the story's protagonist and where the hero is now, and
@@ -229,7 +231,11 @@ test whose world is missing is skipped, never passed.
   board entry, each in `created_at` order as `OWMessage` orders messages) and `lints` (`chain`, `self`); never walked
   further up, never guessed from names or days. A report and a board entry are the room profile's pairs with the
   mark, read by `OWLens`'s room reader (`OWReport.is_report`, `is_board_entry`). Every case of the profile's fixture
-  (20). Parity with the TypeScript SDK 4.159.0 and the Python package 0.120.0.
+  (20). Parity with the TypeScript SDK 4.159.0 and the Python package 0.120.0. A talk on an Object or a Construct
+  (serial 135): `OWLens.talks_of(element)` is each `{type, id}` a line in the room names in its `objects` (`object`)
+  or `constructs` (`construct`), and `OWReport.talks_of(element)` the same of a report, the talks a reader shows it
+  with; ids read as written, an entry that is no String or only White_Space naming nothing. Every case of the room and
+  report fixtures' `talk_cases`.
 - **Views** (the distribution's `views.json`, version 3, serial 115: presentation, not the standard):
   `OWViews.view_of(element)` is how an element is shown by its kind, a `View` with the matching `row` (the table's
   own, read-only; null when the element draws as its type), its one `sentence`, the `banners` at its page's head and

@@ -36,8 +36,29 @@ func get_cases() -> Array:
 		out.append(["lens-edges:" + e["name"], _edge.bind(e)])
 	for c in _row_trims():
 		out.append(["row-trim:" + c["name"], _row_trim.bind(c)])
-	for c in _room()["cases"]:
+	var room := _room()
+	for c in room["cases"]:
 		out.append(["room:" + c["name"], _in_room.bind(c)])
+	for c in room["talk_cases"]:
+		out.append(["room-talk:" + c["name"], _talks.bind(c)])
+	return out
+
+## The room fixture's talk_cases (serial 135): the talks on an element each element is in as a line, compared as a set.
+func _talks(t, c: Dictionary) -> void:
+	var got := OWLens.talks_of(c["element"])
+	t.eq(_as_set(got).size(), got.size(), "each talk once")
+	t.eq(_as_set(got), _as_set(c["talks"]), "the talks, as a set")
+	t.done()
+
+static func _as_set(list: Array) -> Array:
+	var out := []
+	for x in list:
+		out.append(JSON.stringify(x, "", true))
+	var seen := {}
+	for s in out:
+		seen[s] = true
+	out = seen.keys()
+	out.sort()
 	return out
 
 ## The room profile's own fixture (profiles/room.fixture.json): each case's element is a room element exactly when
@@ -103,6 +124,13 @@ func test_the_room_pairs_are_the_room_profiles(t) -> void:
 	t.eq(words, OWLens.ROOM_PAIRS, "the room fixture's pairs")
 	t.eq(room["mark"]["field"], OWLens.ROOM_MARK, "the room fixture's mark")
 	t.eq(room["cases"].size(), 48, "48 room cases")
+	# The talk list is read whole (serial 135): a case added later must not pass unseen.
+	var names := {}
+	for c in room["talk_cases"]:
+		names[c["name"]] = true
+	t.eq(room["talk_cases"].size(), 13, "13 talk cases (serial 135)")
+	t.eq(names.size(), 13, "each talk case named once")
+	t.eq(OWLens.TALK_FIELDS, [["objects", "object"], ["constructs", "construct"]], "the two talk fields")
 	t.done()
 
 ## The profiles' fold is trim then simple case folding, never NFC: a decomposed e and acute stays two code points.

@@ -1,7 +1,8 @@
 extends RefCounted
 ## OWReport on the report profile's conformance fixture (schema-dist profiles/report.fixture.json, the pinned copy at
-## dist.122, its sha256 checked against the manifest): every thread case by name, parents compared whole and in the
-## order given, groups and lints each as a set, as the fixture's notes say. Beside it, the corners dist.120's fixture
+## dist.136, its sha256 checked against the manifest): every thread case by name, parents compared whole and in the
+## order given, groups and lints each as a set, as the fixture's notes say, and every talk case (serial 135), the
+## talks a reader shows a report with, as a set. Beside it, the corners dist.120's fixture
 ## left open, each a case of dist.121's (named on each test) and kept here to pin the reader beside it: a time with no
 ## offset, one id given twice, a parent that is no String or an expanded object, a parent with padding; then a caller's
 ## mistake, and a reading that never changes the bodies.
@@ -20,7 +21,19 @@ func get_cases() -> Array:
 	var out := []
 	for c in _fixture()["thread_cases"]:
 		out.append(["report:" + c["name"], _case.bind(c)])
+	for c in _fixture()["talk_cases"]:
+		out.append(["report-talk:" + c["name"], _talks.bind(c)])
 	return out
+
+## The fixture's talk_cases (serial 135): the talks on an element a reader shows each Narrative with, as a set.
+func _talks(t, c: Dictionary) -> void:
+	var got := OWReport.talks_of(c["report"])
+	var once := {}
+	for x in got:
+		once[JSON.stringify(x, "", true)] = true
+	t.eq(once.size(), got.size(), "each talk listed once")
+	t.eq(_as_set(got), _as_set(c["talks"]), "the talks, as a set")
+	t.done()
 
 ## A list compared as a set: each entry as JSON with its keys sorted, the list sorted.
 static func _as_set(list: Array) -> Array:
@@ -51,7 +64,13 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	for c in f["thread_cases"]:
 		names[c["name"]] = true
 	t.eq(names.size(), 29, "each case named once")
-	t.eq(get_cases().size(), 29, "every case runs here, one test each")
+	# The talk list is read whole (serial 135): a case added later must not pass unseen.
+	var talks := {}
+	for c in f["talk_cases"]:
+		talks[c["name"]] = true
+	t.eq(f["talk_cases"].size(), 6, "6 talk cases (serial 135)")
+	t.eq(talks.size(), 6, "each talk case named once")
+	t.eq(get_cases().size(), 35, "every case runs here, one test each")
 	t.done()
 
 # -- beside the fixture ------------------------------------------------------------------------------------------------

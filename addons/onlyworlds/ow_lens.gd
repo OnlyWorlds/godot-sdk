@@ -38,6 +38,9 @@ const ROOM_PAIRS := ["narrative/message", "narrative/board", "narrative/report",
 	"relation/heart", "relation/take", "relation/vote", "event/sitting", "character/member"]
 ## The room profile's mark: a room element carries it beside its pair.
 const ROOM_MARK := "x_room_of"
+## The two fields that put a line in the room in a talk on an element (the room profile, serial 135), each [field, the
+## type its ids are read as]. No other field does: a line's [code]characters[/code] are its recipients.
+const TALK_FIELDS := [["objects", "object"], ["constructs", "construct"]]
 ## The reading aids' pairs (the room profile: the world's charter, its guide, its domains), written as
 ## [code]types[/code] names them, beside the room pairs.
 const READING_AID_PAIRS := ["law/charter", "construct/guide", "construct/domain"]
@@ -506,6 +509,40 @@ static func _is_room_element(el: Variant) -> bool:
 	if not (type is String and supertype is String) or not _has_mark(el, ROOM_MARK):
 		return false
 	return ROOM_PAIRS.has(OWUnicode.profile_fold(type) + "/" + OWUnicode.profile_fold(supertype))
+
+## The talks on an element [param element] is in as a line (the room profile's "a talk on an Object or a Construct",
+## serial 135): each [code]{type, id}[/code] its [code]objects[/code] ([code]object[/code]) and [code]constructs[/code]
+## ([code]construct[/code]) name, read from the line alone. Empty when it is no line: a line is a room element of the
+## pair [code]narrative[/code] + [code]Message[/code] with the mark, so a Message without the mark, a board entry or a
+## report is in no talk.
+##
+## A field that is not an Array names nothing, and in one an entry that is not a String, or is empty once trimmed of
+## White_Space, names nothing. Every other entry is an id read as written, a space left on it included and never folded
+## to lowercase (the address profile's "The same id"), so [code]ABC[/code] and [code]abc[/code] are two talks. Each
+## [code]{type, id}[/code] once, objects first, each list in its own order; the profile compares the answer as a set.
+## A line in a talk may also hang on a board entry or a work item, and is then in both: this answers only the talks on
+## an element. The talk on an element is every line that names it, in every sitting; how a tool orders or groups a
+## talk's lines is its own. Pure: the body is never changed.
+static func talks_of(element: Variant) -> Array:
+	if not (_is_room_element(element) and OWMessage._matches(element, OWMessage.PAIR_TYPE, OWMessage.PAIR_SUPERTYPE)):
+		return []
+	return _talk_elements_of(element)
+
+## The [code]{type, id}[/code] an element's [constant TALK_FIELDS] name, read as [method talks_of] reads a line's,
+## whatever the element is: [method OWReport.talks_of] reads a report's links by it.
+static func _talk_elements_of(element: Dictionary) -> Array:
+	var out := []
+	var seen := {}
+	for tf in TALK_FIELDS:
+		var v: Variant = element.get(tf[0])
+		if not (v is Array):
+			continue
+		for entry in v:
+			if not (entry is String) or OWUnicode.trim_white_space(entry) == "" or seen.has(tf[1] + "/" + entry):
+				continue
+			seen[tf[1] + "/" + entry] = true
+			out.append({"type": tf[1], "id": entry})
+	return out
 
 ## The reading aid's pair word ([code]law/charter[/code], [code]construct/guide[/code] or
 ## [code]construct/domain[/code], folded) when [param element] is one, else "" (the lens and graph readers read it).

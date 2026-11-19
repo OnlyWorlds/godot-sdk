@@ -185,6 +185,20 @@ static func is_report(element: Variant) -> bool:
 static func is_board_entry(element: Variant) -> bool:
 	return _room_kind_of(element) == BOARD
 
+## The talks on an element a reader shows [param element] with (serial 135): each [code]{type, id}[/code] its
+## [code]objects[/code] ([code]object[/code]) and [code]constructs[/code] ([code]construct[/code]) name, read entry by
+## entry as the room profile reads a line's ([method OWLens.talks_of]: an entry that is not a String or is empty once
+## trimmed of White_Space names nothing, a field that is not an Array names none, every other entry an id read as
+## written). Empty when it is no report ([method is_report]: the pair and the mark, both), so a line in the room or a
+## Report without the mark is shown with no talk.
+##
+## A report's [code]objects[/code] and [code]constructs[/code] hold every Object and Construct it touched or changed,
+## so a report is shown with the talk on each, whenever it was written and whether or not it names a sitting in
+## [code]events[/code]. From the report alone no reader can tell which of them, if any, was the talk it closed, and
+## this names none. A thread ([method threads_of]) takes nothing from it. Pure: the body is never changed.
+static func talks_of(element: Variant) -> Array:
+	return OWLens._talk_elements_of(element) if is_report(element) else []
+
 ## Reports grouped into threads (the report profile's rule 9). Give it the Narratives as the reader is served them,
 ## in the order served (a Dictionary per body, as the API or a world folder gives it).
 ##

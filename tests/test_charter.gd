@@ -1,8 +1,8 @@
 extends RefCounted
 ## OWCharter on the charter profile's conformance fixture (schema-dist profiles/charter.fixture.json, the pinned copy
-## at dist.134, its sha256 checked against the manifest): every case, the 41 charter readings (charterOf and domainsOf,
-## the packet compared whole) and the 6 element cases (isCharterElement), and the profile's tables held equal to the
-## fixture's.
+## at dist.136, its sha256 checked against the manifest): every case, the 41 charter readings (charterOf and domainsOf,
+## the packet compared whole), the 6 element cases (isCharterElement) and the 13 design cases (the design parts a
+## reader reads, serial 135), and the profile's tables held equal to the fixture's.
 
 const CHARTER := "res://codegen/schema-dist/profiles/charter.fixture.json"
 
@@ -23,7 +23,28 @@ func get_cases() -> Array:
 				out.append(["charter:" + c["name"], _element.bind(c)])
 			_:
 				out.append(["charter:" + c["name"], func(t): t.fail("a case of unknown kind %s" % c["kind"]); t.done()])
+	for c in _fixture()["design_cases"]:
+		out.append(["charter-design:" + c["name"], _design.bind(c)])
 	return out
+
+## The fixture's design_cases (serial 135): every design part the reader reads, {type, id, state}, as a set.
+func _design(t, c: Dictionary) -> void:
+	var world := _world(c)
+	var reader: Dictionary = world["readers"][c["reader"]]
+	var got := OWCharter.design_parts_of(world, reader)
+	var once := {}
+	for p in got:
+		once[JSON.stringify(p, "", true)] = true
+	t.eq(once.size(), got.size(), "each part listed once")
+	var want := {}
+	for p in c["want"]:
+		want[JSON.stringify(p, "", true)] = true
+	var got_keys := once.keys()
+	got_keys.sort()
+	var want_keys := want.keys()
+	want_keys.sort()
+	t.eq(got_keys, want_keys, "the design parts, as a set")
+	t.done()
 
 func _world(c: Dictionary) -> Dictionary:
 	return _fixture()["worlds"][c["world"]] if c["world"] is String else c["world"]
@@ -50,6 +71,13 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
 	t.eq(_fixture()["cases"].size(), 47, "47 cases")
 	t.eq(counts, {"charter": 41, "element": 6}, "by kind")
+	# The design list is read whole (serial 135): a case added later must not pass unseen.
+	var names := {}
+	for c in _fixture()["design_cases"]:
+		names[c["name"]] = true
+	t.eq(_fixture()["design_cases"].size(), 13, "13 design cases (serial 135)")
+	t.eq(names.size(), 13, "each design case named once")
+	t.eq(OWCharter.DESIGN_STATES, ["in design", "locked"], "the two design states")
 	t.done()
 
 func test_the_tables_are_the_fixtures(t) -> void:

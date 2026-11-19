@@ -112,7 +112,8 @@ static func is_charter_element(element: Variant) -> bool:
 ## description names (any [code]ow://[/code] form, a site address or a bare id: every 8-4-4-4-12 hex run), lowercase,
 ## each once in the order written, kept when it is an Object of this world the reader sees, the first five kept. Its
 ## name, rules and text are read as stored: the Charter is every member rung's to read whole (D152), as keel reads its
-## row. [code]guide[/code] the same among marked Guides, [code]{id, type, name}[/code]. Each entry's
+## row, but the hidden mark wins over that (serial 135): a Charter the hidden mark keeps from a reader is not that
+## reader's, whole or as a stub. [code]guide[/code] the same among marked Guides, [code]{id, type, name}[/code]. Each entry's
 ## [code]type[/code] is its pair's own word ([code]law[/code], [code]construct[/code]), whatever spelling the
 ## element's type is stored in. [code]domains[/code] is every marked
 ## Domain the reader sees: first in the order of the Guide's [code]constructs[/code] as the reader is served them (an
@@ -169,6 +170,44 @@ static func charter_of(world: Variant, reader: Variant) -> Packet:
 ## there.
 static func domains_of(world: Variant, reader: Variant) -> Array:
 	return charter_of(world, reader).domains
+
+## The two design states (serial 135), the page's words: a subtype that, trimmed and folded, is one of them.
+const DESIGN_STATES := ["in design", "locked"]
+
+## Every design part [param reader] reads in [param world] (the charter profile's design state, serial 135): each
+## Object or Construct the reader is served whole whose [code]subtype[/code], trimmed and folded as the room profile
+## defines it, is one of [constant DESIGN_STATES], in a world where [method charter_of] finds a Charter for this
+## reader. Each [code]{type, id, state}[/code], [code]type[/code] [code]object[/code] or [code]construct[/code] (the
+## packet's word, whatever spelling the element's type is stored in) and [code]state[/code] the page's word, in the
+## world's order; the profile compares the answer as a set. [param world] and [param reader] as for
+## [method charter_of]; an empty list on a caller's mistake.
+##
+## The Charter alone opens the gate, read for each reader: where [method charter_of] finds none for this reader (no
+## marked Charter, only a proposed one, or one the hidden mark keeps from it) no element has a design state and
+## [code]locked[/code] is an ordinary subtype, even where another reader of the same world reads design parts. A world
+## that keeps a marked Charter has design states whatever kind of world it is. The state is read only from a body
+## served whole: a known-of stub is served its subtype and has none. The state alone makes a part, whatever the
+## supertype (a workshop's spec included); no other subtype is a design state and no other type has one. A design
+## state takes an element out of no view, and the page orders no parts. Pure: nothing is stored or written.
+static func design_parts_of(world: Variant, reader: Variant) -> Array:
+	var out := []
+	var packet := charter_of(world, reader)
+	if packet.error != "" or packet.charter == null:
+		return out
+	var r := OWLens.View.new(world, reader, null)
+	for id in r.order:
+		if not r.view.has(id) or r.stubs.has(id):
+			continue
+		var type: String = r.type_of[id]
+		if type != "object" and type != "construct":
+			continue
+		var subtype: Variant = r.by_id[id].get("subtype")
+		if not (subtype is String):
+			continue
+		var state := OWUnicode.profile_fold(subtype)
+		if DESIGN_STATES.has(state):
+			out.append({"type": type, "id": id, "state": state})
+	return out
 
 ## A Domain's link fields in the schema's order, each [field, the type it links], from the generated Construct model.
 static func hub_fields() -> Array:
