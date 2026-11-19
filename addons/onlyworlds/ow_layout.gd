@@ -233,39 +233,10 @@ static func layout_around(graph: Variant, focus: Variant, steps: Variant = 1) ->
 		return {"error": "layout_around: the focus %s is not a node of the graph" % str(focus)}
 	var centre: int = place[focus]
 	var n := nodes.size()
-	var adj := []
-	adj.resize(n)
-	for i in n:
-		adj[i] = []
-	for e in g["edges"]:
-		var a: int = place.get(e["source"], -1)
-		var b: int = place.get(e["target"], -1)
-		if a < 0 or b < 0:
-			continue
-		adj[a].append(b)
-		if a != b:
-			adj[b].append(a)
-	var depth := PackedInt32Array()
-	depth.resize(n)
-	depth.fill(-1)
-	depth[centre] = 0
-	var via := PackedInt32Array()
-	via.resize(n)
-	# Each step's newly reached elements in the order they were reached: the order the npm SDK's depth map holds them
-	# in, which orders each neighbour's fan.
-	var reached := [[]]
-	var frontier := [centre]
-	for s in range(1, steps + 1):
-		var next := []
-		for a: int in frontier:
-			for to: int in adj[a]:
-				if depth[to] >= 0:
-					continue
-				depth[to] = s
-				via[to] = a
-				next.append(to)
-		reached.append(next)
-		frontier = next
+	var walk := _reach(g, centre, steps)
+	var depth: PackedInt32Array = walk["depth"]
+	var via: PackedInt32Array = walk["via"]
+	var reached: Array = walk["reached"]
 	var ring1: Array = reached[1].duplicate()
 	ring1.sort_custom(func(a: int, b: int) -> bool:
 		var ta: String = nodes[a]["type"]
@@ -334,6 +305,154 @@ static func layout_around(graph: Variant, focus: Variant, steps: Variant = 1) ->
 		if placed_at[j] == 1:
 			points.append({"id": x["id"], "depth": depth[j], "x": at_x[j], "y": at_y[j]})
 	return {"method": "around", "version": 1, "points": points}
+
+## What a saved [code]by-kind[/code] layout map does not place (the default layouts' page, [code]unplaced[/code]): the
+## ids of the graph's nodes that are not in [param placed], by id in code point order. [code]by-kind[/code] places
+## every node, so every node counts.
+##
+## [param placed] is the ids of the elements the Map's Pins stand for ([method OWMapSpace.map_space]'s
+## [code]element_id[/code] of each Pin on this Map): an Array, a [PackedStringArray], or a Dictionary used as a set (its
+## keys). A member that is not a non-empty String names no element and is passed over (the number 7 is not the id
+## "7"; Godot's JSON reads 7 as 7.0, no String either), and an id that is no node is no part of the answer. The
+## answer's length is the count a tool shows; it does not say why an element has no Pin.
+##
+## Answers [code]{method: "by-kind", unplaced}[/code], or [code]{error}[/code] on a graph it cannot read (as
+## [method layout_by_kind]) or a [param placed] that is null, a String or not a list or a set.
+static func unplaced_by_kind(graph: Variant, placed: Variant) -> Dictionary:
+	var ids := _placed_ids("unplaced_by_kind", placed)
+	if ids.has("error"):
+		return ids
+	var g := _read_graph("unplaced_by_kind", graph)
+	if g.has("error"):
+		return g
+	var answer := []
+	for x in g["nodes"]:
+		if not ids["set"].has(x["id"]):
+			answer.append(x["id"])
+	return {"method": "by-kind", "unplaced": answer}
+
+## What a saved [code]around[/code] layout map does not place: the ids of the focus and every node within
+## [param steps] of it that are not in [param placed], by id in code point order. [param placed] is read as
+## [method unplaced_by_kind] reads it; an id that [code]around[/code] would not place (no node, or a node further out
+## than the steps) is no part of the answer. Only a tool that holds the Map's focus and steps can make this reading.
+##
+## Answers [code]{method: "around", unplaced}[/code], or [code]{error}[/code] as [method layout_around] (steps, graph,
+## focus, in that order) and on a [param placed] that is no list or set.
+static func unplaced_around(graph: Variant, focus: Variant, placed: Variant, steps: Variant = 1) -> Dictionary:
+	if typeof(steps) != TYPE_INT or (steps != 1 and steps != 2):
+		return {"error": "unplaced_around: steps is 1 or 2, not %s" % str(steps)}
+	var g := _read_graph("unplaced_around", graph)
+	if g.has("error"):
+		return g
+	var place: Dictionary = g["index"]
+	if typeof(focus) != TYPE_STRING or not place.has(focus):
+		return {"error": "unplaced_around: the focus %s is not a node of the graph" % str(focus)}
+	var ids := _placed_ids("unplaced_around", placed)
+	if ids.has("error"):
+		return ids
+	var depth: PackedInt32Array = _reach(g, place[focus], steps)["depth"]
+	var nodes: Array = g["nodes"]
+	var answer := []
+	for j in nodes.size():
+		if depth[j] >= 0 and not ids["set"].has(nodes[j]["id"]):
+			answer.append(nodes[j]["id"])
+	return {"method": "around", "unplaced": answer}
+
+## What a saved [code]by-links-3d[/code] layout map does not place: the ids of the graph's nodes that are not in
+## [param placed], by id in code point order. Every node counts, of any type, also one the method would not place
+## (linked to no other and pinned on no map), so for the Map an answer makes this is that answer's own
+## [code]unplaced[/code]. The method's Maps, Pins and held points are not read. [param placed] is read as
+## [method unplaced_by_kind] reads it.
+##
+## Answers [code]{method: "by-links-3d", unplaced}[/code], or [code]{error}[/code] when the graph is not
+## [code]{nodes, edges}[/code], a node has no String id, two nodes share an id, or [param placed] is no list or set.
+static func unplaced_by_links_3d(graph: Variant, placed: Variant) -> Dictionary:
+	var given_nodes: Variant = null
+	var given_edges: Variant = null
+	if graph is OWGraph.Graph:
+		given_nodes = graph.nodes
+		given_edges = graph.edges
+	elif graph is Dictionary:
+		given_nodes = graph.get("nodes")
+		given_edges = graph.get("edges")
+	if not (given_nodes is Array) or not (given_edges is Array):
+		return {"error": "unplaced_by_links_3d: the graph is { nodes, edges }, as world_graph answers it"}
+	var taken := _placed_ids("unplaced_by_links_3d", placed)
+	if taken.has("error"):
+		return taken
+	var ids := []
+	for i in given_nodes.size():
+		var node: Variant = given_nodes[i]
+		var id: Variant = node.get("id") if node is Dictionary else null
+		if typeof(id) != TYPE_STRING:
+			return {"error": "unplaced_by_links_3d: node %d has no id" % i}
+		ids.append(id)
+	ids.sort()
+	for i in range(1, ids.size()):
+		if ids[i] == ids[i - 1]:
+			return {"error": "unplaced_by_links_3d: two nodes share the id %s" % ids[i]}
+	var answer := []
+	for id in ids:
+		if not taken["set"].has(id):
+			answer.append(id)
+	return {"method": "by-links-3d", "unplaced": answer}
+
+## [param placed] as a set of ids ({set}: id -> true), or {error}: a member that is not a non-empty String is passed
+## over; null, a String, or anything that is not an Array, a PackedStringArray or a Dictionary (its keys) is refused.
+static func _placed_ids(fn: String, placed: Variant) -> Dictionary:
+	var members: Array
+	if placed is Array:
+		members = placed
+	elif placed is PackedStringArray:
+		members = Array(placed)
+	elif placed is Dictionary:
+		members = placed.keys()
+	else:
+		return {"error": "%s: placed is a list or a set of element ids" % fn}
+	var out := {}
+	for v in members:
+		if typeof(v) == TYPE_STRING and v != "":
+			out[v] = true
+	return {"set": out}
+
+## [code]around[/code]'s reach (its steps 1 and 2) on a read graph: {depth, via, reached}, each node's depth from the
+## focus (-1 past the steps), the node whose list each was met in, and each depth's nodes in the order they were found
+## (the order the npm SDK's depth map holds them in, which orders each neighbour's fan).
+static func _reach(g: Dictionary, centre: int, steps: int) -> Dictionary:
+	var place: Dictionary = g["index"]
+	var n: int = g["nodes"].size()
+	var adj := []
+	adj.resize(n)
+	for i in n:
+		adj[i] = []
+	for e in g["edges"]:
+		var a: int = place.get(e["source"], -1)
+		var b: int = place.get(e["target"], -1)
+		if a < 0 or b < 0:
+			continue
+		adj[a].append(b)
+		if a != b:
+			adj[b].append(a)
+	var depth := PackedInt32Array()
+	depth.resize(n)
+	depth.fill(-1)
+	depth[centre] = 0
+	var via := PackedInt32Array()
+	via.resize(n)
+	var reached := [[]]
+	var frontier := [centre]
+	for s in range(1, steps + 1):
+		var next := []
+		for a: int in frontier:
+			for to: int in adj[a]:
+				if depth[to] >= 0:
+					continue
+				depth[to] = s
+				via[to] = a
+				next.append(to)
+		reached.append(next)
+		frontier = next
+	return {"depth": depth, "via": via, "reached": reached}
 
 ## Check the graph, then put it in the method's one order, whatever order the caller handed: the nodes by id, the edges
 ## by source, then field (none as ""), then index (none as 0), then target, every word in code point order. Answers

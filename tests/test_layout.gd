@@ -3,7 +3,8 @@ extends RefCounted
 ## default layouts page, profiles/layout.md, serial 132), read from the vendored folder. by-kind compares exactly, every
 ## x and y bit for bit: the method is chaotic, so two runtimes agree bit for bit or not at all. around compares within
 ## 1e-12: each of its points is one cosine and one sine, and runtimes' cosines may differ in the last place. The
-## fixture's third suite, unplaced, is not read: the package has no unplaced reader.
+## fixture's third suite, unplaced, is read whole: one case each, by its method word, the list equal exactly and in its
+## order (OWLayout.unplaced_by_kind and unplaced_around).
 ##
 ## Godot's JSON reads some of the fixture's 17-digit decimals as a neighbouring double, so the graphs (whose numbers are
 ## small integers) are read from the fixture, and the wants from tests/data/layout.bits.json, which
@@ -58,7 +59,51 @@ func get_cases() -> Array:
 		out.append(["layout-by-kind:" + c["name"], _by_kind.bind(c["name"])])
 	for c in _fixture()["around"]:
 		out.append(["layout-around:" + c["name"], _ring.bind(c["name"])])
+	for c in _fixture()["unplaced"]:
+		out.append(["layout-unplaced:" + c["name"], _unplaced.bind(c["name"])])
 	return out
+
+func _unplaced(t, name: String) -> void:
+	var c := {}
+	for u in _fixture()["unplaced"]:
+		if u["name"] == name:
+			c = u
+	var got: Dictionary
+	match c["method"]:
+		"by-kind":
+			got = OWLayout.unplaced_by_kind(c["graph"].duplicate(true), c["placed"].duplicate(true))
+		"around":
+			got = OWLayout.unplaced_around(c["graph"].duplicate(true), c["focus"], c["placed"].duplicate(true), int(c["steps"]))
+		_:
+			t.fail("%s: the method %s is not one this suite reads" % [name, c["method"]])
+			t.done()
+			return
+	t.eq(got.get("error", ""), "", name + ": an answer")
+	t.eq(got.get("method", ""), c["method"], name + ": the method")
+	t.eq(got.get("unplaced", null), c["want"], name + ": the ids, in the one order")
+	t.done()
+
+func test_unplaced_reads_seventeen_cases_by_kind_and_around_only(t) -> void:
+	var by := {}
+	for c in _fixture()["unplaced"]:
+		by[c["method"]] = by.get(c["method"], 0) + 1
+	t.eq(_fixture()["unplaced"].size(), 17, "seventeen unplaced cases")
+	t.eq(by.keys().size(), 2, "two methods: " + str(by))
+	t.ok(by.get("by-kind", 0) > 0 and by.get("around", 0) > 0, "by-kind and around both")
+	t.done()
+
+func test_unplaced_refuses_a_placed_that_is_no_list_or_set(t) -> void:
+	var g := {"nodes": [{"id": "a", "type": "character"}, {"id": "b", "type": "character"}],
+		"edges": [{"source": "a", "target": "b"}]}
+	for bad in [null, "a", 7]:
+		t.ok(String(OWLayout.unplaced_by_kind(g, bad).get("error", "")).contains("unplaced_by_kind: placed is a list or a set"), "by-kind refuses %s" % str(bad))
+		t.ok(String(OWLayout.unplaced_around(g, "a", bad).get("error", "")).contains("unplaced_around: placed is a list or a set"), "around refuses %s" % str(bad))
+		t.ok(String(OWLayout.unplaced_by_links_3d(g, bad).get("error", "")).contains("unplaced_by_links_3d: placed is a list or a set"), "by-links-3d refuses %s" % str(bad))
+	t.eq(OWLayout.unplaced_by_kind(g, PackedStringArray(["a"])).get("unplaced"), ["b"], "a PackedStringArray reads")
+	t.eq(OWLayout.unplaced_by_kind(g, {"b": true}).get("unplaced"), ["a"], "a Dictionary reads as a set of its keys")
+	t.eq(OWLayout.unplaced_around(g, "a", [], 3).get("error", ""), "unplaced_around: steps is 1 or 2, not 3", "around's steps first")
+	t.ok(String(OWLayout.unplaced_around(g, "z", []).get("error", "")).contains("the focus z is not a node"), "around's focus")
+	t.done()
 
 func _by_kind(t, name: String) -> void:
 	var c := _case(name)
@@ -110,7 +155,6 @@ func _ring(t, name: String) -> void:
 	t.done()
 
 func test_the_fixture_is_the_pinned_dists_bytes_with_seventeen_exact_cases_and_ten_rings(t) -> void:
-	# The fixture also holds unplaced (15 cases), which no test here reads: the package has no unplaced reader.
 	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/MANIFEST.json"))["files"]
 	t.eq(FileAccess.get_sha256(FIXTURE), FIXTURE_SHA256, "the fixture's bytes are the ones this test pins")
 	t.eq(manifest["profiles/layout.fixture.json"], FIXTURE_SHA256, "the fixture's bytes are the pinned dist's")

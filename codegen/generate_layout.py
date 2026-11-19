@@ -8,7 +8,7 @@ correctly rounded and differ between runtimes, so the anchors are never computed
 253 points (for k kinds, k = 1 to 22, the k points, flat, the points of k from index k * (k - 1)), the same float64
 values the npm SDK and the Python package hold, read here from the shared fixture, the pinned dist's own
 (codegen/schema-dist/profiles/layout.fixture.json since serial 132, its `anchors`; Python's json reads a decimal
-exactly). Its `unplaced` suite is not read: the package has no unplaced reader.
+exactly). Its `unplaced` suite needs no bits (ids only): tests/test_layout.gd reads it from the fixture itself.
 
 Both outputs hold bits, never decimals: Godot's JSON parser reads some 17-digit decimals as a neighbouring double
 (measured on this fixture with Godot 4.7.2: 56 of its 506 anchors and 871 of its 6,464 wanted coordinates), so neither
