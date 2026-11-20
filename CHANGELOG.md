@@ -319,6 +319,12 @@ the git log.
   `type`, and give an entry served without one (a keel from before serial 133) its fixed type beside `id`. The charter
   test compares each case's packet whole, so a key added later cannot pass unseen. Every case of serial 133's two
   fixtures passes.
+- Schema pin to `v0.34.1-dist.140` (`5195351`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 140). Only the
+  lens page and its fixture moved; the generated files moved in their stamp only. Serial 140: in the graph, the flags
+  `hidden` and `proposed` and the hidden and proposed counts are a keeper's (the owner or a co-builder), where they
+  were the owner's alone, so a co-builder's unlensed graph is answered as the owner's is on the same inputs;
+  `not_visible` and `anchor_not_visible` stay the owner's. The lens fixture gains six graph cases (252 in all); no
+  answer on an existing case moved.
 - Schema pin to `v0.34.1-dist.139` (`fc46657`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 139). No schema
   file, `schema.json` or `views.json` moved; the generated files moved in their stamp only, and the layout anchor
   table and its bits file in the fixture sha256 they name (no anchor moved). Serial 137: a third default layout,
