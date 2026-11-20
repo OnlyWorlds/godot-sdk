@@ -11,7 +11,8 @@ extends RefCounted
 const DECLARED_LINKS := ["x_lens_leads_to", "x_spine_depends_on"]
 ## The flags, each bringing back one kind of element that is out by default.
 const FLAGS := ["rooms", "hidden", "proposed", "map_space", "reading_aids"]
-## The flags only the owner may ask (judged by the rung it reads as).
+## The flags only a keeper may ask, the owner or a co-builder (judged by the rung it reads as; serial 140, the owner's
+## alone before). The name is the fixture's key, older than the co-builder.
 const OWNER_ONLY_FLAGS := ["hidden", "proposed"]
 ## Map space: out by default for size, not for standing (a node it brings back carries no mark). A Zone is not map
 ## space (serial 92): content with spatial presence through its Markers, a node like any other.
@@ -20,8 +21,10 @@ const MAP_SPACE := ["map", "pin", "marker"]
 ## the lens's nine, then the graph's own.
 const REASONS := ["budget", "types", "window", "stale", "undated", "after_as_of", "anchor_not_visible", "not_visible",
 	"hops_not_served", "room", "hidden", "proposed", "map_space", "reading_aid", "outside_lens"]
-## The reasons a reader that is not the owner never carries, not even as zero.
-const OWNER_ONLY_REASONS := ["anchor_not_visible", "not_visible", "hidden", "proposed"]
+## The reasons a reader that is not the owner never carries, not even as zero (the owner reading as another keeps them).
+const OWNER_ONLY_REASONS := ["anchor_not_visible", "not_visible"]
+## The reasons a reader below a keeper (the owner or a co-builder) never carries, not even as zero (serial 140).
+const KEEPER_ONLY_REASONS := ["hidden", "proposed"]
 
 ## A node's family and icon are [OWPresentation]'s (schema-dist presentation.json); colour stays the tool's. A family
 ## word not in [constant OWPresentation.ORDER] makes the graph a caller's mistake naming the word, with no node.
@@ -61,8 +64,9 @@ class Graph:
 ## lens, room, hidden, proposed and map-space elements and the reading aids ([method OWLens.is_charter_element],
 ## counted [code]reading_aid[/code]) are out unless their flag brings them back, marked (map space carries no mark). A
 ## reading aid a lens keeps is marked [code]reading_aid[/code] too, as a room element a lens keeps is marked
-## [code]room[/code] (serial 104). [code]hidden[/code] or [code]proposed[/code] from any rung but the owner's, or any
-## flag from a public reader, is refused by name before anything is read (the first in the order hidden, proposed,
+## [code]room[/code] (serial 104). [code]hidden[/code] or [code]proposed[/code] from a rung below a keeper (the owner
+## or a co-builder, serial 140), or any flag from a public reader, is refused by name before anything is read (the
+## first in the order hidden, proposed,
 ## rooms, map_space, reading_aids). A list names each element once: one that names a target twice is one edge, or one
 ## link counted, in its first place, and its index stays that place in the list as served (serial 128).
 static func world_graph(world: Variant, reader: Variant, options: Variant = null) -> Graph:
@@ -87,9 +91,9 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		flags[f] = v == true
 	var seen_rung: String = reader["as"]["rung"] if reader["rung"] == "owner" and reader.get("as") != null else reader["rung"]
 	for f in OWNER_ONLY_FLAGS:
-		if flags[f] and seen_rung != "owner":
+		if flags[f] and seen_rung != "owner" and seen_rung != "co-builder":
 			g.refused = f
-			return _mistake(g, "world_graph: %s is the owner's alone; a %s reader may not ask it" % [f, seen_rung])
+			return _mistake(g, "world_graph: %s is a keeper's alone (the owner or a co-builder); a %s reader may not ask it" % [f, seen_rung])
 	if seen_rung == "public":
 		for f in ["rooms", "map_space", "reading_aids"]:
 			if flags[f]:
@@ -111,7 +115,11 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 
 	var as_of: Variant = OWLens.whole(as_of_v) if as_of_v != null else OWLens._world_now(world)
 	var r := OWLens.View.new(world, reader, as_of)
-	var seen_owner := r.seen_rung == "owner"
+	# A keeper (the owner, or a co-builder; serial 140) is served the bodies as stored, and its unlensed view holds the
+	# proposed elements, out by default. The hidden and proposed counts are a keeper's, and the counts of a reader that
+	# keeps the owner's (the owner reading as another).
+	var seen_keeper := r.seen_rung == "owner" or r.seen_rung == "co-builder"
+	var keeper_counts := seen_keeper or r.owner
 	var kinds := func(id: String) -> Array:
 		var out := []
 		if r.room.has(id):
@@ -125,8 +133,8 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		if r.aid.has(id):
 			out.append("reading_aids")
 		return out
-	# What the reader could see as a node: its view, and for the owner what is written as proposed too.
-	var candidate := func(id: String) -> bool: return r.view.has(id) or (seen_owner and r.proposed.has(id))
+	# What the reader could see as a node: its view, and for a keeper what is written as proposed too.
+	var candidate := func(id: String) -> bool: return r.view.has(id) or (seen_keeper and r.proposed.has(id))
 	var out_by := func(id: String) -> Variant:
 		for k in kinds.call(id):
 			if not flags[k]:
@@ -157,7 +165,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 				node_ids[id] = true
 			else:
 				counts[why] = counts.get(why, 0) + 1
-		g.cut = _tally(counts, r.owner)
+		g.cut = _tally(counts, r.owner, keeper_counts)
 		reason_of = func(id: String) -> Variant: return out_by.call(id) if candidate.call(id) else "not_visible"
 
 	var ids: Array = node_ids.keys()
@@ -200,7 +208,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		if r.stubs.has(source):
 			continue
 		var el: Dictionary = r.by_id[source]
-		# A schema link is served whole to the owner; any other reader is served the list as keel serves it, a link to a
+		# A schema link is served whole to a keeper; any other reader is served the list as keel serves it, a link to a
 		# proposed element kept below the public rung, and the index is the place in that list (the profile's ruling G5).
 		# A Pin's generic pair is placement, never an edge (G2).
 		for lf in OWLens.link_fields_of(r.type_of[source]):
@@ -213,12 +221,12 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			var met := {}
 			for i in list.size():
 				var t: Variant = list[i]
-				var in_served: bool = seen_owner or (t is String and r._served_as(t, target))
+				var in_served: bool = seen_keeper or (t is String and r._served_as(t, target))
 				# An id of another type than the field's target names nothing, as the lens reader keys a link (the
 				# profile's ruling 1): a dangling link, neither an edge nor counted. A repeat still counts in the served
 				# list, so an index points into the list as served.
 				if t is String and r.type_of.get(t) == target:
-					visit.call(source, lf[0], t, i if seen_owner else served, met)
+					visit.call(source, lf[0], t, i if seen_keeper else served, met)
 				if in_served:
 					served += 1
 		# A declared extension link is served as stored to every reader, and names each element once as a multi-link
@@ -235,7 +243,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		if a["field"] != b["field"]:
 			return a["field"] < b["field"]
 		return a["index"] < b["index"])
-	g.edges_cut = _tally(cut_edges, r.owner)
+	g.edges_cut = _tally(cut_edges, r.owner, keeper_counts)
 	return g
 
 ## Each node's degree in a graph [method world_graph] answered: its edges, in or out, each edge counted once for every
@@ -280,11 +288,14 @@ static func _reason_of_kind(kind: String) -> String:
 			return "reading_aid"
 	return kind
 
-## Counts in the reasons' one order, a reason with no count left out, the owner's reasons kept for the owner.
-static func _tally(counts: Dictionary, owner: bool) -> Dictionary:
+## Counts in the reasons' one order, a reason with no count left out, the owner's reasons kept for the owner and the
+## hidden and proposed counts for a keeper.
+static func _tally(counts: Dictionary, owner: bool, keeper: bool) -> Dictionary:
 	var out := {}
 	for why in REASONS:
 		if OWNER_ONLY_REASONS.has(why) and not owner:
+			continue
+		if KEEPER_ONLY_REASONS.has(why) and not keeper:
 			continue
 		var n: int = counts.get(why, 0)
 		if n > 0:

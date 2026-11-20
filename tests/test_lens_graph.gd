@@ -71,14 +71,27 @@ func test_the_graph_tables_are_the_fixtures(t) -> void:
 	var f := _fixture()
 	t.eq(f["graph_links"], OWGraph.DECLARED_LINKS, "the declared links")
 	t.eq(f["graph_flags"], OWGraph.FLAGS, "the flags")
-	t.eq(f["owner_only_flags"], OWGraph.OWNER_ONLY_FLAGS, "the owner's flags")
+	t.eq(f["owner_only_flags"], OWGraph.OWNER_ONLY_FLAGS, "a keeper's flags (the key's name is older than the co-builder)")
 	var reasons: Array = f["edges_cut_reasons"].duplicate()
 	reasons.sort()
 	var ours: Array = OWGraph.REASONS.duplicate()
 	ours.sort()
 	t.eq(ours, reasons, "the same fifteen reasons (counted in the packages' order)")
-	for why in f["owner_only_edges_cut_reasons"]:
-		t.ok(OWGraph.OWNER_ONLY_REASONS.has(why), "%s is the owner's alone" % why)
+	# The fixture's owner_only_edges_cut_reasons are the reasons a reader below a keeper never carries (serial 140's
+	# note): a keeper carries hidden, the owner alone not_visible and anchor_not_visible. Proposed is a keeper's count
+	# here as in the npm and Python packages, beyond the fixture's list.
+	var below_keeper: Array = f["owner_only_edges_cut_reasons"].duplicate()
+	below_keeper.sort()
+	var ours_below: Array = OWGraph.OWNER_ONLY_REASONS + OWGraph.KEEPER_ONLY_REASONS
+	ours_below.erase("proposed")
+	ours_below.sort()
+	t.eq(ours_below, below_keeper, "below a keeper: the fixture's list, and proposed")
+	var owner_alone: Array = below_keeper.filter(func(w): return not f["owner_only_flags"].has(w))
+	var ours_owner: Array = OWGraph.OWNER_ONLY_REASONS.duplicate()
+	ours_owner.sort()
+	owner_alone.sort()
+	t.eq(ours_owner, owner_alone, "the owner's alone: the fixture's list less the flags' own kinds")
+	t.eq(OWGraph.KEEPER_ONLY_REASONS, f["owner_only_flags"], "a keeper's counts: the flags' own kinds")
 	var pres: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/presentation.json"))
 	t.eq(pres["types"].size(), 22, "every type in the sidecar")
 	var world := {"elements": []}
@@ -223,6 +236,45 @@ func test_a_callers_mistake_and_a_refusal(t) -> void:
 	t.eq(OWGraph.world_graph(world, {"rung": "owner", "as": {"rung": "contributor"}}, {"proposed": true}).refused, "proposed",
 		"the owner as a contributor is judged by the contributor's rung")
 	t.eq(OWGraph.world_graph(world, {"rung": "owner"}, {"hidden": true, "proposed": true}).refused, "", "the owner may ask both")
+	t.eq(OWGraph.world_graph(world, {"rung": "co-builder"}, {"hidden": true, "proposed": true}).refused, "",
+		"a co-builder may ask both (serial 140)")
+	t.eq(OWGraph.world_graph(world, {"rung": "owner", "as": {"rung": "co-builder"}}, {"proposed": true}).refused, "",
+		"the owner as a co-builder is judged by the co-builder's rung")
+	var refused := OWGraph.world_graph(world, {"rung": "contributor"}, {"hidden": true})
+	t.eq(refused.refused, "hidden", "a contributor may not ask hidden")
+	t.ok(refused.error.contains("a keeper's alone (the owner or a co-builder)"), "the refusal names a keeper")
+	t.done()
+
+## Serial 140, a keeper's graph, where the fixture leaves it unpinned: a co-builder's unlensed graph counts the hidden
+## and proposed elements it leaves out as the owner's does, and a contributor's on the same world counts neither; with a
+## lens whose anchors are a proposed element and an id not in the world, the owner (and the owner as a co-builder)
+## counts anchor_not_visible, and a co-builder never does, not even as zero.
+func test_serial_140_a_keepers_graph_counts_hidden_and_proposed_never_the_owners_two(t) -> void:
+	var chars := [
+		{"id": "c1", "type": "character", "name": "Ada", "friends": ["c2", "c3"]},
+		{"id": "c2", "type": "character", "name": "Ghost", "hidden": true},
+		{"id": "c3", "type": "character", "name": "Maybe", "x_review_proposed": {"by": "m1"}},
+	]
+	var plain := {"elements": chars.duplicate(true)}
+	var co := OWGraph.world_graph(plain, {"rung": "co-builder"})
+	t.eq(co.cut, {"hidden": 1, "proposed": 1}, "a co-builder counts what it leaves out")
+	t.eq(co.edges_cut, {"hidden": 1, "proposed": 1}, "and the links to them")
+	t.eq(JSON.stringify(co.to_dict()), JSON.stringify(OWGraph.world_graph(plain, {"rung": "owner"}).to_dict()),
+		"a co-builder's unlensed graph is the owner's")
+	var contributor := OWGraph.world_graph(plain, {"rung": "contributor"})
+	t.eq([contributor.cut, contributor.edges_cut], [{}, {}], "a contributor counts neither")
+	var lensed := chars.duplicate(true)
+	lensed.append({"id": "L", "type": "construct", "supertype": "Lens", "characters": ["c1", "c3", "gone"], "x_lens": {"depth": 0}})
+	var world := {"elements": lensed}
+	var owner := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": "L"})
+	t.eq(owner.cut.get("anchor_not_visible"), 2, "the owner counts the two anchors it cannot see")
+	t.eq(owner.edges_cut.get("anchor_not_visible"), 1, "and the link to the proposed one by the lens's reason")
+	t.eq(JSON.stringify(OWGraph.world_graph(world, {"rung": "owner", "as": {"rung": "co-builder"}}, {"lens": "L"}).to_dict()),
+		JSON.stringify(owner.to_dict()), "the owner as a co-builder keeps the owner's counts")
+	var co_lensed := OWGraph.world_graph(world, {"rung": "co-builder"}, {"lens": "L"})
+	t.eq(co_lensed.nodes.map(func(n): return n["id"]), ["c1"], "the lens keeps Ada")
+	t.eq(co_lensed.cut, {}, "a co-builder carries no anchor_not_visible")
+	t.eq(co_lensed.edges_cut, {"outside_lens": 1}, "only its own count: the hidden Ghost it sees, past depth 0")
 	t.done()
 
 ## reading_aids (serial 104) where the fixture's five cases leave it unpinned: last in the refusal order (no fixture case

@@ -35,8 +35,7 @@ the git log.
   `co-builder`, which reads the whole world as the owner does, hidden elements included and bodies as stored, with none
   of the owner's two counts. A contributor reader's `whole` lists the hidden elements it made: each is in its view and
   its body carries `hidden: true`. The lens readers, `OWCharter.charter_of` and `design_parts_of`, the strand reader
-  and the graph read both through the view; the graph's `hidden` and `proposed` flags stay the owner's alone, as the
-  page says today. Serial 138's three lens cases and one charter case on the two rules pass.
+  and the graph read both through the view. Serial 138's three lens cases and one charter case on the two rules pass.
 - A talk on an Object or a Construct (the room and report profiles, serial 135): `OWLens.talks_of(element)` answers
   each `{type, id}` a line in the room (the pair `narrative` + `Message` and the mark) names in its `objects`
   (`object`) or `constructs` (`construct`), read from the line alone, and `OWReport.talks_of(element)` the same of a
@@ -311,6 +310,13 @@ the git log.
 
 ### Changed
 
+- `OWGraph.world_graph`: a co-builder reads the graph as a keeper (the lens page, serial 140). The flags `hidden` and
+  `proposed`, and the `hidden` and `proposed` counts in `cut` and `edges_cut`, are a keeper's (the owner or a
+  co-builder), where they were the owner's alone, so a co-builder's unlensed graph is answered as the owner's is on the
+  same inputs; `not_visible` and `anchor_not_visible` stay the owner's. `OWGraph.OWNER_ONLY_REASONS` now holds those
+  two, the new `OWGraph.KEEPER_ONLY_REASONS` holds `hidden` and `proposed`, and `OWNER_ONLY_FLAGS` keeps its name (the
+  fixture's key) for the two flags a keeper may ask. A refused flag's message says "a keeper's alone (the owner or a
+  co-builder)". Every case of the lens fixture's `graph` kind passes.
 - The reading aids and the strand say what type each of their elements is (the charter and strand profiles, serial
   133): `OWCharter.charter_of` writes the Charter `{id, type, name, rules, skill}` (`law`), the Guide `{id, type, name}`
   and each Domain `{id, type, name, sentence, hubs}` (`construct`), and `OWStrand.strand_of` each filled slot
