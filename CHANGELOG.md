@@ -325,6 +325,12 @@ the git log.
   `type`, and give an entry served without one (a keel from before serial 133) its fixed type beside `id`. The charter
   test compares each case's packet whole, so a key added later cannot pass unseen. Every case of serial 133's two
   fixtures passes.
+- Schema pin to `v0.34.1-dist.141` (`f87f9ab`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 141). Only the
+  charter and lens pages and their fixtures moved; the generated files moved in their stamp only. Serial 141: the
+  charter page says folded Domain names compare by code point, as written, never by UTF-16 unit, a collation or a
+  locale, with nothing normalized, and a name is trimmed and folded as the room page defines both. The charter fixture
+  gains ten Domain order cases (57 in all) and three design cases (19), the lens fixture four graph cases on a
+  co-builder's lens anchors (66 graph cases, 256 in all); every one passes with no reader change.
 - Schema pin to `v0.34.1-dist.140` (`5195351`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 140). Only the
   lens page and its fixture moved; the generated files moved in their stamp only. Serial 140: in the graph, the flags
   `hidden` and `proposed` and the hidden and proposed counts are a keeper's (the owner or a co-builder), where they
