@@ -281,13 +281,14 @@ the git log.
   (polled between frames, or blocking): no scene tree needed, unlike `HTTPRequest`.
 - The wire checks: every request the read calls make is held to keel's OpenAPI document (`tests/data/keel-wire.json`,
   vendored from the Unity SDK), every key the models read to what keel serves. The vendored document follows keel's
-  (at `514ea1d77c85`: the Pin list takes `element`, the Pins that place that element of any type, `""` for the Pins
+  (at `5a9aac72138c`: the Pin list takes `element`, the Pins that place that element of any type, `""` for the Pins
   placing nothing; a read-only sign-in's token answers carry `scope`; the AI lens answer carries `charged`; the member
   rows carry `follows_sponsor` and `may_change_character_note`, and two 422 codes, `seat_above_sponsor` and
   `seat_follows_sponsor`, are listed; the agent seat rows carry `may_change_character`, its note and `follows_sponsor`; the front door on `GET /me`, `POST /join` and two `PUT /me/...` answers serves
   `front_door.charter_element` and `front_door.charter_skill_elements`; a member's PATCH body and answer carry
   `may_change_character`; the draught's answer carries `work[].by_role`; the request body of `POST /account/worlds/{world_id}/messages` takes
-  `constructs`, `objects` and `relations` beside `characters`);
+  `constructs`, `objects` and `relations` beside `characters`; `POST /bulk` takes `create_only`, and every proposal
+  answer declares `house`);
   `list` already sends any field-named filter as given, so `{"filter": {"element": id}}` needs no change here, and no
   path, method, parameter or request key moved: the document's words, not the client's, are what moved.
 
