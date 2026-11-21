@@ -325,6 +325,11 @@ the git log.
   `type`, and give an entry served without one (a keel from before serial 133) its fixed type beside `id`. The charter
   test compares each case's packet whole, so a key added later cannot pass unseen. Every case of serial 133's two
   fixtures passes.
+- Schema pin to `v0.34.1-dist.142` (`5d5a8be`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 142). Only the
+  map-space page and its fixture moved; the generated files moved in their stamp only. Serial 142: a Zone outlined on a
+  child Map and on its parent keeps two outlines, never joined and with no point added on the edge of the child's
+  rectangle or its parent frame, and what a tool draws there is the tool's; rule 4 says one outline per Map the Zone
+  has placed Markers on. The map-space fixture gains three cases (46 in all); every one passes with no reader change.
 - Schema pin to `v0.34.1-dist.141` (`f87f9ab`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 141). Only the
   charter and lens pages and their fixtures moved; the generated files moved in their stamp only. Serial 141: the
   charter page says folded Domain names compare by code point, as written, never by UTF-16 unit, a collation or a

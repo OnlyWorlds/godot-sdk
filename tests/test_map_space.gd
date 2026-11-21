@@ -56,11 +56,11 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var f := _fixture()
 	t.eq(f["profile"], "map-space", "the profile")
 	t.eq(f["profile_page"], "profiles/map-space.md", "its page")
-	t.eq(f["cases"].size(), 43, "43 cases (34 at dist.106, 35 at dist.119, 39 at dist.126, 43 at dist.137)")
+	t.eq(f["cases"].size(), 46, "46 cases (34 at dist.106, 35 at dist.119, 39 at dist.126, 43 at dist.137, 46 at dist.142)")
 	var names := {}
 	for c in f["cases"]:
 		names[c["name"]] = true
-	t.eq(names.size(), 43, "each case named once")
+	t.eq(names.size(), 46, "each case named once")
 	t.ok(names.has("layout-map-read-as-before"), "dist.119's case: a layout map read as any Map (rule 11)")
 	t.done()
 
@@ -291,7 +291,7 @@ func test_the_fixture_holds_thirty_two_layout_cases_beside_its_cases(t) -> void:
 	t.eq(names.size(), 32, "each layout case named once")
 	t.ok(names.has("parentless-layout-beside-ground") and names.has("ground-beside-parentless-layout"),
 		"dist.119's two cases: a layout Map and its ground, neither with a parent_map, each read in turn")
-	t.eq(f["cases"].size(), 43, "the map space reading's 43 cases beside them")
+	t.eq(f["cases"].size(), 46, "the map space reading's 46 cases beside them")
 	t.done()
 
 ## The map space reading is unchanged by rules 8 to 10: on every layout case its answer carries no layout key.
