@@ -234,6 +234,42 @@ func test_bulk_mints_by_position_and_reads_the_replay(t) -> void:
 		"atomic": false}, "an item without an element is an empty one; atomic false by default")
 	t.done()
 
+## The TypeScript SDK 4.185.0's vector: create_only true is sent as create_only; left out or false, the body is the one
+## earlier releases sent; a value that is not a bool is refused before sending. null reads as left out, as every option
+## here does (and as keel reads create_only: null).
+func test_bulk_create_only_is_sent_when_true_and_left_out_otherwise(t) -> void:
+	var fake = Fake.new()
+	var items := [{"type": "character", "element": {"id": "mine", "name": "A"}}]
+	fake.then(200, "{\"errors\":false,\"items\":[]}")
+	t.ok((await _make(fake).bulk(items, {"create_only": true})).ok, "")
+	var body = _body(fake.last())
+	t.eq(body.keys(), ["items", "atomic", "create_only"], "")
+	t.ok(body["create_only"] is bool and body["create_only"] == true, "create_only a JSON true")
+	for options in [{}, {"create_only": false}, {"create_only": null}]:
+		fake.then(200, "{\"errors\":false,\"items\":[]}")
+		t.ok((await _make(fake).bulk(items, options)).ok, "")
+		t.eq(_body(fake.last()).keys(), ["items", "atomic"], var_to_str(options))
+	for bad in ["true", 1]:
+		var quiet = Fake.new()
+		_refused(t, await _make(quiet).bulk(items, {"create_only": bad}), quiet, "create_only is a bool", var_to_str(bad))
+	t.done()
+
+## Under create_only an id the world already holds answers its slot 409 id_conflict, and the rest of the batch goes on:
+## that slot reads as any failed slot does.
+func test_bulk_a_409_id_conflict_slot_reads_as_a_failed_slot(t) -> void:
+	var fake = Fake.new()
+	fake.then(200, "{\"errors\":true,\"items\":[{\"status\":409,\"id\":\"mine\",\"error\":{\"type\":\"invalid_request\","
+		+ "\"code\":\"id_conflict\",\"message\":\"A create supplied an id that already exists.\",\"param\":\"id\"}},"
+		+ "{\"status\":201,\"id\":\"b\"}]}")
+	var result: OWClient.BulkResult = (await _make(fake).bulk([{"type": "character", "element": {"id": "mine"}},
+		{"type": "character"}], {"create_only": true})).value
+	var held: OWClient.BulkSlot = result.items[0]
+	t.eq(result.failed(), [held], "the held id's slot is the failed one")
+	t.eq([held.status, held.id, held.error.status, held.error.code], [409, "mine", 409, "id_conflict"], "")
+	t.ok(held.error.is_id_conflict(), "")
+	t.eq(result.succeeded_count(), 1, "the rest of the batch goes on")
+	t.done()
+
 # -- The body, cleaned as every element write's is ------------------------------------------------------------------
 
 func test_the_body_is_cleaned_as_unity_cleans_it(t) -> void:

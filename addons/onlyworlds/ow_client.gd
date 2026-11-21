@@ -64,7 +64,7 @@ const _CHANGES_KEYS := ["since", "after"]
 const _CREATE_KEYS := ["idempotency_key"]
 const _IF_MATCH_KEYS := ["if_match"]
 const _EDIT_KEYS := ["add", "remove"]
-const _BULK_KEYS := ["atomic", "idempotency_key"]
+const _BULK_KEYS := ["atomic", "idempotency_key", "create_only"]
 const _WORLD_READS := "list, list_all, get_element and get_world"
 ## Around the refusal [method _seg] puts in a path for a value that is not one segment.
 const _REFUSED_OPEN := "\u0001"
@@ -662,8 +662,12 @@ func edit_links(type: String, id: String, field: String, edit: Dictionary, optio
 ## (an absent element is an empty one). Each element is cleaned as a single write's is, and one without an id gets one
 ## by its position: under [code]options.idempotency_key[/code] the id derived from the key and the position, so a retry
 ## sends the same body and replays ([member BulkResult.was_replay]), else a fresh UUIDv7. [code]options.atomic[/code]
-## true asks for all or nothing (false by default, as keel's). keel answers 200 even when slots failed: read the slots.
-## Refused, nothing sent: no items, an item that is neither, one without a type, a known-of stub (named by its index).
+## true asks for all or nothing (false by default, as keel's). [code]options.create_only[/code] true (sent as
+## [code]create_only[/code]): every item with an id is created as [method create] creates it, never replaced; an id the
+## world already holds answers that item's slot 409 [code]id_conflict[/code], and the element stays as it was. Left out,
+## false or null, the body is as before: an item with an id held replaces it whole. keel answers 200 even when slots
+## failed: read the slots. Refused, nothing sent: no items, an item that is neither, one without a type, a known-of stub
+## (named by its index), an [code]atomic[/code] or [code]create_only[/code] that is not a bool.
 ## Mirrors the TypeScript SDK's [code]bulk[/code].
 func bulk(items: Array, options: Dictionary = {}) -> Reply:
 	var refused := _check(options, _BULK_KEYS, "bulk")
@@ -698,8 +702,11 @@ func bulk(items: Array, options: Dictionary = {}) -> Reply:
 		if _no_id(body):
 			body["id"] = OWId.mint(key, i)
 		sent.append({"type": type, "element": body})
+	var bulk_body := {"items": sent, "atomic": options.get("atomic") == true}
+	if options.get("create_only") == true:
+		bulk_body["create_only"] = true
 	var r := _object(await _request("POST", "/bulk/", [],
-		{"body": {"items": sent, "atomic": options.get("atomic") == true}, "idempotency_key": key, "write": true}))
+		{"body": bulk_body, "idempotency_key": key, "write": true}))
 	if not r.ok:
 		return r
 	var result := BulkResult.new()
@@ -969,9 +976,9 @@ static func _check(options: Dictionary, keys: Array, call: String) -> String:
 				if not whole:
 					return ("%s: if_match is a whole number (an element's change_seq, as read); got %s. Nothing was "
 						+ "sent.") % [call, var_to_str(v)]
-			"atomic":
+			"atomic", "create_only":
 				if not (v is bool):
-					return "%s: atomic is a bool; got %s. Nothing was sent." % [call, type_string(typeof(v))]
+					return "%s: %s is a bool; got %s. Nothing was sent." % [call, k, type_string(typeof(v))]
 			"filter":
 				if not (v is Dictionary):
 					return "%s: filter is a Dictionary of field name to id; got %s. Nothing was sent." % [call, type_string(typeof(v))]

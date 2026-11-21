@@ -8,6 +8,13 @@ the git log.
 
 ### Added
 
+- `OWClient.bulk(items, {"create_only": true})`, sent as `create_only`: every item with an id is created as `create`
+  creates it, never replaced. An id the world already holds answers that item's slot 409 `id_conflict`, and the element
+  stays as it was; the rest of the batch goes on as before, and the slot reads as any failed slot does
+  (`BulkResult.failed()`, its error's `is_id_conflict()`). Left out, false or null, the body is the one earlier
+  versions sent. A value that is not a bool is refused before anything is sent ("bulk: create_only is a bool"). Parity
+  with the TypeScript SDK 4.185.0, its test vector ported; null reads as left out, as every option here does and as
+  keel reads it, where the TypeScript SDK refuses it.
 - A third layout method, `by-links-3d` (the default layouts page, serial 137 on):
   `OWLayout.layout_by_links_3d(graph, elements = null, held = null, held_unit = null)` lays a whole world out in three
   dimensions by its links. The largest part of the graph that no single element's removal parts is cut into groups

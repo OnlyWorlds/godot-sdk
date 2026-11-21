@@ -49,7 +49,8 @@ static func _writes(c: OWClient) -> void:
 	await c.delete("character", "c1", {"if_match": 4})
 	await c.edit_links("character", "c1", "friends", {"add": ["c2"], "remove": ["c3"]}, {"if_match": 4})
 	await c.bulk([{"type": "character", "element": {"name": "A", "updated_at": "t"}},
-		{"type": "location", "element": {"name": "Port", "parent_location": null}}], {"atomic": true, "idempotency_key": "k2"})
+		{"type": "location", "element": {"name": "Port", "parent_location": null}}],
+		{"atomic": true, "idempotency_key": "k2", "create_only": true})
 
 ## Every read call and every write, every option given, on each credential: keel's requests, which the checks below
 ## judge. An agent client reads too, so a declaration sent on a read would be seen.
@@ -232,6 +233,8 @@ func test_the_recording_covers_every_read_and_write(t) -> void:
 		t.ok(paths.has(p), "%s is recorded" % p)
 	t.eq(calls.filter(func(c): return c.url.contains("world=")).size(), 9, "the world reads of an account token and of no key")
 	t.ok(calls.any(func(c): return c.headers.has("If-None-Match")), "a tip read with a tag is recorded")
+	var create_only := func(c): return c.url.ends_with("/bulk/") and c.body is String and JSON.parse_string(c.body).get("create_only") == true
+	t.eq(calls.filter(create_only).size(), 4, "a bulk write with create_only on each world key")
 	t.ok(calls.any(func(c): return c.headers.has("API-Pin")), "a PIN is recorded")
 	t.ok(calls.any(func(c): return c.headers.has("Authorization")), "a Bearer is recorded")
 	t.ok(calls.any(func(c): return c.url.contains("head=true")), "")
