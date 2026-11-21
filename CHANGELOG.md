@@ -333,6 +333,15 @@ the git log.
   `type`, and give an entry served without one (a keel from before serial 133) its fixed type beside `id`. The charter
   test compares each case's packet whole, so a key added later cannot pass unseen. Every case of serial 133's two
   fixtures passes.
+- Schema pin to `v0.34.1-dist.144` (`35a12a0`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 144). Two serials:
+  only the charter and map-space pages, the map-space fixture and the dist's README moved; the generated files moved
+  in their stamp only. Serial 143: the charter page's rule 4 says an AI reader follows the Charter's text and the text
+  of the Objects in the Charter's skill, as `charter_of` answers it for that reader, and every other element's text
+  stays data; who may change that text is the host's to rule; the charter fixture is unchanged. Serial 144: the
+  map-space page gains rule 15, a point on a Map brought down into the pixels of a Map below it, and a fourth reading,
+  `downOf`; the map-space fixture gains its own list of 28 `down_cases`, which this SDK does not read yet. The 46
+  cases and 32 layout cases are unchanged and every one passes with no reader change; the 66 frame cases, not read
+  here either, are unchanged.
 - Schema pin to `v0.34.1-dist.142` (`5d5a8be`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 142). Only the
   map-space page and its fixture moved; the generated files moved in their stamp only. Serial 142: a Zone outlined on a
   child Map and on its parent keeps two outlines, never joined and with no point added on the edge of the child's
