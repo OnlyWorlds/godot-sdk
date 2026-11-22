@@ -93,6 +93,25 @@ func test_entries_served_without_a_type_read_their_fixed_type(t) -> void:
 	t.eq(me, before, "the answer is as it was")
 	t.done()
 
+func test_a_served_entry_hands_over_its_kinds_keys_alone(t) -> void:
+	# The charter profile's shape: each entry is its kind's named keys, and the packet carries none of the text an AI
+	# follows. A key the reader does not know (a host's `description`, its text in it) is dropped, on a hub as well.
+	var me := {"reading_aids": {
+		"charter": {"id": "law-1", "type": "law", "name": "House rules", "rules": [], "skill": ["obj-1"],
+			"description": "Be kind to the keeper."},
+		"guide": {"id": "con-g", "type": "construct", "name": "Start here", "description": "Walk the harbour first."},
+		"domains": [{"id": "con-d1", "type": "construct", "name": "The Harbour", "sentence": "Where ships come in.",
+			"hubs": [{"type": "location", "id": "loc-1", "name": "The Quay"}], "description": "Where ships come in."}]}}
+	var before := me.duplicate(true)
+	var aids := OWCharter.served(me)
+	t.eq(aids.charter.keys(), ["id", "type", "name", "rules", "skill"], "the Charter's five")
+	t.eq(aids.guide.keys(), ["id", "type", "name"], "the Guide's three")
+	t.eq(aids.domains[0].keys(), ["id", "type", "name", "sentence", "hubs"], "a Domain's five")
+	t.eq(aids.domains[0]["hubs"], [{"type": "location", "id": "loc-1"}], "a hub's two")
+	t.eq(aids.charter["skill"], ["obj-1"], "a known key as served")
+	t.eq(me, before, "the answer is as it was")
+	t.done()
+
 func test_an_agents_join_answer_carries_the_strand(t) -> void:
 	# keel's test: the hero hidden from the new seat, so the hero's two slots and same are null.
 	var partial := {"narrative": {"id": "n-1", "type": "narrative", "name": "The Gang"},

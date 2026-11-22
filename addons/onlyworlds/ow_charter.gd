@@ -56,7 +56,9 @@ class Packet:
 
 ## A front door's packet as the server serves it: [code]reading_aids[/code] in a [code]GET /me[/code] answer or an
 ## agent's join answer ([param answer], the parsed body), read as served and never recomputed (who sees what is the
-## server's reading for the key). The Charter, the Guide and the Domains are copied as served (a Charter or Guide that
+## server's reading for the key). The Charter, the Guide and the Domains are copied as their kind's named keys, each
+## as served, in the page's order ([constant CHARTER_KEYS], [constant GUIDE_KEYS], [constant DOMAIN_KEYS], each hub
+## [constant HUB_KEYS]); a key the page does not give is dropped (a Charter or Guide that
 ## is not a Dictionary reads null, Domains that are not an Array none); an entry served with no String
 ## [code]type[/code] (a server from before serial 133) gets its aid's fixed type beside [code]id[/code]
 ## ([code]law[/code], [code]construct[/code]); [code]strand[/code] is read by
@@ -67,26 +69,38 @@ static func served(answer: Variant) -> Packet:
 		return null
 	var aids: Dictionary = answer["reading_aids"]
 	var out := Packet.new()
-	out.charter = _typed(aids["charter"], "law") if aids.get("charter") is Dictionary else null
-	out.guide = _typed(aids["guide"], "construct") if aids.get("guide") is Dictionary else null
+	out.charter = _typed(aids["charter"], "law", CHARTER_KEYS) if aids.get("charter") is Dictionary else null
+	out.guide = _typed(aids["guide"], "construct", GUIDE_KEYS) if aids.get("guide") is Dictionary else null
 	var listed: Variant = aids.get("domains")
 	for d in (listed if listed is Array else []):
 		if d is Dictionary:
-			out.domains.append(_typed(d, "construct"))
+			var domain := _typed(d, "construct", DOMAIN_KEYS)
+			if domain.get("hubs") is Array:
+				domain["hubs"] = domain["hubs"].map(func(h): return _named(h, HUB_KEYS) if h is Dictionary else h)
+			out.domains.append(domain)
 	out.strand = OWStrand.served(aids.get("strand"))
 	return out
 
-## A served entry, copied: as served when it carries a String [code]type[/code], else with [param fixed] as its
-## [code]type[/code] right after [code]id[/code], the page's order.
-static func _typed(entry: Dictionary, fixed: String) -> Dictionary:
-	if entry.get("type") is String:
-		return entry.duplicate(true)
+## Each served entry's keys, the page's shape in the page's order: a key the reader does not know is dropped, so the
+## packet hands over none of the text an AI follows, whatever a host sends beside the named keys.
+const CHARTER_KEYS := ["id", "type", "name", "rules", "skill"]
+const GUIDE_KEYS := ["id", "type", "name"]
+const DOMAIN_KEYS := ["id", "type", "name", "sentence", "hubs"]
+const HUB_KEYS := ["type", "id"]
+
+## A served entry, copied as its kind's named [param keys], each as served; [param fixed] is its [code]type[/code]
+## when it carries no String one (a server from before serial 133).
+static func _typed(entry: Dictionary, fixed: String, keys: Array) -> Dictionary:
+	var with_type := entry.duplicate()
+	if not (entry.get("type") is String):
+		with_type["type"] = fixed
+	return _named(with_type, keys)
+
+## The named [param keys] [param entry] carries, in that order, each copied as served; every other key dropped.
+static func _named(entry: Dictionary, keys: Array) -> Dictionary:
 	var out := {}
-	if entry.has("id"):
-		out["id"] = entry["id"]
-	out["type"] = fixed
-	for k in entry:
-		if k != "id" and k != "type":
+	for k in keys:
+		if entry.has(k):
 			out[k] = entry[k].duplicate(true) if entry[k] is Array or entry[k] is Dictionary else entry[k]
 	return out
 

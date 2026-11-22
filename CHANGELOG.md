@@ -333,6 +333,11 @@ the git log.
   `type`, and give an entry served without one (a keel from before serial 133) its fixed type beside `id`. The charter
   test compares each case's packet whole, so a key added later cannot pass unseen. Every case of serial 133's two
   fixtures passes.
+- `OWCharter.served` hands over each served entry as its kind's named keys, in the charter page's order: the Charter
+  `{id, type, name, rules, skill}`, the Guide `{id, type, name}`, each Domain `{id, type, name, sentence, hubs}` and
+  each hub `{type, id}`, each value as served. A key the page does not give (a host's `description`, say) is dropped,
+  where before it was passed on: the page's packet carries none of the text an AI reader follows, which it reads from
+  the element whole. Unity and Unreal already read the packet this way.
 - Schema pin to `v0.34.1-dist.145` (`f73146c`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 145). Only the
   charter and checks pages, the charter fixture and the views fixture moved; the generated files moved in their stamp
   only. The charter page's rule 4 names the field an AI reader follows: the `description` of the Charter and of each
