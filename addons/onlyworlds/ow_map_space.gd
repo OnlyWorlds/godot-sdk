@@ -6,7 +6,9 @@ extends RefCounted
 ## are a drawing tool's. The npm SDK's [code]mapSpace[/code] and the Python package's [code]map_space[/code], ported;
 ## the fixture beside the profile is this file's test. Since serial 110 also the profile's second, small reading,
 ## [method layout_of]: one Map's layout keys ([code]x_layout[/code] on the Map, [code]x_hand[/code] on its Pins),
-## the fixture's [code]layout_cases[/code] its test.
+## the fixture's [code]layout_cases[/code] its test; and its third, [method carry_of]: where a point on a child Map
+## lies on its parent and on each Map above it ([code]x_parent_frame[/code]), the fixture's [code]frame_cases[/code]
+## its test.
 
 ## The reasons [member MapSpace.out] counts, in the order it lists them.
 const OUT_REASONS := ["no_point", "no_markers", "dangling", "no_map"]
@@ -230,6 +232,163 @@ static func layout_of(map: Variant, maps: Variant, pins: Variant) -> MapLayout:
 	a.hand.sort()
 	a.layout = method
 	return a
+
+## Why the frame reading's walk up [code]parent_map[/code] ended (rule 14), in the page's order.
+const CARRY_STOPS := ["top", "dangling", "cycle", "no_frame", "no_carry"]
+## What can be wrong with a Map's own [code]x_parent_frame[/code] (rule 13).
+const CARRY_LINTS := ["no_parent", "not_four_numbers", "not_a_box"]
+
+## What [method carry_of] answers: the frame reading's four parts, always all there. [member error] names a caller's
+## mistake (nothing read), "" otherwise.
+class Carry:
+	## The Map's [code]x_parent_frame[/code] as written (a copy) when it is a parent frame, else null. The Map's own:
+	## it does not depend on the point, and it is reported also when the walk ends at once ([code]dangling[/code],
+	## [code]cycle[/code], [code]no_carry[/code]).
+	var parent_frame: Variant = null
+	## [code]no_parent[/code], [code]not_four_numbers[/code] or [code]not_a_box[/code] when this Map's own key is one
+	## ([constant CARRY_LINTS]), else null.
+	var lint: Variant = null
+	## Each [code]{map, x, y}[/code]: first the point on this Map as given, then the point on each Map it is carried
+	## to, in order up the chain; [code]x[/code] and [code]y[/code] are 64-bit floats.
+	var points := []
+	## Why the last point is carried no further ([constant CARRY_STOPS]); null only when the row read is no Map.
+	var stop: Variant = null
+	var error := ""
+
+	## The answer in the fixture's shape: the four keys in order.
+	func to_dict() -> Dictionary:
+		return {"parent_frame": parent_frame, "lint": lint, "points": points, "stop": stop}
+
+## One Map's frame reading, the map space profile's third small reading (rules 13 and 14, serial 139; the npm SDK's
+## [code]carryOf[/code] and the Python package's [code]carry_of[/code], ported): where a point on a child Map lies on
+## its parent, and on each Map above it. [param map] is the Map read, [param point] [code][x, y][/code] on it (two
+## finite numbers in its pixels from its bottom left, as a Pin's [code]x[/code] and [code]y[/code] or a tap gives
+## them; an int or a float, never a bool), and [param maps] the Maps the reader is served. A row is a Map when its
+## [code]type[/code] is exactly [code]map[/code] and its [code]id[/code] a non-empty String; other rows are passed
+## over, and of two Map rows with one id the last served is read. A [param map] that is no Map answers no parent
+## frame, no lint, no points and no stop. The walk starts from the row passed as [param map], never from a row of
+## [param maps] with its id. Pure: nothing in the input is changed and the answer is the caller's own.
+##
+## A child says where it lies on the Map its [code]parent_map[/code] names with [code]x_parent_frame[/code], a box
+## [code][x0, y0, x1, y1][/code] in the parent's pixels. The key is read only on a Map whose [code]parent_map[/code]
+## is a link (a non-empty String); on one with none, a key present and not null is linted [code]no_parent[/code]. It
+## is a parent frame when it is an Array of exactly four finite numbers with x0 less than x1 and y0 less than y1;
+## anything else is linted [code]not_four_numbers[/code] (another length, an entry that is no number, no Array) or
+## [code]not_a_box[/code] (mirrored, or no width or no height), and never normalised. The point is carried one level
+## at a time up [code]parent_map[/code], by each level's own parent frame and its own written [code]width[/code] and
+## [code]height[/code], as [code]x0 + ((x * (x1 - x0)) / width)[/code] and [code]y0 + ((y * (y1 - y0)) / height)[/code]
+## in 64-bit floats, in that order, never through one product of the levels' ratios. The walk ends, the first of
+## these that holds, at a Map with no [code]parent_map[/code] ([code]top[/code]), one whose parent is not served
+## ([code]dangling[/code]), one whose parent the walk has already reached, itself included ([code]cycle[/code]), one
+## with no parent frame ([code]no_frame[/code]), or one whose written [code]width[/code] or [code]height[/code] is not
+## a whole number above 0, by value ([code]no_carry[/code]; [code]100.0[/code] is 100, and unlike [method _whole] no
+## magnitude is bounded, as the npm SDK's [code]Number.isInteger[/code] bounds none). A point outside the child is
+## carried as written, never clipped; [code]z[/code] is not carried; no scale is read or reported, and a layout map is
+## read as any Map. [method map_space] and [method layout_of] read no frame key.
+static func carry_of(map: Variant, point: Variant, maps: Variant) -> Carry:
+	var a := Carry.new()
+	if not map is Dictionary:
+		a.error = "carry_of: map is one Map element Dictionary; got %s" % var_to_str(map)
+		return a
+	if not (point is Array and point.size() == 2 and _finite(point[0]) and _finite(point[1])):
+		a.error = "carry_of: point is [x, y], two finite numbers; got %s" % var_to_str(point)
+		return a
+	if not maps is Array:
+		a.error = "carry_of: maps is an Array of Map elements; got %s" % var_to_str(maps)
+		return a
+	var id: Variant = _map_id(map)
+	if id == null:
+		return a
+
+	var served := {}
+	for m in maps:
+		var mid: Variant = _map_id(m)
+		if mid != null:
+			served[mid] = m
+
+	var own := _frame_of(map)
+	var x := float(point[0])
+	var y := float(point[1])
+	a.points.append({"map": id, "x": x, "y": y})
+	var reached := {id: true}
+	var at: Dictionary = map
+	var frame: Variant = own[0]
+	while true:
+		var parent_id: Variant = _id_of(at.get("parent_map"))
+		if parent_id == null:
+			a.stop = "top"
+			break
+		if not served.has(parent_id):
+			a.stop = "dangling"
+			break
+		if reached.has(parent_id):
+			a.stop = "cycle"
+			break
+		if frame == null:
+			a.stop = "no_frame"
+			break
+		var width: Variant = _carry_size(at.get("width"))
+		var height: Variant = _carry_size(at.get("height"))
+		if width == null or height == null:
+			a.stop = "no_carry"
+			break
+		# Rule 14's order: the difference, then the product, then the quotient, then the sum.
+		x = frame[0] + ((x * (frame[2] - frame[0])) / width)
+		y = frame[1] + ((y * (frame[3] - frame[1])) / height)
+		a.points.append({"map": parent_id, "x": x, "y": y})
+		reached[parent_id] = true
+		at = served[parent_id]
+		frame = _frame_of(at)[0]
+	a.parent_frame = own[2]
+	a.lint = own[1]
+	return a
+
+## A Map row's id: [code]type[/code] exactly [code]map[/code] (reading K) and a non-empty String id (reading H); else
+## null.
+static func _map_id(row: Variant) -> Variant:
+	if not row is Dictionary:
+		return null
+	var type: Variant = row.get("type")
+	if not ((type is String or type is StringName) and String(type) == "map"):
+		return null
+	return _id_of(row.get("id"))
+
+## A Map's own parent frame (rule 13): [code][frame, lint, as_written][/code], the frame four floats or null, the lint
+## a word or null, and the key as written (a copy) when it is a parent frame, else null.
+static func _frame_of(map: Dictionary) -> Array:
+	var key: Variant = map.get("x_parent_frame")
+	var present := key != null
+	if _id_of(map.get("parent_map")) == null:
+		return [null, "no_parent" if present else null, null]
+	if not present:
+		return [null, null, null]
+	if not (key is Array and key.size() == 4):
+		return [null, "not_four_numbers", null]
+	for v in key:
+		if not _finite(v):
+			return [null, "not_four_numbers", null]
+	var f := [float(key[0]), float(key[1]), float(key[2]), float(key[3])]
+	if not (f[0] < f[2]) or not (f[1] < f[3]):
+		return [null, "not_a_box", null]
+	return [f, null, key.duplicate(true)]
+
+## A number as rule 13 reads one: an int, or a float that is neither NaN nor an infinity (Godot's JSON reads a number
+## too large for a double as an infinity). A bool, a String, null, an Array and a Dictionary are none.
+static func _finite(v: Variant) -> bool:
+	match typeof(v):
+		TYPE_INT:
+			return true
+		TYPE_FLOAT:
+			return not (is_nan(v) or is_inf(v))
+	return false
+
+## A size a carry divides by (rule 13), as a float: a whole number above 0 by value ([code]100.0[/code] is 100), with
+## no bound on its magnitude; else null.
+static func _carry_size(v: Variant) -> Variant:
+	if not _finite(v):
+		return null
+	var f := float(v)
+	return f if floor(f) == f and f > 0.0 else null
 
 ## A whole number by value, or null: an int, or a float with no fraction within 2^53 - 1, the range a double holds
 ## exactly ([method OWLens.whole]: [code]2.0[/code] is 2, as Godot's JSON reads every number as a float). A float past

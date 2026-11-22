@@ -25,6 +25,20 @@ the git log.
   by, with a name (for `sort_custom`, `by_code_point(x, y) < 0`). Parity with the TypeScript SDK 4.180.0
   (`trimAndFold`, `byCodePoint`); six of its seven tests ported in `tests/test_text.gd`, the seventh (a value that is
   no string refused) being GDScript's typed parameter here.
+- The map-space profile's frame reading (rules 13 and 14, serial 139): `OWMapSpace.carry_of(map, point, maps)`
+  answers an `OWMapSpace.Carry`, `{parent_frame, lint, points, stop}`: where a point `[x, y]` on a child Map lies on
+  its parent and on each Map above it. A child's `x_parent_frame` is a box `[x0, y0, x1, y1]` in its parent's pixels,
+  read only on a Map whose `parent_map` is a link; four finite numbers with x0 below x1 and y0 below y1, or the lint
+  `no_parent`, `not_four_numbers` or `not_a_box`. The point is carried one level at a time up `parent_map` as
+  `x0 + ((x * (x1 - x0)) / width)` and `y0 + ((y * (y1 - y0)) / height)` in 64-bit floats, in that order, by each
+  level's written size, until a Map with no parent (`top`), a parent not served (`dangling`), one already reached
+  (`cycle`), no parent frame (`no_frame`) or a size that is no whole number above 0 (`no_carry`). A caller's mistake
+  (a point that is not two finite numbers, a map that is no Dictionary, maps that is no Array) is named in `error` and
+  nothing is read. Parity with the TypeScript SDK 4.183.0 (`carryOf`). Every one of the fixture's `frame_cases`
+  passes in `tests/test_map_carry.gd` (66 at this pin, the count read from the fixture), each coordinate compared
+  exactly; Godot's JSON reads one of the cases' 115 numbers written with a fraction as a neighbouring double, so they
+  go in as bits from `tests/data/map-space-frames.bits.json`, written by the new `codegen/generate_frame_bits.py`.
+  `map_space` and `layout_of` are unchanged and read no frame key.
 - `OWClient.bulk(items, {"create_only": true})`, sent as `create_only`: every item with an id is created as `create`
   creates it, never replaced. An id the world already holds answers that item's slot 409 `id_conflict`, and the element
   stays as it was; the rest of the batch goes on as before, and the slot reads as any failed slot does
