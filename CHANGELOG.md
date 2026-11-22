@@ -16,6 +16,15 @@ the git log.
   any other error, when keel sends no `unknown_fields` list, or when the body is not JSON; an entry that is not a String
   is left out, and a key keel left out reads empty. Parity with the TypeScript SDK 4.179.0 (`fieldsRefusal`), its three
   tests ported in `tests/test_fields_refusal.gd`.
+- The profiles' text fold and order under public names: `OWUnicode.trim_and_fold(text)`, a text trimmed of Unicode's
+  White_Space at both ends (U+0085 and the ideographic space go, a byte order mark and a zero width space stay) and
+  folded by Unicode 15.1's simple case folding (the long s folds to s, the sharp s stays), the fold the room,
+  reading-aid, names and charter readers already match by (`OWUnicode.profile_fold`, unchanged, is the same
+  function); and `OWUnicode.by_code_point(a, b)`, -1, 0 or 1 as `a` sorts before, with or after `b` by code point,
+  never by UTF-16 unit and never by a locale's collation: a Godot String's own order, which the readers already sort
+  by, with a name (for `sort_custom`, `by_code_point(x, y) < 0`). Parity with the TypeScript SDK 4.180.0
+  (`trimAndFold`, `byCodePoint`); six of its seven tests ported in `tests/test_text.gd`, the seventh (a value that is
+  no string refused) being GDScript's typed parameter here.
 - `OWClient.bulk(items, {"create_only": true})`, sent as `create_only`: every item with an id is created as `create`
   creates it, never replaced. An id the world already holds answers that item's slot 409 `id_conflict`, and the element
   stays as it was; the rest of the batch goes on as before, and the slot reads as any failed slot does

@@ -222,6 +222,12 @@ test whose world is missing is skipped, never passed.
 - **The front door's packet** (serial 100): `OWCharter.served(answer)` reads `reading_aids` from a `GET /me` answer
   or an agent's join answer as the server serves it for that key: the Charter, the Guide, the Domains, then the
   strand (`strand`, an `OWStrand.Strand`, six null slots when the key sees none; null from a server that sends none).
+- **Names compared** (the room profile's "trimmed and without regard to case", defined once):
+  `OWUnicode.trim_and_fold(text)` trims Unicode's White_Space at both ends (a byte order mark stays) and applies
+  simple case folding by Unicode 15.1 (the long s folds to s, the sharp s stays), the fold every profile reader here
+  matches by (`profile_fold` is the same function); `OWUnicode.by_code_point(a, b)` answers -1, 0 or 1 in code point
+  order, a Godot String's own `<` with a name. Names as the profiles order them: `by_code_point` of the two folds,
+  ties by id. The TypeScript SDK's `trimAndFold` and `byCodePoint` (4.180.0), its tests ported.
 - **Messages** (the message profile, serial 79): `OWMessage` reads a message between a world's members and the
   Note beside it, as the npm and Python packages do: `is_message`, `is_note`, `recipients_of`, `is_addressed_to`,
   `is_to_everyone` and `has_unseen_recipients` (keel's `x_served_trimmed`, `keyless` for a body read with no

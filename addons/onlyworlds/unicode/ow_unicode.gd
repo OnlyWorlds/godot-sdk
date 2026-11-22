@@ -74,6 +74,29 @@ static func profile_fold(s: String) -> String:
 		cps[i] = D.FOLD.get(cps[i], cps[i])
 	return _from_cps(cps)
 
+## [param text] trimmed and without regard to case, as the profiles define it once: [method profile_fold] under the
+## TypeScript SDK's name ([code]trimAndFold[/code], 4.180.0). It trims Unicode's White_Space set at both ends
+## (U+0085 and the ideographic space go, a byte order mark and a zero width space stay) and touches nothing inside,
+## then applies simple case folding by Unicode 15.1's table (the long s folds to s, the sharp s stays). Neither
+## [method String.strip_edges] nor [method String.to_lower] is this. The room, reading-aid, names and charter readers
+## match by it. Names as the profiles order them: by [code]trim_and_fold(name)[/code] in [method by_code_point]
+## order, ties by id in the same order.
+static func trim_and_fold(text: String) -> String:
+	return profile_fold(text)
+
+## [param a] and [param b] compared by code point: negative, zero or positive as [param a] sorts before, with or
+## after [param b], never by UTF-16 unit (which puts a letter beyond U+FFFF before U+FF5A) and never by a locale's
+## collation; when one is a prefix of the other the shorter sorts first. The TypeScript SDK's [code]byCodePoint[/code]
+## (4.180.0). A Godot String holds code points and its [code]<[/code] compares them, so this is that order with a
+## name, and [method Array.sort] on Strings alone already sorts by it; for [method Array.sort_custom], which wants a
+## bool, pass [code]func(x, y): return OWUnicode.by_code_point(x, y) < 0[/code], and chain a tie the same way.
+static func by_code_point(a: String, b: String) -> int:
+	if a < b:
+		return -1
+	if b < a:
+		return 1
+	return 0
+
 ## Whether [param c] is a letter of any script or a combining mark (general category L or M, Unicode 15.1): a binary
 ## search of the generated ranges.
 static func is_letter_or_mark(c: int) -> bool:
