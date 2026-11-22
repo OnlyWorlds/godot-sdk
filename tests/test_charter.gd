@@ -69,8 +69,8 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 	var counts := {}
 	for c in _fixture()["cases"]:
 		counts[c["kind"]] = counts.get(c["kind"], 0) + 1
-	t.eq(_fixture()["cases"].size(), 57, "57 cases (ten Domain order cases at serial 141)")
-	t.eq(counts, {"charter": 51, "element": 6}, "by kind")
+	t.eq(_fixture()["cases"].size(), 61, "61 cases (ten Domain order cases at serial 141, four empty descriptions at serial 145)")
+	t.eq(counts, {"charter": 55, "element": 6}, "by kind")
 	# The design list is read whole (serial 135): a case added later must not pass unseen.
 	var names := {}
 	for c in _fixture()["design_cases"]:

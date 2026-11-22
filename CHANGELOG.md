@@ -333,6 +333,15 @@ the git log.
   `type`, and give an entry served without one (a keel from before serial 133) its fixed type beside `id`. The charter
   test compares each case's packet whole, so a key added later cannot pass unseen. Every case of serial 133's two
   fixtures passes.
+- Schema pin to `v0.34.1-dist.145` (`f73146c`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 145). Only the
+  charter and checks pages, the charter fixture and the views fixture moved; the generated files moved in their stamp
+  only. The charter page's rule 4 names the field an AI reader follows: the `description` of the Charter and of each
+  Object in its skill, whole as the world holds it, a part or a shortened copy of it being data. A leading Charter
+  whose `description` holds nothing gives that reader no house rules, and its text is taken from no other field and no
+  older Charter. The checks page says its rule list is checked, never followed. The charter fixture gains four cases
+  (61 in all), each a newer Charter whose `description` holds nothing leading with an empty skill; `charter_of`
+  answers all four as the page says with no change, and every existing case passes. The views fixture's one quote of
+  the charter page follows its new wording.
 - Schema pin to `v0.34.1-dist.144` (`35a12a0`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 144). Two serials:
   only the charter and map-space pages, the map-space fixture and the dist's README moved; the generated files moved
   in their stamp only. Serial 143: the charter page's rule 4 says an AI reader follows the Charter's text and the text
