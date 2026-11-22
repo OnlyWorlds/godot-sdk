@@ -8,6 +8,14 @@ the git log.
 
 ### Added
 
+- `OWApiError.fields_refusal()`: on a 422 whose `param` is `fields`, when a `list` or a `get_element` named fields in
+  its `fields` list that its type does not have, the three keys keel sends inside the envelope's `error` object, typed
+  as an `OWApiError.FieldsRefusal`: `unknown_fields` (every unknown name, in the order sent), `types_with_field` (for
+  each one another element type has, those types) and `allowed_fields` (the names the type takes; an extension field
+  name passes too and is not listed). keel refuses the whole list once, so the list is corrected in one try. Null for
+  any other error, when keel sends no `unknown_fields` list, or when the body is not JSON; an entry that is not a String
+  is left out, and a key keel left out reads empty. Parity with the TypeScript SDK 4.179.0 (`fieldsRefusal`), its three
+  tests ported in `tests/test_fields_refusal.gd`.
 - `OWClient.bulk(items, {"create_only": true})`, sent as `create_only`: every item with an id is created as `create`
   creates it, never replaced. An id the world already holds answers that item's slot 409 `id_conflict`, and the element
   stays as it was; the rest of the batch goes on as before, and the slot reads as any failed slot does

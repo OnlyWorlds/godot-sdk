@@ -176,6 +176,58 @@ func resync_reason() -> Variant:
 	var reason = inner.get("reason") if inner is Dictionary else null
 	return reason if reason is String and (reason == "role" or reason == "view") else null
 
+## What [method fields_refusal] answers: a read's [code]fields[/code] list refused whole, once, with every name in it
+## that its type does not have, so a caller corrects the list in one try. Mirrors the TypeScript SDK's
+## [code]OwFieldsRefusal[/code].
+class FieldsRefusal:
+	## Every name in the list that the type does not have, in the order sent (Strings).
+	var unknown_fields := []
+	## For each unknown name another element type has, those types: a name to an Array of Strings. A name no type has
+	## is not a key here.
+	var types_with_field := {}
+	## The names this type's [code]fields[/code] takes (Strings). An extension field name ([code]x_[/code],
+	## [code]atlas_[/code], [code]shadow_[/code]) passes too and is not listed.
+	var allowed_fields := []
+
+	## The refusal in the TypeScript SDK's shape: [code]{unknown_fields, types_with_field, allowed_fields}[/code].
+	func to_dict() -> Dictionary:
+		return {"unknown_fields": unknown_fields, "types_with_field": types_with_field, "allowed_fields": allowed_fields}
+
+## On a 422 whose [member param] is [code]fields[/code], when a read's [code]fields[/code] list (a [code]list[/code]
+## or a [code]get_element[/code]) named fields its type does not have: the three keys keel sends inside the envelope's
+## [code]error[/code] object, typed ([code]unknown_fields[/code], [code]types_with_field[/code],
+## [code]allowed_fields[/code]). Null for any other error, when keel sends no [code]unknown_fields[/code] list, or
+## when the body is not JSON. An entry that is not a String is left out, a [code]types_with_field[/code] entry that
+## is not an Array is left out, and a key keel left out reads empty. Mirrors the TypeScript SDK's
+## [code]fieldsRefusal[/code] and the Unity SDK's [code]FieldsRefusal[/code].
+func fields_refusal() -> FieldsRefusal:
+	if status != 422 or param != "fields" or raw_body == "":
+		return null
+	var json := JSON.new()
+	var body = json.data if json.parse(raw_body) == OK else null
+	var inner = body.get("error") if body is Dictionary else null
+	if not (inner is Dictionary) or not (inner.get("unknown_fields") is Array):
+		return null
+	var r := FieldsRefusal.new()
+	r.unknown_fields = _strings(inner["unknown_fields"])
+	var held = inner.get("types_with_field")
+	if held is Dictionary:
+		for name in held:
+			if held[name] is Array:
+				r.types_with_field[name] = _strings(held[name])
+	r.allowed_fields = _strings(inner.get("allowed_fields"))
+	return r
+
+## The Strings of [param list] in its order; anything that is not a String is left out, and a value that is no Array
+## reads empty.
+static func _strings(list: Variant) -> Array:
+	var out := []
+	if list is Array:
+		for s in list:
+			if s is String:
+				out.append(s)
+	return out
+
 ## A write became a proposal (an upsert, a patch or a link edit by an agent seat, in a world that takes its writes as
 ## proposals): kind [constant API], status 202, [member proposal] the row; the element did not change. Not a failure
 ## to retry: the write waits for a person. Mirrors the TypeScript SDK's [code]isProposed[/code] and the Unity SDK's

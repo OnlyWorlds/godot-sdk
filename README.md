@@ -85,7 +85,9 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   `doc_url`, `retry_after`), `transport` (no answer), `refused` (a caller's mistake, nothing sent: an unknown option, a
   value of the wrong type, `world` beside a world key) and `answer` (a 2xx that is not what the route answers). A write
   that became a proposal is kind `api` with `status` 202 and `error.proposal` the row (`is_proposed()`), as the Unity
-  SDK's `OWProposedError` is: the element did not change.
+  SDK's `OWProposedError` is: the element did not change. A read whose `fields` list names fields its type does not
+  have is refused whole in one 422 on `fields`; `error.fields_refusal()` reads every unknown name, the types that have
+  each, and the names the type takes.
 - **Options** are Dictionaries, and an unknown key is refused, never dropped (a dropped filter lists everything).
 - **The cursor walk** is driven by `has_more`, never by a page's size; it stops at a page with no cursor and refuses a
   page that hands back the cursor it was sent.
