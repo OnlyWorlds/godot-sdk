@@ -344,6 +344,30 @@ func members() -> Reply:
 		r.value = rows if rows is Array else []
 	return r
 
+# -- Joining by link ----------------------------------------------------------------------------------------------------
+
+## [code]POST /account/join[/code]: accept a person's invite link as the account this client's token belongs to, 201
+## with the new membership, an [OWJoin.JoinedMembership]. [param code] is the link's [code]ow_j_[/code] code
+## ([method OWJoin.parse_link] reads it out of a pasted link), sent as given in [code]{"code"}[/code] alone, with the
+## Bearer and never a PIN: accepting needs none, for any role. keel's refusals leave the code unspent: every bad code
+## (unknown, used, revoked or expired), and a code made for an AI agent, is the one 404 [code]not_found[/code]
+## ([method OWApiError.is_not_found]); an account already in the world is 409 [code]already_member[/code]
+## ([method OWApiError.is_already_member]). Refused, nothing sent: any key but an account token ([code]ow_a_[/code];
+## a player's or an agent's code is redeemed with no key, [method OWJoin.redeem]) and an empty code. Mirrors the
+## TypeScript SDK's [code]acceptJoin[/code] (4.12.0).
+func accept_join(code: String) -> Reply:
+	if error == "" and key_kind != KEY_ACCOUNT:
+		var held := "none" if key_kind == KEY_NONE else ("an %s key" if key_kind == KEY_UNKNOWN else "a %s key") % key_kind
+		return _refused(("accept_join needs an account token (ow_a_); this client holds %s. A world key cannot join a "
+			+ "world; a player's or an agent's code is redeemed with no key, OWJoin.redeem. Nothing was sent.") % held)
+	if code == "":
+		return _refused("accept_join: a join code is required (OWJoin.parse_link reads it out of a pasted link). Nothing "
+			+ "was sent.")
+	var r := _object(await _request("POST", "/account/join", [], {"body": {"code": code}}))
+	if r.ok:
+		r.value = OWJoin.JoinedMembership.of(r.value)
+	return r
+
 # -- Elements ---------------------------------------------------------------------------------------------------------
 
 ## [code]GET /{type}/[/code]: one cursor page of a type, a [Page] of typed elements. [param options], each optional:

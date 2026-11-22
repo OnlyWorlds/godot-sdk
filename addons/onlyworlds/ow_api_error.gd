@@ -269,6 +269,37 @@ func is_idempotency_conflict() -> bool:
 func is_known_of_not_writable() -> bool:
 	return status == 422 and code == "known_of_not_writable"
 
+## [method OWJoin.redeem] on a table: the picked Character is one a live seat in the world already plays (422
+## [code]character_taken[/code], [member param] [code]character[/code]). Pick another from a fresh
+## [method OWJoin.preview], whose characters mark each taken. The code is not spent. Mirrors the TypeScript SDK's
+## [code]isCharacterTaken[/code].
+func is_character_taken() -> bool:
+	return status == 422 and code == "character_taken"
+
+## The [code]character[/code] sent was refused (422 [code]invalid_request[/code], [member param]
+## [code]character[/code]): on [method OWJoin.redeem] at a table, the pick is off the link's list, hidden or deleted
+## since, missing, or sent to a table that lists none (send a name instead); one answer for all, so read the preview
+## again. Never true for another param's 422, nor for [method is_character_taken]. Mirrors the TypeScript SDK's
+## [code]isCharacterInvalid[/code].
+func is_character_invalid() -> bool:
+	return status == 422 and code == "invalid_request" and param == "character"
+
+## [method OWJoin.redeem]: the world already has its 50 live players (422 [code]world_full[/code]), at any player
+## link. Nothing is spent; a place frees when the owner removes a player. Mirrors the TypeScript SDK's
+## [code]isWorldFull[/code].
+func is_world_full() -> bool:
+	return status == 422 and code == "world_full"
+
+## [method OWClient.accept_join]: the account is already a member of that world (409 [code]already_member[/code]). The
+## code is not spent. Mirrors the TypeScript SDK's [code]isAlreadyMember[/code].
+func is_already_member() -> bool:
+	return status == 409 and code == "already_member"
+
+## The account has no PIN yet, and a member writes with their own (409 [code]pin_required[/code]); accepting a link
+## needs none, a write key for the membership does. Mirrors the TypeScript SDK's [code]isPinRequired[/code].
+func is_pin_required() -> bool:
+	return status == 409 and code == "pin_required"
+
 ## Worth sending again later: a 429 or a 5xx, and the three 409s that clear by themselves; never a used-up allowance
 ## or a service turned off. Mirrors the Unity SDK's [code]IsRetryable[/code] (the TypeScript SDK has none: it names
 ## each code, [code]isBusy[/code], [code]isRateLimited[/code], [code]isIdempotencyInFlight[/code]).

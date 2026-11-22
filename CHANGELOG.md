@@ -8,6 +8,29 @@ the git log.
 
 ### Added
 
+- Joining a world by invite link, the calls the Unity and TypeScript SDKs carry. `OWJoin.parse_link(text)`: the join
+  code in a pasted link (`<site>/join#<code>` or `<site>/join/<world_id>#<code>`, any host) or a bare code, trimmed of
+  Unicode's White_Space, or `""` when the text holds none; only the shape is checked. `OWJoin.preview(code, options)`
+  (`POST /join/preview`) and `OWJoin.redeem(code, options)` (`POST /join`), static and keyless as the Unity SDK's
+  `OWJoin` is (a client is built with a key, and joining is how a program gets one): no `API-Key`, no `API-Pin`, no
+  Bearer, `transport` and `base_url` in the options. The preview answers an `OWJoin.Preview` (`reader`, `world`
+  without its id, `invited_by`, `owner_character`, `role`, `with_character`, `expires_at`, a person link's `note` with
+  its line breaks, a contributor's `glimpse` as an `OWJoin.Glimpse` of things and links that writes back key for key,
+  and a table's `max_uses`, `uses_left`, `name_required` and `characters` as `OWJoin.Pick`s, `is_table()`). The redeem
+  sends `name`, `agent_name` and `character` (a table's pick) only when given and not null, in that order, and answers
+  an `OWJoin.Joined` told apart by `kind` (`is_player()`, `is_agent()`): a player's read key and its Character, or an
+  agent seat's key, secret, `.env` lines, its front door as served and its reading aids through `OWCharter.served`
+  (`role_in_world()` reads either). `OWClient.accept_join(code)` (`POST /account/join`): a person's link accepted on an
+  account token, `{code}` alone with the Bearer and no PIN, answered as an `OWJoin.JoinedMembership`; any other key is
+  refused with nothing sent, naming `OWJoin.redeem`. Five helpers on `OWApiError` for keel's refusals, none of which
+  spends the code: `is_character_taken()` (422 `character_taken`), `is_character_invalid()` (422 `invalid_request` on
+  `character`, and no other param), `is_world_full()` (422 `world_full`), `is_already_member()` and
+  `is_pin_required()` (the two 409s); every bad code is `is_not_found()`. Refused before sending: an empty code, an
+  unknown option, a value of the wrong type. Parity with the TypeScript SDK's `previewJoin`, `redeemJoin` and
+  `acceptJoin` (through 4.189.0: the note, the glimpse, tables) and the Unity SDK's `OWJoin` and `AcceptJoinAsync`;
+  their tests ported in `tests/test_join.gd`, and the wire test records the three routes and holds each join model's
+  keys to keel's answers (the preview's both ways).
+
 - `OWApiError.fields_refusal()`: on a 422 whose `param` is `fields`, when a `list` or a `get_element` named fields in
   its `fields` list that its type does not have, the three keys keel sends inside the envelope's `error` object, typed
   as an `OWApiError.FieldsRefusal`: `unknown_fields` (every unknown name, in the order sent), `types_with_field` (for

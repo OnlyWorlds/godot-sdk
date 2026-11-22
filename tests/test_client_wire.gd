@@ -27,6 +27,11 @@ const NOT_SERVED := {
 	"world": "OWElement.world is the folder format's base field (schema base); keel names an element's world by the key, and serves no world key on the body",
 }
 
+## Keys a join model reads that keel does not serve on that answer, on purpose, each with why (path, then the key).
+const JOIN_NOT_SERVED := {
+	"/api/v2/join/preview world.id": "OWJoin.World is shared with OWJoin.Joined, whose world carries the id; a preview's never does (the code is unspent)",
+}
+
 ## Codes a helper names that keel's document does not list yet, each with why. Each must stay unlisted.
 const RESERVED := {
 	"world_gone": "OWApiError.is_auth_error names it as reserved, as the Unity and TypeScript SDKs do (keel has no world_gone row yet)",
@@ -103,6 +108,12 @@ func _record() -> Array:
 		await c.list("location", {"filter": {"parent_location": "p1"}})
 		fake.body = "{}"
 		await _writes(c)   # refused, nothing sent: neither writes
+	# Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every option. A
+	# person's join goes on an account token.
+	fake.body = "{}"
+	await OWJoin.preview("ow_j_x", {"transport": fake, "base_url": BASE})
+	await OWJoin.redeem("ow_j_x", {"name": "N", "agent_name": "A", "character": "c1", "transport": fake, "base_url": BASE})
+	await OWClient.new({"api_key": "ow_a_test", "api_pin": "0000", "base_url": BASE, "transport": fake}).accept_join("ow_j_x")
 	return fake.calls
 
 static func _keel_path(url: String) -> String:
@@ -214,22 +225,23 @@ func test_every_body_key_is_one_keel_declares(t) -> void:
 			t.eq(_undeclared(item["element"], _declared_body(create)), [],
 				"%s: a %s item's element, every key one POST /%s/ declares" % [label, item["type"], item["type"]])
 			checked += 1
-	t.eq(checked, 4 * (6 + 2), "six bodies and two bulk items on each world key")
+	t.eq(checked, 4 * (6 + 2) + 3, "six bodies and two bulk items on each world key, and the three joins")
 	t.done()
 
 func test_the_recording_covers_every_read_and_write(t) -> void:
 	# An empty recording would pass the checks above with nothing checked.
 	var calls := await _record()
-	t.eq(calls.size(), 4 * (12 + 7) + 6 + 5,
+	t.eq(calls.size(), 4 * (12 + 7) + 6 + 5 + 3,
 		"12 reads and 7 writes on each world key (list_all one page), 6 reads on an account token, 5 on no key (its "
-		+ "roster refused); neither writes")
+		+ "roster refused); neither writes; the keyless preview and redeem, and a person's join on an account token")
 	var paths := {}
 	for c in calls:
 		paths[c.method + " " + _keel_path(c.url)] = true
 	for p in ["GET /api/v2/health", "GET /api/v2/world", "GET /api/v2/me", "GET /api/v2/members", "GET /api/v2/character",
 			"GET /api/v2/location", "GET /api/v2/character/c1", "GET /api/v2/changes", "POST /api/v2/character",
 			"PUT /api/v2/character/c1", "PATCH /api/v2/character/c1", "DELETE /api/v2/character/c1",
-			"POST /api/v2/character/c1/links/friends", "POST /api/v2/bulk"]:
+			"POST /api/v2/character/c1/links/friends", "POST /api/v2/bulk", "POST /api/v2/join/preview",
+			"POST /api/v2/join", "POST /api/v2/account/join"]:
 		t.ok(paths.has(p), "%s is recorded" % p)
 	t.eq(calls.filter(func(c): return c.url.contains("world=")).size(), 9, "the world reads of an account token and of no key")
 	t.ok(calls.any(func(c): return c.headers.has("If-None-Match")), "a tip read with a tag is recorded")
@@ -320,6 +332,52 @@ func test_the_reading_aids_are_the_packet_owcharter_served_reads(t) -> void:
 		var served := _below(_doc()["paths"][op[0]][op[1]]["response"], "reading_aids.")
 		served.sort()
 		t.eq(read, served, "%s %s" % [op[1], op[0]])
+	t.done()
+
+func test_every_key_a_join_model_reads_is_one_keel_serves(t) -> void:
+	# The join answers, one level down as the fixture lists them: a glimpse's things and links are not listed below
+	# that, so their keys are held by the glimpse vector in test_join.gd instead.
+	var paths: Dictionary = _doc()["paths"]
+	var preview: Array = paths["/api/v2/join/preview"]["POST"]["response"]
+	var joined: Array = paths["/api/v2/join"]["POST"]["response"]
+	var membership: Array = paths["/api/v2/account/join"]["POST"]["response"]
+	for c in [
+		[OWJoin.Preview.KEYS, _top(preview), "OWJoin.Preview", ""],
+		[OWJoin.World.KEYS, _below(preview, "world."), "a preview's OWJoin.World", "/api/v2/join/preview world."],
+		[OWJoin.Pick.KEYS, _below(preview, "characters[]."), "OWJoin.Pick", ""],
+		[OWJoin.Glimpse.KEYS, _below(preview, "glimpse."), "OWJoin.Glimpse", ""],
+		[OWJoin.Joined.KEYS, _top(joined), "OWJoin.Joined", ""],
+		[OWJoin.World.KEYS, _below(joined, "world."), "a join's OWJoin.World", ""],
+		[OWJoin.Character.KEYS, _below(joined, "character."), "OWJoin.Character", ""],
+		[OWJoin.Seat.KEYS, _below(joined, "seat."), "OWJoin.Seat", ""],
+		[OWJoin.JoinedMembership.KEYS, _top(membership), "OWJoin.JoinedMembership", ""],
+	]:
+		var served: Array = c[1]
+		var unserved: Array = c[0].filter(func(k): return not served.has(k) and not JOIN_NOT_SERVED.has(c[3] + k))
+		t.eq(unserved, [], "%s reads only keys keel serves (%s)" % [c[2], ", ".join(served)])
+	for k: String in JOIN_NOT_SERVED:
+		t.ok(not preview.has(k.trim_prefix("/api/v2/join/preview ")), "keel serves %s now; drop it from JOIN_NOT_SERVED" % k)
+	t.done()
+
+func test_the_preview_reads_every_key_keel_serves_on_it(t) -> void:
+	# The other way round, for the preview alone (the Unity SDK's ThePreview_ReadsEveryKeyKeelServesOnIt; npm's wire
+	# check holds OwJoinPreview and its glimpse both ways since 4.189.0): a screen reads a preview whole before anyone
+	# joins, so a key keel adds there fails here until it is read.
+	var served: Array = _doc()["paths"]["/api/v2/join/preview"]["POST"]["response"]
+	var below := {"world.": OWJoin.World.KEYS, "characters[].": OWJoin.Pick.KEYS, "glimpse.": OWJoin.Glimpse.KEYS}
+	var unread := []
+	for k: String in served:
+		var read: Array = OWJoin.Preview.KEYS
+		var key := k
+		for prefix: String in below:
+			if k.begins_with(prefix):
+				read = below[prefix]
+				key = k.trim_prefix(prefix)
+		if not read.has(key):
+			unread.append(k)
+	t.eq(unread, [], "OWJoin.Preview reads every key keel serves on a preview")
+	for k in ["glimpse.things", "glimpse.links", "glimpse.picked_by", "note", "characters[].taken"]:
+		t.ok(served.has(k), "keel serves %s on a preview" % k)
 	t.done()
 
 func test_the_members_and_me_answers_serve_what_their_docs_name(t) -> void:

@@ -89,6 +89,13 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   SDK's `OWProposedError` is: the element did not change. A read whose `fields` list names fields its type does not
   have is refused whole in one 422 on `fields`; `error.fields_refusal()` reads every unknown name, the types that have
   each, and the names the type takes.
+- **Joining by link**: `OWJoin.parse_link(pasted)` reads the `ow_j_` code out of an invite link (`""` when there is
+  none); `OWJoin.preview(code)` reads what it holds (an `OWJoin.Preview`: the reader, the world, the role, a person
+  link's note, a contributor's glimpse, a table's picks), and `OWJoin.redeem(code, {"name": ...})` redeems a player's
+  or an agent's code (an `OWJoin.Joined`: a read key, or a seat's key and secret with its front door), both sending no
+  credential. A person's link is accepted signed in, `client.accept_join(code)` on an account token. Each refusal
+  keel answers has its helper (`is_not_found`, `is_character_taken`, `is_character_invalid`, `is_world_full`,
+  `is_already_member`, `is_pin_required`); none spends the code.
 - **Options** are Dictionaries, and an unknown key is refused, never dropped (a dropped filter lists everything).
 - **The cursor walk** is driven by `has_more`, never by a page's size; it stops at a page with no cursor and refuses a
   page that hands back the cursor it was sent.
