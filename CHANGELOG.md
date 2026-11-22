@@ -349,6 +349,9 @@ the git log.
 
 ### Changed
 
+- `OWClient.me()`'s comment, and the README's Credentials bullet, say that onlyworlds.com never reads a PIN
+  beside a key that cannot write (a read key, a player's), so the call tests a PIN only for a key that can write.
+  Parity with the TypeScript SDK 4.185.0's comment; no behaviour moves.
 - `OWGraph.world_graph`: a co-builder reads the graph as a keeper (the lens page, serial 140). The flags `hidden` and
   `proposed`, and the `hidden` and `proposed` counts in `cut` and `edges_cut`, are a keeper's (the owner or a
   co-builder), where they were the owner's alone, so a co-builder's unlensed graph is answered as the owner's is on the

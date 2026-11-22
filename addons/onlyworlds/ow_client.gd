@@ -323,9 +323,10 @@ func get_world() -> Reply:
 
 ## [code]GET /me/[/code]: who this world key is, the body as served: [code]{world, scope, kind, role, membership,
 ## character, lenses, name?, front_door, reading_aids}[/code]. [code]OWCharter.served(reply.value)[/code] reads its
-## reading aids (the Charter, the Guide, the Domains, the strand). The connection test: the one read sent with the
-## PIN. A world key's call: an account token and a keyless client are refused, nothing sent. Mirrors the TypeScript
-## SDK's [code]me[/code].
+## reading aids (the Charter, the Guide, the Domains, the strand). The one read sent with the PIN, so a wrong PIN shows
+## on this call first, which makes it the connection test for a key that can write; beside a key that cannot (a read
+## key, a player's), onlyworlds.com never reads a PIN. A world key's call: an account token and a keyless client are
+## refused, nothing sent. Mirrors the TypeScript SDK's [code]me[/code].
 func me() -> Reply:
 	return _object(await _request("GET", "/me/", []))
 

@@ -68,7 +68,8 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
 - **Credentials**, as the Unity and TypeScript SDKs send them: a world key (`ow_w_`, `ow_r_`, a 10-digit legacy key)
   as `API-Key`, its PIN as `API-Pin` only on `GET /me` among the reads, and on every request of a legacy key; an
   account token as a Bearer, never with the PIN, with `world=<id>` on the world reads and the roster; no key at all
-  on the world reads with `world=<id>`. The health pulse carries no credential. Anything else a client could not
+  on the world reads with `world=<id>`. `me` tests a PIN only for a key that can write: beside a key that cannot (a
+  read key, a player's), onlyworlds.com never reads one. The health pulse carries no credential. Anything else a client could not
   send (`me` on an account token, the roster with no key, a world read on an account token without `world`) is
   refused before sending, and nothing is sent.
 - **Writes**: an element is an `OWElement` (its data is sent) or a Dictionary, and is never changed: the body is a
