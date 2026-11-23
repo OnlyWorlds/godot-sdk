@@ -4,8 +4,8 @@ Notable changes to the OnlyWorlds SDK for Godot. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Where it stands.** 0.1.0 is the first release. `onlyworlds-godot-0.1.0.zip`, on the repository's Releases page,
-holds the addon folder to copy into a game; the [README](README.md) has the install and a first run. What a game can
+**Where it stands.** 0.1.1 is the latest release. `onlyworlds-godot-0.1.1.zip`, on the repository's Releases page,
+holds the addon folder to copy into a game, and a zip of a commit holds that folder alone; the [README](README.md) has the install and a first run. What a game can
 do with it: read and write an OnlyWorlds world over the onlyworlds.com API and on disk (world folders and `.owworld`
 files), as typed elements of all 22 types; let a player join a world by an invite link; and read a world it holds
 without a server (as a graph, as map geometry, by its own calendar, as one reader may see it), each reader giving the
@@ -13,6 +13,25 @@ same answers as the other OnlyWorlds SDKs on a shared set of test cases. Built a
 build. The entries below are in the detail a maintainer needs; the history before this file is in the git log.
 
 ## [Unreleased]
+
+## [0.1.1] - 2026-11-23
+
+The addon's calls are 0.1.0's; what changed is what travels with the folder, so that a download of any commit is an
+addon a project can take whole, the shape Godot's Asset Library hands over.
+
+### Added
+
+- `addons/onlyworlds/LICENSE`, a tracked copy of the repository's `LICENSE`, and `addons/onlyworlds/README.md`, a
+  short note that points to the install, the reference and the issues: the folder is what a project keeps, so the
+  licence and the way back travel inside it. A test (`tests/test_addon_folder.gd`) fails when the copy and the root
+  `LICENSE` differ by a byte, and `tools/release_zip.py` refuses a commit where they differ (for a commit from before
+  the copy existed it still adds the root's, as 0.1.0's zip did).
+
+### Changed
+
+- `.gitattributes` marks everything outside `addons/` `export-ignore`, so `git archive` and a host's zip of a commit
+  (GitHub's "Download ZIP", which the Asset Library downloads) carry `addons/onlyworlds/` alone: no tests, codegen,
+  demos, tools or docs, and no root files that would land beside a project's own.
 
 ## [0.1.0] - 2026-11-23
 

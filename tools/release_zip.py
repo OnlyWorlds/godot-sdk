@@ -4,9 +4,10 @@
     python tools/release_zip.py v0.1.0              # the tag: refused unless plugin.cfg there says 0.1.0
     python tools/release_zip.py HEAD --out dist     # any commit (what CI proves on every push)
 
-The zip holds addons/onlyworlds/ as the named commit has it (every tracked file under it), and a copy of the
-repository's LICENSE inside that folder, the layout Godot's "Installing plugins" page expects ("Extract the ZIP
-archive and move the addons/ folder it contains into your project folder"). Nothing outside addons/onlyworlds/ is
+The zip holds addons/onlyworlds/ as the named commit has it (every tracked file under it, its copy of the LICENSE
+among them, refused when that copy is not the root LICENSE byte for byte), the layout Godot's "Installing plugins"
+page expects ("Extract the ZIP archive and move the addons/ folder it contains into your project folder"). A commit
+from before the folder held a copy gets the root's. Nothing outside addons/onlyworlds/ is
 carried: the tests, the codegen and its vendored schema, the demos and the tools are for working on the addon, and the
 addon loads nothing from them (every preload in it names res://addons/onlyworlds/).
 
@@ -75,7 +76,11 @@ def main() -> int:
     if not paths:
         raise SystemExit("%s holds no files at %s" % (ADDON, sha[:7]))
     files = {p: blob(sha, p) for p in paths}
-    files[ADDON + "/LICENSE"] = blob(sha, "LICENSE")
+    if ADDON + "/LICENSE" not in files:
+        # Before 0.1.1 the folder held no copy, and the zip carried the root's.
+        files[ADDON + "/LICENSE"] = blob(sha, "LICENSE")
+    elif files[ADDON + "/LICENSE"] != blob(sha, "LICENSE"):
+        raise SystemExit("refused: %s/LICENSE at %s is not the root LICENSE byte for byte" % (ADDON, sha[:7]))
 
     when = datetime.datetime.fromtimestamp(int(git("log", "-1", "--format=%ct", sha).decode().strip()),
                                            datetime.timezone.utc)

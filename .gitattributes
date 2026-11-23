@@ -4,3 +4,8 @@
 *.png binary
 *.webp binary
 *.bin binary
+
+# A zip of a commit (what Godot's Asset Library downloads) carries the addon folder alone, its licence copy inside.
+/**        export-ignore
+/addons    !export-ignore
+/addons/** !export-ignore
