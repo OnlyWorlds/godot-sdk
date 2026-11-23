@@ -4,3 +4,5 @@
 # Python
 __pycache__/
 /build/
+# The release zip (tools/release_zip.py)
+/dist/

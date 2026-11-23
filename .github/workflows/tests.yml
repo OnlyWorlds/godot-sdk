@@ -1,4 +1,5 @@
-# The headless suite and the generators' drift checks on a Linux runner, on every push and pull request.
+# The headless suite, the generators' drift checks and the release zip's install on a Linux runner, on every push and
+# pull request.
 # Godot needs no licence and the tests no key or network (the client's tests use a fake transport), so this
 # workflow holds no secret. Tests that need a world outside this repository (OW_SIKELIA, OW_MOPPETOPIA) skip here.
 name: tests
@@ -46,3 +47,10 @@ jobs:
         run: |
           ./godot --headless --path . --import
           ./godot --headless --path . --script res://tests/run.gd
+
+      # The zip a release carries, made from this commit and unpacked into an empty project, which reads a world on
+      # disk through it: a file the addon needs and the zip leaves out fails here.
+      - name: The release zip, installed in an empty project
+        run: |
+          python3 tools/release_zip.py HEAD --out dist
+          python3 tools/prove_zip.py dist/onlyworlds-godot-*.zip --godot ./godot
