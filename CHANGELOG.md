@@ -441,6 +441,15 @@ it, in one zip.
   batch writes nothing); unedited, such a file is written as its bytes at every door, as before. `pack_folder` refuses
   a `world.json` that is not UTF-8 when it would rewrite it to strip an `api` block (`keep_api` packs it as its bytes).
   `tests/test_lenient_save.gd`.
+- A new element is never written over a file the world holds. Its name was always
+  `elements/<type>/<name>--<id tail>.json`, so it could land on a file the reader could not read (cut short, not an
+  object, a number too large), on a read element's own file, or on another new element's name, and the write replaced
+  that file. Now a new element whose short name is held takes its full id in place of the tail (the folder format's
+  writer collision rule, §3.2), new elements id-ascending by code point so the lower id keeps the short form; paths
+  compare case-blind. An element whose two names are both held is a refusal from `write_refusal`, naming both. A world
+  made in memory and written into a folder it never read still cannot see that folder's files. A file holding one JSON
+  value and then anything but whitespace (`{"id": "c-9"} {"hidden": true}`) was already unread at every door, Godot's
+  parser asking for the end of the text; `tests/test_one_value.gd` holds that. `tests/test_unread_name.gd`.
 - The Moppetopia demo never draws a layout map as its root Map: among the Maps with no `parent_map` it skips any whose
   `x_layout` is a Dictionary with a non-empty String `method` (the map space profile's rule 8, read through
   `OWMapSpace.layout_of`), so a layout map with the world's image or a name that sorts first is no longer drawn as the

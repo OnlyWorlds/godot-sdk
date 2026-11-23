@@ -137,7 +137,8 @@ func of_type(type: String) -> Array[OWElement]:
 			out.append(e)
 	return out
 
-## Add a new element; it is written at [code]elements/<type>/<name>--<id tail>.json[/code].
+## Add a new element; it is written at [code]elements/<type>/<name>--<id tail>.json[/code], or with its full id in
+## place of the tail when that path is held by a file of this world or by another new element (see [method to_files]).
 func add_element(e: OWElement) -> void:
 	e.edited = true
 	elements.append(e)
@@ -168,6 +169,11 @@ func write_refusal(only_edited := false) -> String:
 			return "a new or edited %s has no id (a non-empty String), and a writer mints none: set its id first" % e.get_type()
 		if e.edited and _read_not_utf8(e):
 			return _not_utf8_refusal(e)
+	var fresh := _new_paths()
+	for e in fresh:
+		if fresh[e] == "":
+			return "a new %s's two file names (%s, %s) are both held by files of this world, and a writer never writes over one: rename it" \
+				% [e.get_type(), _name_of(e, e.id.right(8)), _name_of(e, e.id)]
 	return ""
 
 ## True when [param e] was read from a file whose bytes are not well-formed UTF-8.
@@ -186,17 +192,22 @@ static func element_bytes(e: OWElementCore) -> PackedByteArray:
 	return OWJson.to_bytes(e.to_dict())
 
 ## Every file of the world by its path inside it: world.json, each element, and [member other_files].
-## [param only_edited] gives just the files an edit changed.
+## [param only_edited] gives just the files an edit changed. A read element keeps the path it was read from; a new one
+## takes its short name, or its full id in place of the tail when a file of this world (one it could not read among
+## them) or another new element holds that path, so no file is written over by another.
 func to_files(only_edited := false) -> Dictionary:
 	var out := {}
 	if not only_edited:
 		out.merge(other_files)
 	if info.edited or not only_edited:
 		out["world.json"] = element_bytes(info)
+	var fresh := _new_paths()
 	for e in elements:
 		if only_edited and not e.edited:
 			continue
-		out[_path_of(e)] = element_bytes(e)
+		var rel: String = e.source_path if e.source_path != "" else fresh[e]
+		if rel != "":                    # "" only when write_refusal refuses the world
+			out[rel] = element_bytes(e)
 	return out
 
 ## Write the world as a folder at [param path]: world.json and every element file (and, for a world read from an
@@ -229,10 +240,38 @@ func pack(top: String) -> OWWorldArchive.Packed:
 		return refused
 	return OWWorldArchive.pack_files(to_files(), top)
 
-func _path_of(e: OWElementCore) -> String:
-	if e.source_path != "":
-		return e.source_path
-	var slug := (e as OWElement).name.to_lower().strip_edges()
+## Where each new element (no [member OWElementCore.source_path]) is written: its short name
+## ([code]<name>--<id tail>.json[/code]), or, when that path is already held, its full id in place of the tail. A path
+## is held by a file the world read (an element's own, or one it could not read, kept in [member other_files]: a writer
+## never writes over a file it could not read) and by a new element ahead of it. New elements go id-ascending by code
+## point, so of two whose short names meet the lower id keeps the short form (folder spec §3.2, the writer collision
+## rule). Paths are compared case-blind, as a case-blind disk would meet them. [code]""[/code] for an element whose
+## two names are both held.
+func _new_paths() -> Dictionary:
+	var held := {}
+	for rel: String in other_files:
+		held[rel.to_lower()] = true
+	var fresh: Array[OWElement] = []
+	for e in elements:
+		if e.source_path != "":
+			held[e.source_path.to_lower()] = true
+		else:
+			fresh.append(e)
+	fresh.sort_custom(func(a: OWElement, b: OWElement) -> bool: return a.id < b.id)   # String order is code point order
+	var out := {}
+	for e in fresh:
+		var pick := ""
+		for rel in [_name_of(e, e.id.right(8)), _name_of(e, e.id)]:
+			if not held.has(rel.to_lower()):
+				pick = rel
+				break
+		out[e] = pick
+		if pick != "":
+			held[pick.to_lower()] = true
+	return out
+
+static func _name_of(e: OWElement, tail: String) -> String:
+	var slug := e.name.to_lower().strip_edges()
 	var clean := ""
 	for i in slug.length():
 		var c := slug[i]
@@ -240,5 +279,4 @@ func _path_of(e: OWElementCore) -> String:
 	while clean.contains("--"):
 		clean = clean.replace("--", "-")
 	clean = clean.trim_prefix("-").trim_suffix("-")
-	var id: String = (e as OWElement).id
-	return "elements/%s/%s--%s.json" % [e.get_type(), clean if clean != "" else "element", id.right(8)]
+	return "elements/%s/%s--%s.json" % [e.get_type(), clean if clean != "" else "element", tail]
