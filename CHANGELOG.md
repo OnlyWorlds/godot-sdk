@@ -1,20 +1,31 @@
 # Changelog
 
 Notable changes to the OnlyWorlds SDK for Godot. Format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Where it stands.** Version 0.1.0 (`addons/onlyworlds/plugin.cfg`), not yet tagged: nothing is released, and `main`
-is the addon as it is. What a game can do with it today: read and write an OnlyWorlds world over the onlyworlds.com
-API and on disk (world folders and `.owworld` files), as typed elements of all 22 types; let a player join a world by
-an invite link; and read a world it holds without a server (as a graph, as map geometry, by its own calendar, as one
-reader may see it), each reader giving the same answers as the other OnlyWorlds SDKs on a shared set of test cases.
-Built and tested on Godot 4.7, the standard build. Everything so far is under [Unreleased] below, in the detail a
-maintainer needs; the history before this file is in the git log. The [README](README.md) has the install and a first
-run.
+**Where it stands.** 0.1.0 is the first release. `onlyworlds-godot-0.1.0.zip`, on the repository's Releases page,
+holds the addon folder to copy into a game; the [README](README.md) has the install and a first run. What a game can
+do with it: read and write an OnlyWorlds world over the onlyworlds.com API and on disk (world folders and `.owworld`
+files), as typed elements of all 22 types; let a player join a world by an invite link; and read a world it holds
+without a server (as a graph, as map geometry, by its own calendar, as one reader may see it), each reader giving the
+same answers as the other OnlyWorlds SDKs on a shared set of test cases. Built and tested on Godot 4.7, the standard
+build. The entries below are in the detail a maintainer needs; the history before this file is in the git log.
 
 ## [Unreleased]
 
+## [0.1.0] - RELEASE-DATE
+
+The first numbered release: the addon as built so far, every call as [docs/reference.md](docs/reference.md) describes
+it, in one zip.
+
 ### Added
+
+- The release zip, `onlyworlds-godot-<version>.zip`: `addons/onlyworlds/` as the tagged commit holds it, with a copy
+  of the licence inside, the layout Godot's own plugin install expects. `tools/release_zip.py <tag>` makes it from git,
+  never from the working folder, refuses a tag that `plugin.cfg`'s version does not match, and writes the same bytes
+  for the same commit. `tools/prove_zip.py` unpacks it into an empty project with the plugin enabled and reads the
+  example world Hyperion there, headless; the tests workflow runs both on every push.
 
 - A front door for a first-time reader: `LICENSE` (MIT), `SECURITY.md`, a README with an install and a first run on
   the public sample world Moppetopia with its demo key (also `demo/first_run.tscn`), the full reference moved to
@@ -365,6 +376,50 @@ run.
   answer declares `house`; both invite link bodies take `note`, and `POST /join/preview` answers it and its `glimpse`);
   `list` already sends any field-named filter as given, so `{"filter": {"element": id}}` needs no change here, and no
   path, method, parameter or request key moved: the document's words, not the client's, are what moved.
+
+- `OWCharter.served(answer)`: the front door's packet as the server serves it, `reading_aids` in a `GET /me` answer
+  or an agent's join answer, read as served for that key and never recomputed: the Charter, the Guide and the Domains
+  as served, then the world's strand (serial 100) as `strand`, an `OWStrand.Strand` read by `OWStrand.served` (each
+  slot `{id, name}` or null, `same` as served). Six null slots read as an empty strand, the world having none or its
+  story being out of the key's view; a packet with no `strand` (a server from before serial 100) reads `strand`
+  null; an answer with no packet (a player's join answer) reads null. `to_dict` writes the packet in the charter
+  profile's order, the strand fourth, and only when it was served. `charter_of` still reads the three aids alone.
+- `OWStrand.strand_of(world, reader)`: the strand profile's reader (schema-dist `profiles/strand.md`, serial 98), a
+  world's strand as one reader sees it through the lens reader's own view (`OWLens.View`): the story the World's
+  `x_strand` names, one of its events, that event's place, the story's `protagonist`, where the hero is now, and
+  whether then and now are one place by id (`{narrative, event, location, character, now, same}`, each slot
+  `{id, name}` or null). A slot holds only its own kind, no slot is filled from another, a list's order is never read,
+  and a story the reader knows only as a stub fills its own slot alone. Only the story's id is required (serial 99):
+  the event and the place null or absent read as unset, a place with no event is an empty place, and any other value
+  there (an empty string, a number, a Dictionary) is no mark, as is a story that is not a String. A multi-link that is
+  not a list lists nothing; a nameless slot reads an empty string; the public rung reads only a world open to anyone.
+  Every case of the profile's fixture, held by its sha256.
+- `OWNames.type_word(world, type, supertype, many)`: a world's own word for a type, the names profile's `x_names` on
+  the World (schema-dist `profiles/names.md`), a port of the npm SDK's `typeWord` and the Python package's
+  `type_word`. The supertype's entry first, its key trimmed and folded as the room profile reads, then the type's,
+  else null for the standard's name; a value that is not a names map is null everywhere. Godot's JSON reads
+  `version` 1 as 1.0, which is the number 1; `true` and `"1"` are not. Tested by the profile's fixture (23 cases,
+  held by its sha256).
+- `OWOpeners.openers_for(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or
+  one of its elements (`"element"`), a port of the npm SDK's `openersFor` and the Python package's `openers_for`. The
+  site's page comes first, then each listed tool with a link for that kind, in the list's order, each a Dictionary
+  `{id, name, href, state}` (the row's word in sentence case, or null). The address is a Dictionary of the parts or an
+  `OWAddress.Reading`; the surface a Dictionary (`audience` required, `signed_in`, `browser`, `phone`, `online`,
+  `tool`). The answer is an `OWOpeners.Result`: `rows` when `ok`; else `reason`, the address profile's refusal, or
+  `reason` "" and a `message` naming the key. The whole address is checked by the writer, so a malformed form, lens
+  or moment refuses (`bad_form`, `bad_lens`, `bad_moment`), as the npm SDK 4.110.0 and the Python package 0.91.0 do.
+  Tested by the packages' shared fixture (54 cases, held by its sha256).
+- `online` on the `openers_for` surface (default true; anything but a bool is a mistake naming it), as the npm SDK
+  4.118.0 and the Python package 0.96.0 take it. With `online` false, every row whose href is a web address (`http:`
+  or `https:`, in any case, read from the row's own filled href) says `OWOpeners.NEEDS_A_CONNECTION`, "Needs a
+  connection", the site's own row included. The words in order, the first that holds: "You are here", then "Needs a
+  connection", then the account, browser and phone words, then "Opens the world". A row whose link opens an app on
+  the device keeps its own word, and every row keeps its href. The shared fixture moves from 45 to 54 cases (sha256
+  `5a9ebbc8…`, the same bytes as both packages').
+- `OWTools.ALL`: the OnlyWorlds tools list (github.com/OnlyWorlds/tools, `tools.json` format 1) baked in at commit
+  `86208c8`, the keys `openers_for` reads. The list is vendored at `codegen/tools/tools.json` and pinned in
+  `codegen/tools-pin.json`; `codegen/generate_tools.py` writes `addons/onlyworlds/ow_tools.gd` and `--check` fails
+  when the two disagree. A tool listed after a release is offered from the next one.
 
 ### Fixed
 
@@ -916,49 +971,3 @@ run.
   new cases over a ninth world (171 in all: 86 resolve, 45 graph, 5 uses), and `profiles/lens.md` states each
   reading. The `text_only` keys case this SDK skipped is retired for `keys-an-integral-float-reads-whole`, which runs
   and passes, so the lens replay skips nothing now. Every case passes.
-
-### Added
-
-- `OWCharter.served(answer)`: the front door's packet as the server serves it, `reading_aids` in a `GET /me` answer
-  or an agent's join answer, read as served for that key and never recomputed: the Charter, the Guide and the Domains
-  as served, then the world's strand (serial 100) as `strand`, an `OWStrand.Strand` read by `OWStrand.served` (each
-  slot `{id, name}` or null, `same` as served). Six null slots read as an empty strand, the world having none or its
-  story being out of the key's view; a packet with no `strand` (a server from before serial 100) reads `strand`
-  null; an answer with no packet (a player's join answer) reads null. `to_dict` writes the packet in the charter
-  profile's order, the strand fourth, and only when it was served. `charter_of` still reads the three aids alone.
-- `OWStrand.strand_of(world, reader)`: the strand profile's reader (schema-dist `profiles/strand.md`, serial 98), a
-  world's strand as one reader sees it through the lens reader's own view (`OWLens.View`): the story the World's
-  `x_strand` names, one of its events, that event's place, the story's `protagonist`, where the hero is now, and
-  whether then and now are one place by id (`{narrative, event, location, character, now, same}`, each slot
-  `{id, name}` or null). A slot holds only its own kind, no slot is filled from another, a list's order is never read,
-  and a story the reader knows only as a stub fills its own slot alone. Only the story's id is required (serial 99):
-  the event and the place null or absent read as unset, a place with no event is an empty place, and any other value
-  there (an empty string, a number, a Dictionary) is no mark, as is a story that is not a String. A multi-link that is
-  not a list lists nothing; a nameless slot reads an empty string; the public rung reads only a world open to anyone.
-  Every case of the profile's fixture, held by its sha256.
-- `OWNames.type_word(world, type, supertype, many)`: a world's own word for a type, the names profile's `x_names` on
-  the World (schema-dist `profiles/names.md`), a port of the npm SDK's `typeWord` and the Python package's
-  `type_word`. The supertype's entry first, its key trimmed and folded as the room profile reads, then the type's,
-  else null for the standard's name; a value that is not a names map is null everywhere. Godot's JSON reads
-  `version` 1 as 1.0, which is the number 1; `true` and `"1"` are not. Tested by the profile's fixture (23 cases,
-  held by its sha256).
-- `OWOpeners.openers_for(tools, kind, address, surface)`: the rows of an "Open with" menu for a world (`"world"`) or
-  one of its elements (`"element"`), a port of the npm SDK's `openersFor` and the Python package's `openers_for`. The
-  site's page comes first, then each listed tool with a link for that kind, in the list's order, each a Dictionary
-  `{id, name, href, state}` (the row's word in sentence case, or null). The address is a Dictionary of the parts or an
-  `OWAddress.Reading`; the surface a Dictionary (`audience` required, `signed_in`, `browser`, `phone`, `online`,
-  `tool`). The answer is an `OWOpeners.Result`: `rows` when `ok`; else `reason`, the address profile's refusal, or
-  `reason` "" and a `message` naming the key. The whole address is checked by the writer, so a malformed form, lens
-  or moment refuses (`bad_form`, `bad_lens`, `bad_moment`), as the npm SDK 4.110.0 and the Python package 0.91.0 do.
-  Tested by the packages' shared fixture (54 cases, held by its sha256).
-- `online` on the `openers_for` surface (default true; anything but a bool is a mistake naming it), as the npm SDK
-  4.118.0 and the Python package 0.96.0 take it. With `online` false, every row whose href is a web address (`http:`
-  or `https:`, in any case, read from the row's own filled href) says `OWOpeners.NEEDS_A_CONNECTION`, "Needs a
-  connection", the site's own row included. The words in order, the first that holds: "You are here", then "Needs a
-  connection", then the account, browser and phone words, then "Opens the world". A row whose link opens an app on
-  the device keeps its own word, and every row keeps its href. The shared fixture moves from 45 to 54 cases (sha256
-  `5a9ebbc8…`, the same bytes as both packages').
-- `OWTools.ALL`: the OnlyWorlds tools list (github.com/OnlyWorlds/tools, `tools.json` format 1) baked in at commit
-  `86208c8`, the keys `openers_for` reads. The list is vendored at `codegen/tools/tools.json` and pinned in
-  `codegen/tools-pin.json`; `codegen/generate_tools.py` writes `addons/onlyworlds/ow_tools.gd` and `--check` fails
-  when the two disagree. A tool listed after a release is offered from the next one.
