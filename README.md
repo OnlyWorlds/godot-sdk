@@ -8,6 +8,12 @@ folder.
 A GDScript addon, with a class for each of the 22 element types. It reads and writes worlds through the API, and on
 disk as world folders and `.owworld` files. It runs on the standard Godot build; no .NET is needed.
 
+![A Godot window showing a space map with a planet, a station, ships and an asteroid field, and eleven named pins on it](https://media.onlyworlds.com/onlyworlds/readme/godot-map-demo-moppetopia.webp)
+
+*The map demo of this repository (`demo/world_map.tscn`) on a folder of Moppetopia, a public sample world: the
+world's Map image, each of its Pins where the world places it, and each Pin's name. The folder itself is not in this
+repository; the demo opens on a smaller example world that is.*
+
 ## Install
 
 Godot 4.7, the standard build. Earlier 4.x versions are untested, and so are exports other than Windows desktop (the
