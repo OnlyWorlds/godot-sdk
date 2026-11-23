@@ -1,0 +1,42 @@
+# The headless suite and the generators' drift checks on a Linux runner, on every push and pull request.
+# Godot needs no licence and the tests no key or network (the client's tests use a fake transport), so this
+# workflow holds no secret. Tests that need a world outside this repository (OW_SIKELIA, OW_MOPPETOPIA) skip here.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Drift checks (Python standard library)
+        run: |
+          python3 codegen/generate.py --check
+          python3 codegen/generate_tools.py --check
+          python3 codegen/generate_layout.py --check
+          python3 codegen/generate_layout_3d.py --check
+          python3 codegen/generate_frame_bits.py --check
+          python3 codegen/test_generate_views.py
+
+      - name: Godot
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot
+          rm godot.zip
+
+      - name: Import, then the suite
+        run: |
+          ./godot --headless --path . --import
+          ./godot --headless --path . --script res://tests/run.gd
