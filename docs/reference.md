@@ -132,7 +132,10 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
 
 - **Writing**: an element nobody edited is written back as the bytes it was read with; an edited one in
   folder spec section 5's form (`OWJson`: key order kept, an integral float written as an integer, JavaScript's
-  number layout and escapes).
+  number layout and escapes). A read element keeps the file it was read from; a new one is written at section 3.2's
+  name, `<slug>--<id tail>.json` (`OWUnicode.file_slug(name)`: NFKD, U+0300 to U+036F dropped, lowercase ASCII kebab,
+  at most 40), `<full id>.json` for a name with no slug, the full id in place of the tail when a file of the world or
+  another new element holds that path: the names the TypeScript and Python packages give.
 - **Reading an archive**: its own central-directory walk, zlib through a gzip frame for the CRC and
   size, a GDScript CRC-32 for stored entries, NFC and CaseFolding 15.1 tables for collisions.
 - **Addresses** (the address profile, serial 77): `ow://` links and the site's URL, read and written as the npm and

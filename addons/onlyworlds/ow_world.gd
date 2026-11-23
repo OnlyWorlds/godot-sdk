@@ -137,8 +137,10 @@ func of_type(type: String) -> Array[OWElement]:
 			out.append(e)
 	return out
 
-## Add a new element; it is written at [code]elements/<type>/<name>--<id tail>.json[/code], or with its full id in
-## place of the tail when that path is held by a file of this world or by another new element (see [method to_files]).
+## Add a new element; it is written at [code]elements/<type>/<slug>--<id tail>.json[/code] (the folder format's name,
+## §3.2: the slug is [method OWUnicode.file_slug] of its name; a name with no slug gives [code]<full id>.json[/code]), or
+## with its full id in place of the tail when that path is held by a file of this world or by another new element (see
+## [method to_files]). An element the world read keeps the file it was read from.
 func add_element(e: OWElement) -> void:
 	e.edited = true
 	elements.append(e)
@@ -172,8 +174,13 @@ func write_refusal(only_edited := false) -> String:
 	var fresh := _new_paths()
 	for e in fresh:
 		if fresh[e] == "":
+			var short := _name_of(e, false)
+			var full := _name_of(e, true)
+			if short == full:
+				return "a new %s's file name (%s) is held by a file of this world, and a writer never writes over one: rename it" \
+					% [e.get_type(), short]
 			return "a new %s's two file names (%s, %s) are both held by files of this world, and a writer never writes over one: rename it" \
-				% [e.get_type(), _name_of(e, e.id.right(8)), _name_of(e, e.id)]
+				% [e.get_type(), short, full]
 	return ""
 
 ## True when [param e] was read from a file whose bytes are not well-formed UTF-8.
@@ -241,7 +248,8 @@ func pack(top: String) -> OWWorldArchive.Packed:
 	return OWWorldArchive.pack_files(to_files(), top)
 
 ## Where each new element (no [member OWElementCore.source_path]) is written: its short name
-## ([code]<name>--<id tail>.json[/code]), or, when that path is already held, its full id in place of the tail. A path
+## ([code]<slug>--<id tail>.json[/code], [method _name_of]), or, when that path is already held, its full id in place of
+## the tail (a name with no slug has one name only, [code]<full id>.json[/code]). A path
 ## is held by a file the world read (an element's own, or one it could not read, kept in [member other_files]: a writer
 ## never writes over a file it could not read) and by a new element ahead of it. New elements go id-ascending by code
 ## point, so of two whose short names meet the lower id keeps the short form (folder spec §3.2, the writer collision
@@ -261,7 +269,7 @@ func _new_paths() -> Dictionary:
 	var out := {}
 	for e in fresh:
 		var pick := ""
-		for rel in [_name_of(e, e.id.right(8)), _name_of(e, e.id)]:
+		for rel in [_name_of(e, false), _name_of(e, true)]:
 			if not held.has(rel.to_lower()):
 				pick = rel
 				break
@@ -270,13 +278,21 @@ func _new_paths() -> Dictionary:
 			held[pick.to_lower()] = true
 	return out
 
-static func _name_of(e: OWElement, tail: String) -> String:
-	var slug := e.name.to_lower().strip_edges()
-	var clean := ""
-	for i in slug.length():
-		var c := slug[i]
-		clean += c if (c >= "a" and c <= "z") or (c >= "0" and c <= "9") else "-"
-	while clean.contains("--"):
-		clean = clean.replace("--", "-")
-	clean = clean.trim_prefix("-").trim_suffix("-")
-	return "elements/%s/%s--%s.json" % [e.get_type(), clean if clean != "" else "element", tail]
+## A new element's path by the folder format's RECOMMENDED profile (§3.2): [code]<slug>--<id tail>.json[/code], or
+## with the full id in place of the tail when [param full_id]; [code]<full id>.json[/code] when the name gives no slug
+## ([method OWUnicode.file_slug]). The same names as the TypeScript and Python packages' folder writers.
+static func _name_of(e: OWElement, full_id: bool) -> String:
+	var slug := OWUnicode.file_slug(e.name)
+	if slug == "":
+		return "elements/%s/%s.json" % [e.get_type(), e.id]
+	return "elements/%s/%s--%s.json" % [e.get_type(), slug, e.id if full_id else _id_tail(e.id)]
+
+## The id's last eight characters; when those would hold "--" or start with "-" (an id made by hand, never a uuid),
+## the last eight of the id without its hyphens, so the separator stays readable.
+static func _id_tail(id: String) -> String:
+	if id.length() <= 8:
+		return id
+	var raw := id.right(8)
+	if not raw.contains("--") and not raw.begins_with("-"):
+		return raw
+	return id.replace("-", "").right(8)

@@ -19,8 +19,9 @@ Standard library only. What it reads and writes:
   -> addons/onlyworlds/ow_views_table.gd          views.json's banners, layouts and rows, and each type's section
                                                   fields in the walk's order, for OWViews; the file is checked first
                                                   (check_views) and refused whole when it fails
-  -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), and the letters and
-                                                  combining marks an address in prose is cut by, as GDScript constants
+  -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), the letters and
+                                                  combining marks an address in prose is cut by, and what each code
+                                                  point gives an element file's slug (§3.2), as GDScript constants
   -> tests/data/unicode_vectors.txt               what Python says NFC and the fold give, for the tests
 
 The schema source is `schema.json`, the walk's own output (schema-dist README: "plain JSON, so any language or engine
@@ -652,7 +653,60 @@ def word_ranges() -> list[list[int]]:
     return ranges
 
 
-def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int]]) -> str:
+SLUG_MARKS = range(0x300, 0x370)   # the TypeScript and Python packages' slug drops U+0300..U+036F after NFKD
+
+
+def slug_table() -> dict[int, str]:
+    """What each code point beyond ASCII gives the element file slug (folder spec §3.2), as the TypeScript and Python
+    packages make it: the name's compatibility decomposition (NFKD), U+0300..U+036F removed, lowercased, every run of
+    anything but a-z and 0-9 one hyphen. Per code point: the decomposition's letters and digits with a `-` where
+    anything else stands (runs of it one `-`), or "" where nothing is left. Only the code points whose answer differs
+    from the default are kept: the default is "" for U+0300..U+036F and `-` for everything else. The decompositions
+    come from the vendored UnicodeData (field 5, a compatibility one too; Hangul syllables are jamo, all `-`),
+    checked equal to Python's unicodedata NFKD for every code point. Canonical order is not needed: an ASCII letter or
+    digit is a starter, so ordering moves only marks past marks, and no mark is a letter."""
+    raw, lower = {}, {}
+    first = None
+    for line in UNICODE_DATA.read_text(encoding="utf-8").splitlines():
+        fields = line.split(";")
+        cp = int(fields[0], 16)
+        if fields[5]:
+            raw[cp] = [int(x, 16) for x in fields[5].split() if not x.startswith("<")]
+        if fields[13]:
+            lower[cp] = int(fields[13], 16)
+
+    def full(cp):
+        si = cp - HANGUL_S0
+        if 0 <= si < HANGUL_COUNT:
+            return [0x1100 + si // 588, 0x1161 + (si % 588) // 28] + ([0x11A7 + si % 28] if si % 28 else [])
+        return [c for d in raw[cp] for c in full(d)] if cp in raw else [cp]
+
+    def reduce(cps):
+        out = ""
+        for c in cps:
+            if c in SLUG_MARKS:
+                continue
+            if c >= 0x80 and (0x30 <= lower.get(c, c) < 0x80 or any(x.isascii() for x in chr(c).lower())):
+                sys.exit(f"U+{c:04X} lowercases into ASCII after NFKD; the slug table's model does not hold.")
+            ch = chr(c).lower() if c < 0x80 else "-"
+            ch = ch if ("a" <= ch <= "z" or "0" <= ch <= "9") else "-"
+            if not (ch == "-" and out.endswith("-")):
+                out += ch
+        return out
+
+    table = {}
+    for cp in range(0x80, 0x110000):
+        if 0xD800 <= cp <= 0xDFFF:
+            continue
+        got = reduce(full(cp))
+        if got != reduce([ord(x) for x in unicodedata.normalize("NFKD", chr(cp))]):
+            sys.exit(f"U+{cp:04X}: NFKD from the vendored UnicodeData and from Python's unicodedata disagree.")
+        if got != ("" if cp in SLUG_MARKS else "-"):
+            table[cp] = got
+    return table
+
+
+def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int]], slugs: dict[int, str]) -> str:
     def h(cp):
         return "0x%X" % cp
 
@@ -668,6 +722,8 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int
         "# - WHITE_SPACE: what Python's str.strip() strips, for trimming a world id as the reference checker does.",
         f"# - LETTER_OR_MARK: general category L or M from UnicodeData-{UNICODE_VERSION}.txt, what glues an address",
         "#   found in prose into a word.",
+        f"# - SLUG: what a code point gives the element file slug (folder spec 3.2): NFKD from UnicodeData-{UNICODE_VERSION}.txt,",
+        "#   U+0300..U+036F dropped, as the TypeScript and Python packages make it; checked equal to Python's unicodedata.",
         "extends RefCounted",
         "",
         f'const UNICODE_VERSION := "{UNICODE_VERSION}"',
@@ -687,7 +743,11 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int
     out += ["]", "", "## Letters and combining marks (general category L or M): ranges as first, last, first, last, ...",
             "## ascending, each inclusive.", "const LETTER_OR_MARK := ["]
     out += ["\t%s, %s," % (h(lo), h(hi)) for lo, hi in words]
-    out += ["]", ""]
+    out += ["]", "", "## The element file slug's pieces: a code point beyond ASCII -> its NFKD's ASCII letters and digits, lowercase,",
+            "## with \"-\" where anything else stands, or \"\" where nothing is left. A code point not here gives \"\" in",
+            "## U+0300..U+036F and \"-\" everywhere else.", "const SLUG := {"]
+    out += ["\t%s: \"%s\"," % (h(k), v) for k, v in sorted(slugs.items())]
+    out += ["}", ""]
     return "\n".join(out)
 
 
@@ -756,7 +816,7 @@ def outputs() -> dict[Path, str]:
     if nfc != nfc_tables_from_unicodedata():
         sys.exit("NFC from the vendored files and from Python's unicodedata disagree; read both before trusting either.")
     folds = simple_folds()
-    out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space(), word_ranges())
+    out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space(), word_ranges(), slug_table())
     out[ROOT / "tests" / "data" / "unicode_vectors.txt"] = unicode_vectors(nfc, folds)
     return out
 

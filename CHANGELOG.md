@@ -450,6 +450,20 @@ it, in one zip.
   made in memory and written into a folder it never read still cannot see that folder's files. A file holding one JSON
   value and then anything but whitespace (`{"id": "c-9"} {"hidden": true}`) was already unread at every door, Godot's
   parser asking for the end of the text; `tests/test_one_value.gd` holds that. `tests/test_unread_name.gd`.
+- A new element's file name is the folder format's (§3.2, the RECOMMENDED profile), the name the TypeScript and Python
+  packages give the same element. The slug had no compatibility decomposition, no length cap and a placeholder for a
+  name with nothing to keep: "Brother Tomás" was `brother-tom-s--<tail>.json`, "ﬁre" `re--…`, "Ⅻ Legion"
+  `legion--…`, a 43-letter name was written whole, and a name in another script only, of punctuation or empty was
+  `element--<tail>.json`. Now the slug is `OWUnicode.file_slug(name)`: the name's NFKD with U+0300 to U+036F dropped,
+  lowercase ASCII letters and digits, every other run one hyphen and none at either end, cut to 40 with a hyphen the
+  cut leaves stripped (`brother-tomas`, `fire`, `xii-legion`); a name with no slug is `<full id>.json`; and the tail is
+  the id's last eight characters, or the last eight of the id without its hyphens when those would hold `--` or start
+  with `-` (an id made by hand; a uuid never does). The decomposition is a table `codegen/generate.py` builds from the
+  vendored UnicodeData 15.1 and checks against Python's `unicodedata` (`ow_unicode_data.gd`'s `SLUG`, 1,900 code
+  points). Run over every code point between `a` and `b`, the slug is the Python package's on all 1,112,064 and the
+  TypeScript package's on all but 37, characters Unicode added after 15.1 (that run was on Node 22, whose Unicode is
+  17). The collision rule above works on the new name. An element the world read keeps the file it was read from,
+  whatever this rule would give it now. `tests/test_element_file_name.gd`.
 - The Moppetopia demo never draws a layout map as its root Map: among the Maps with no `parent_map` it skips any whose
   `x_layout` is a Dictionary with a non-empty String `method` (the map space profile's rule 8, read through
   `OWMapSpace.layout_of`), so a layout map with the world's image or a name that sorts first is no longer drawn as the
