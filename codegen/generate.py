@@ -664,7 +664,7 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int
         "#   (fixtures/owworld/), OW-18's simple case folding.",
         f"# - DECOMP, CCC, COMPOSE: NFC's data from UnicodeData-{UNICODE_VERSION}.txt and",
         f"#   CompositionExclusions-{UNICODE_VERSION}.txt as vendored in schema-dist (fixtures/owworld/), checked",
-        f"#   equal to Python {sys.version.split()[0]}'s unicodedata (unidata_version {unicodedata.unidata_version}).",
+        f"#   equal to Python's unicodedata at unidata_version {unicodedata.unidata_version}.",
         "# - WHITE_SPACE: what Python's str.strip() strips, for trimming a world id as the reference checker does.",
         f"# - LETTER_OR_MARK: general category L or M from UnicodeData-{UNICODE_VERSION}.txt, what glues an address",
         "#   found in prose into a word.",

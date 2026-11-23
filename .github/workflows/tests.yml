@@ -20,12 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The codegen's text normalisation is pinned to Unicode 15.1.0. The runner's own python3 carries 16.0.0 and is
-      # refused; Python 3.13.18 reports 15.1.0 but writes a Unicode table that differs from the committed one, which
-      # 3.13.1 writes byte for byte. Which data differs between the two is not established yet.
+      # The codegen's text normalisation is pinned to Unicode 15.1.0, which every Python 3.13 carries; the runner's own
+      # python3 is newer (Unicode 16.0.0) and the drift check refuses it.
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13.1"
+          python-version: "3.13"
 
       - name: Drift checks (Python standard library)
         run: |
