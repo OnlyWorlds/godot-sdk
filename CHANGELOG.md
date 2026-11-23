@@ -1,12 +1,23 @@
 # Changelog
 
 Notable changes to the OnlyWorlds SDK for Godot. Format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Nothing is released yet; the history before this file is in
-the git log.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+**Where it stands.** Version 0.1.0 (`addons/onlyworlds/plugin.cfg`), not yet tagged: nothing is released, and `main`
+is the addon as it is. It reads and writes OnlyWorlds worlds over the API and on disk (world folders and `.owworld`
+files) as typed elements of all 22 types, and carries the schema distribution's profile readers (lenses, the graph,
+map space, calendars, charters, messages and more), each held to its profile's shared fixture. Built and tested on
+Godot 4.7, the standard build. Everything so far is under [Unreleased] below; the history before this file is in the
+git log. The [README](README.md) has the install and a first run.
 
 ## [Unreleased]
 
 ### Added
+
+- A front door for a first-time reader: `LICENSE` (MIT), `SECURITY.md`, a README with an install and a first run on
+  the public sample world Moppetopia with its demo key (also `demo/first_run.tscn`), the full reference moved to
+  `docs/reference.md`, and two workflows on every push and pull request (the commit messages' words; the drift checks
+  and the headless suite on Linux).
 
 - Joining a world by invite link, the calls the Unity and TypeScript SDKs carry. `OWJoin.parse_link(text)`: the join
   code in a pasted link (`<site>/join#<code>` or `<site>/join/<world_id>#<code>`, any host) or a bare code, trimmed of
@@ -372,6 +383,11 @@ the git log.
 
 ### Changed
 
+- The map demo is `demo/world_map.tscn` (was `demo/moppetopia_map.tscn`) and opens the example world vendored with the
+  schema when no world is given (`-- --world=<folder | file.owworld>`, or the folder `OW_WORLD` names), so a fresh
+  clone's Play shows a map. The tests read their two optional real worlds only from `OW_SIKELIA` and
+  `OW_MOPPETOPIA`, and `tools/check_writer.py` takes its checker from `--run-py` or `OW_RUN_PY`, with no default
+  folder.
 - `OWClient.me()`'s comment, and the README's Credentials bullet, say that onlyworlds.com never reads a PIN
   beside a key that cannot write (a read key, a player's), so the call tests a PIN only for a key that can write.
   Parity with the TypeScript SDK 4.185.0's comment; no behaviour moves.
@@ -873,23 +889,22 @@ the git log.
   unseen anchor is recorded under no reason, so a child's cut of the element counts; a note goes with its anchor.
   `OWCharter`'s Domain hubs leave out an element the reader does not see as the field's type, so a proposed Object
   is no hub, the owner's view included.
-- `OWLens.resolve` (and `OWGraph.world_graph` with a lens) follows the lens profile owner's rulings on readings no
-  fixture case decided yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an
+- `OWLens.resolve` (and `OWGraph.world_graph` with a lens) reads as the lens profile's maintainers read the cases its
+  fixture did not decide yet, ahead of the fixture's next serial, which carries a case for each: a link reaches only an
   element of its field's target type, and a generic pair (a Pin's `element_type`/`element_id`) only when its type key
   is one of the 22 slugs exactly as stored, nothing trimmed or folded, so a stored `"Character"` links nothing and is
-  served to a reader below the owner as an unset pair (rulings 1, 2); an anchor id no element of its field's type
-  holds is counted for the owner as `anchor_not_visible`, never skipped (3); an umbrella's hop keeps a child lens it
-  reaches as an element before it is entered (4); a lens id a child cut before it was entered stays counted in the cut
-  (5); a known-of stub keeps the base fields (`change_seq` too) and its type's public fields, a public link as the
-  reader is served it, every other field at its unset value and no extension key (7); the mail part keeps two messages
-  with one `created_at` in the order of the world's list, as the message profile rules, never by id (11, as the owner
-  reversed it). A whole float in an `x_lens` key already read whole, as ruling 13 now says for every reader. Each
-  change is held by a test named for its ruling.
-- `OWGraph.world_graph` follows the owner's rulings on the graph section's silences, ahead of the same serial: a
-  Pin's generic pair is placement, never an edge (G2); a node's `name` is the stored value, null when absent (G3); a
-  node's `type` is as stored, never folded (G4); an edge's `index` is the target's place in the link list as served to
-  that reader, so a contributor's counts a link to a proposed element (G5). An edge to an anchor the reader cannot see
-  already carried the lens's `anchor_not_visible` (G1). Ruling 1 reaches the edge list too: a schema link to an
+  served to a reader below the owner as an unset pair; an anchor id no element of its field's type holds is counted
+  for the owner as `anchor_not_visible`, never skipped; an umbrella's hop keeps a child lens it reaches as an element
+  before it is entered; a lens id a child cut before it was entered stays counted in the cut; a known-of stub keeps
+  the base fields (`change_seq` too) and its type's public fields, a public link as the reader is served it, every
+  other field at its unset value and no extension key; the mail part keeps two messages with one `created_at` in the
+  order of the world's list, as the message profile rules, never by id. A whole float in an `x_lens` key already read
+  whole, as the profile now says for every reader. Each reading is held by a test named for it.
+- `OWGraph.world_graph` reads the graph section's open cases the same way, ahead of the same serial: a Pin's generic
+  pair is placement, never an edge; a node's `name` is the stored value, null when absent; a node's `type` is as
+  stored, never folded; an edge's `index` is the target's place in the link list as served to that reader, so a
+  contributor's counts a link to a proposed element. An edge to an anchor the reader cannot see already carried the
+  lens's `anchor_not_visible`. The link rule reaches the edge list too: a schema link to an
   element of another type than its field's target (a Character's `friends` naming a Location) names nothing, a
   dangling link, neither an edge nor counted in `edges_cut`.
 - Pinned to schema-dist `v0.33.0-dist.92`: a Zone leaves map space in the lens profile's graph. Zones are nodes by

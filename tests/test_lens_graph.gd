@@ -302,11 +302,11 @@ func test_reading_aids_order_kind_and_marks(t) -> void:
 		"and with hidden alone it is out as a reading aid")
 	t.done()
 
-# -- the profile owner's rulings on the graph section's silences (each a case in the fixture's next serial) -----------
+# -- readings the graph section leaves open, read as the profile's maintainers read them -----------------------------
 
 ## G1: an edge to an anchor the reader cannot see carries the lens's own reason, anchor_not_visible, not not_visible.
 ## The owner reading as a contributor is told both, so the two can differ.
-func test_ruling_g1_an_edge_to_an_unseen_anchor_carries_the_lens_reason(t) -> void:
+func test_an_edge_to_an_unseen_anchor_carries_the_lens_reason(t) -> void:
 	var world := {"elements": [
 		{"id": "L", "type": "construct", "name": "L", "supertype": "Lens", "characters": ["a", "h"], "x_lens": {"depth": 0}},
 		{"id": "a", "type": "character", "name": "Ada", "friends": ["h"]},
@@ -317,7 +317,7 @@ func test_ruling_g1_an_edge_to_an_unseen_anchor_carries_the_lens_reason(t) -> vo
 	t.done()
 
 ## G2: a Pin's generic pair is placement, never an edge; its map link is.
-func test_ruling_g2_a_pins_pair_is_no_edge(t) -> void:
+func test_a_pins_pair_is_no_edge(t) -> void:
 	var world := {"elements": [
 		{"id": "m", "type": "map", "name": "Map"},
 		{"id": "p", "type": "pin", "name": "Pin", "map": "m", "element_type": "character", "element_id": "a"},
@@ -327,14 +327,14 @@ func test_ruling_g2_a_pins_pair_is_no_edge(t) -> void:
 	t.done()
 
 ## G3: a node's name is the stored value, null when absent, nothing invented.
-func test_ruling_g3_a_nodes_name_is_as_stored(t) -> void:
+func test_a_nodes_name_is_as_stored(t) -> void:
 	var world := {"elements": [{"id": "a", "type": "character", "name": 7}, {"id": "b", "type": "character"},
 		{"id": "c", "type": "character", "name": ""}]}
 	t.eq(OWGraph.world_graph(world, {"rung": "owner"}).nodes.map(func(n): return n["name"]), [7, null, ""], "7, null, \"\"")
 	t.done()
 
 ## G4: a node's type is as stored, never folded (a non-slug type is a data fault for the lint, not the reader's to fold).
-func test_ruling_g4_a_nodes_type_is_as_stored(t) -> void:
+func test_a_nodes_type_is_as_stored(t) -> void:
 	var world := {"elements": [{"id": "a", "type": "Character", "name": "Ada"}]}
 	var node: Dictionary = OWGraph.world_graph(world, {"rung": "owner"}).nodes[0]
 	t.eq(node["type"], "Character", "as stored")
@@ -345,7 +345,7 @@ func test_ruling_g4_a_nodes_type_is_as_stored(t) -> void:
 
 ## G5: an edge's index is the target's place in the link list as served to that reader; a contributor is served the link
 ## to a proposed element (keel's scoped), so the index counts it. A hidden id is not served and not counted.
-func test_ruling_g5_a_contributors_index_counts_a_served_proposed_link(t) -> void:
+func test_a_contributors_index_counts_a_served_proposed_link(t) -> void:
 	var world := {"elements": [
 		{"id": "a", "type": "character", "name": "Ada", "friends": ["h", "px", "b"]},
 		{"id": "h", "type": "character", "name": "Hal", "hidden": true},
@@ -369,10 +369,10 @@ func test_a_public_readers_served_list_leaves_a_proposed_id_out_and_its_index_ha
 		"Brin at 0")
 	t.done()
 
-## Ruling 1 reaches the edge list: a link reaches only an element of its field's target type, so a Character's friends
+## The link rule reaches the edge list too: a link reaches only an element of its field's target type, so a Character's friends
 ## naming a Location names nothing, a dangling link, neither an edge nor counted. The owner's index is still the place in
 ## the list as stored.
-func test_ruling_b_a_wrongly_typed_id_draws_no_edge_and_is_not_counted(t) -> void:
+func test_a_wrongly_typed_id_draws_no_edge_and_is_not_counted(t) -> void:
 	var world := {"elements": [
 		{"id": "c", "type": "character", "name": "C", "friends": ["p", "h", "d"], "location": "p"},
 		{"id": "p", "type": "location", "name": "P"},

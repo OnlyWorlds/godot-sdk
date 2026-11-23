@@ -14,7 +14,7 @@ extends RefCounted
 ##
 ## Element bodies are Dictionaries as the API or a world folder gives them. Godot's JSON reads every number as a
 ## float, so a whole number here is an int, or a float with no fraction inside the 64-bit range ([method whole]). A
-## whole float reads whole in an [code]x_lens[/code] key as in a date (the profile's ruling 13: [code]depth: 7.0[/code]
+## whole float reads whole in an [code]x_lens[/code] key as in a date (as the profile reads it: [code]depth: 7.0[/code]
 ## is 7); what is refused is a fraction, NaN, infinity, a number past 64 bits.
 
 ## The pair a lens is, each word trimmed and folded as the room profile reads its pairs.
@@ -220,7 +220,7 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 	var resolved := _resolve_one(body, recipe, r, visited, wall)
 	reading.mail = resolved["mail"]
 	var keep: Array = resolved["list"]
-	# A lens a child cut before it was entered stays counted (the profile's ruling 5): a later visit erases no count.
+	# A lens a child cut before it was entered stays counted (as the profile reads it): a later visit erases no count.
 	var cut: Dictionary = resolved["cut"]
 	for why in CUT_REASONS:
 		if OWNER_ONLY.has(why) and not r.owner:
@@ -252,7 +252,7 @@ static func _lens_reading(r: View, lens: Variant, clock_v: Variant) -> Array:
 ## an entry, or x_served_trimmed naming one: such a lens is never read as a filter). A child is a lens in
 ## [code]constructs[/code] the reader is served whole; one it knows only as a stub serves no recipe and no links, so it
 ## is an anchor the reader cannot see ([code]unseen[/code]), never entered. So is an id no element of the field's type
-## holds (the profile's ruling 3: counted for the owner, never skipped).
+## holds (as the profile reads it: counted for the owner, never skipped).
 static func _anchors_of(lens: Dictionary, r: View) -> Dictionary:
 	var anchors := []
 	var children := []
@@ -301,7 +301,7 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 	var frontier := []
 	for id in a["anchors"]:
 		# Every anchor the reader cannot see is counted for the owner, a lens's own id under a field of another type among
-		# them (keel keys an anchor by its field's type, so that is no lens of the reading; the profile's ruling 3). Counts
+		# them (keel keys an anchor by its field's type, so that is no lens of the reading; as the profile reads it). Counts
 		# are per reader: below the owner the anchor is as if not there, recorded under no reason, so a child's later
 		# reason for the same element (types, window) is its first (the profile's owner, ahead of its next serial).
 		if not r.view.has(id) or a["unseen"].has(id):
@@ -337,7 +337,7 @@ static func _resolve_one(lens: Dictionary, recipe: Dictionary, r: View, visited:
 				selected.append(id)
 		list.append_array(r.sort(selected.filter(passes)))
 	elif recipe["depth"] >= 1:
-		# The hop's known set is the anchors and the lenses entered (the profile's ruling 4): a child not yet entered is
+		# The hop's known set is the anchors and the lenses entered (as the profile reads it): a child not yet entered is
 		# an element like any other, kept by the hop that reaches it before it is entered.
 		var excluded := func(id: String) -> bool: return anchor_set.has(id) or visited.has(id)
 		var reach := r.reach(frontier, excluded)
@@ -747,7 +747,7 @@ class View:
 
 	## The ids the element's owner-served body links to, in the schema's field order, each once. A link reaches only an
 	## element of its field's target type, and a generic pair only when its type key is one of the 22 slugs exactly as
-	## stored, nothing trimmed or folded (the profile's rulings 1 and 2, keel's [code]et in _TYPES[/code]): a wrongly
+	## stored, nothing trimmed or folded (as the profile reads it, keel's [code]et in _TYPES[/code]): a wrongly
 	## typed id, or one no element holds, is no link.
 	func full_links(id: String) -> PackedStringArray:
 		if _full.has(id):
@@ -794,7 +794,7 @@ class View:
 		if stubs.has(id):
 			b = _known_of(b, type)
 		# A body served of an element under the hidden mark (the world's list or its own key, one mark) carries
-		# hidden: true, and no other body a hidden key, a stored false included (keel #537, serialize.py). Below a
+		# hidden: true, and no other body a hidden key, a stored false included (keel's serialize.py). Below a
 		# keeper only a contributor's or a guest's own creation carries it, a body it sees whole.
 		if hidden.has(id):
 			b["hidden"] = true
@@ -803,7 +803,7 @@ class View:
 		_served[id] = b
 		return b
 
-	## A served body as its known-of stub (keel elements/visibility.py [code]known_of[/code], the profile's ruling 7):
+	## A served body as its known-of stub (keel elements/visibility.py [code]known_of[/code], as the profile reads it):
 	## the base and the type's public fields kept (a public link as the trim left it), every other field at its unset
 	## value (text [code]""[/code], a number or a single link null, a list [code][][/code], a generic pair
 	## [code]""[/code] and null, the server's hands null), every other key dropped (an extension, the trimmed mark),

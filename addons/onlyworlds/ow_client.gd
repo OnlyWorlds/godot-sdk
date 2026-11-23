@@ -31,7 +31,7 @@ extends RefCounted
 ## keyless client write nothing. Mirrors the TypeScript SDK's [code]OwV2Client[/code].
 ##
 ## [codeblock]
-## var writer := OWClient.new({"api_key": "ow_w_...", "api_pin": "1234", "client": "my-game"})
+## var writer := OWClient.new({"api_key": "ow_w_...", "api_pin": "your-pin", "client": "my-game"})
 ## var made := await writer.create("character", {"name": "Ana"})            # the id minted here, a UUIDv7
 ## var r := await writer.patch("character", made.value.id, {"level": 4}, {"if_match": seq})
 ## if r.error and r.error.is_precondition_failed():

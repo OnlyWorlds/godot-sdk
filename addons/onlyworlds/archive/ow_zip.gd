@@ -3,7 +3,7 @@ extends RefCounted
 ## The zip layer under [OWWorldArchive]: a walk of the archive's own central directory, entry inflation through
 ## Godot's zlib, and a writer that lays down its own bytes.
 ##
-## Why not [ZIPReader] / [ZIPPacker] (measured in the recon, OW Gaming #650): ZIPReader exposes no flags, method,
+## Why not [ZIPReader] / [ZIPPacker] (measured on Godot 4.7): ZIPReader exposes no flags, method,
 ## Unix mode, declared size or raw name bytes, so 8 of the fixture set's verdicts cannot be told from it; ZIPPacker
 ## deflates the marker and stamps entries in local time. Here every field comes from the directory as written.
 

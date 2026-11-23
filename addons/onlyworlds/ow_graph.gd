@@ -173,7 +173,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 	for id in ids:
 		var el: Dictionary = r.by_id[id]
 		var type: String = r.type_of[id]
-		# The type and the name as stored, nothing folded or invented (the profile's rulings G3, G4); the family and icon
+		# The type and the name as stored, nothing folded or invented (as the profile reads it); the family and icon
 		# are read by the folded slug.
 		var name: Variant = el.get("name")
 		var node := {"id": id, "type": el["type"],
@@ -209,7 +209,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			continue
 		var el: Dictionary = r.by_id[source]
 		# A schema link is served whole to a keeper; any other reader is served the list as keel serves it, a link to a
-		# proposed element kept below the public rung, and the index is the place in that list (the profile's ruling G5).
+		# proposed element kept below the public rung, and the index is the place in that list (as the profile reads it).
 		# A Pin's generic pair is placement, never an edge (G2).
 		for lf in OWLens.link_fields_of(r.type_of[source]):
 			var target := OWLens.link_target_of(r.type_of[source], lf[0])
@@ -222,8 +222,8 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 			for i in list.size():
 				var t: Variant = list[i]
 				var in_served: bool = seen_keeper or (t is String and r._served_as(t, target))
-				# An id of another type than the field's target names nothing, as the lens reader keys a link (the
-				# profile's ruling 1): a dangling link, neither an edge nor counted. A repeat still counts in the served
+				# An id of another type than the field's target names nothing, as the lens reader keys a link (as
+				# the profile reads it): a dangling link, neither an edge nor counted. A repeat still counts in the served
 				# list, so an index points into the list as served.
 				if t is String and r.type_of.get(t) == target:
 					visit.call(source, lf[0], t, i if seen_keeper else served, met)

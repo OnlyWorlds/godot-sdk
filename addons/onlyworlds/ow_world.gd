@@ -2,11 +2,11 @@ class_name OWWorld
 extends RefCounted
 ## One world: world.json and its elements, typed, read from a world folder or an [code].owworld[/code].
 ##
-## Writing follows DECISIONS #2: an element nobody edited is written back as the bytes it was read with; an edited one
+## Writing: an element nobody edited is written back as the bytes it was read with; an edited one
 ## (and world.json, once edited) in the folder spec's section 5 form ([OWJson]).
 ##
 ## [codeblock]
-## var world := OWWorld.read_folder("C:/worlds/moppetopia")
+## var world := OWWorld.read_folder("res://worlds/moppetopia")
 ## for pin: OWPin in world.of_type("pin"):
 ##     print(pin.name, " at ", pin.x, ",", pin.y)
 ## [/codeblock]
