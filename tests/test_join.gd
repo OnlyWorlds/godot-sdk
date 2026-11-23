@@ -403,8 +403,9 @@ func test_a_dropped_connection_is_a_transport_error_and_an_answer_not_an_object_
 
 func test_no_code_or_a_bad_option_is_the_callers_error_nothing_sent(t) -> void:
 	var fake = Fake.new()
-	_refused(t, await OWJoin.redeem("", {"transport": fake}), fake, "OWJoin.redeem: a join code is required", "redeem, no code")
-	_refused(t, await OWJoin.preview("", {"transport": fake}), fake, "OWJoin.preview: a join code is required", "preview, no code")
+	for none in ["", " ", "\t\n", "\u00a0"]:
+		_refused(t, await OWJoin.redeem(none, {"transport": fake}), fake, "OWJoin.redeem: a join code is required", "redeem, no code")
+		_refused(t, await OWJoin.preview(none, {"transport": fake}), fake, "OWJoin.preview: a join code is required", "preview, no code")
 	_refused(t, await OWJoin.redeem(CODE, {"transport": fake, "nmae": "A"}), fake, "unknown option 'nmae'", "a misspelt option")
 	_refused(t, await OWJoin.preview(CODE, {"transport": fake, "name": "A"}), fake, "unknown option 'name'",
 		"a preview takes no name")
@@ -447,7 +448,8 @@ func test_accept_join_posts_account_join_the_code_alone_the_bearer_and_answers_t
 # Kills: an empty code reaching the transport (keel's 404 would read as a bad code, not a missing one).
 func test_accept_join_no_code_is_refused_nothing_sent(t) -> void:
 	var fake = Fake.new()
-	_refused(t, await _account(fake).accept_join(""), fake, "accept_join: a join code is required", "no code")
+	for none in ["", " ", "\t\n", "\u00a0"]:
+		_refused(t, await _account(fake).accept_join(none), fake, "accept_join: a join code is required", "no code")
 	t.done()
 
 # Kills: a world key, a read key, a legacy key or no key reaching /account/join, which keel answers 401; the TypeScript

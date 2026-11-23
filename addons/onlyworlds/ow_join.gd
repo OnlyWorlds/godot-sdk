@@ -342,8 +342,8 @@ static func parse_link(text: Variant) -> String:
 
 ## [code]POST /join/preview[/code]: who invites, to which world, in what role, and for which
 ## [member Preview.reader]; the code stays unused. Answers an [OWJoin.Preview]. [param options]: [code]transport[/code]
-## and [code]base_url[/code], each optional. Refused, nothing sent: an empty code, an unknown option, a value of the
-## wrong type. Mirrors the TypeScript SDK's [code]previewJoin[/code] and the Unity SDK's [code]OWJoin.PreviewAsync[/code].
+## and [code]base_url[/code], each optional. Refused, nothing sent: an empty or blank code, an unknown option, a value
+## of the wrong type. Mirrors the TypeScript SDK's [code]previewJoin[/code] and the Unity SDK's [code]OWJoin.PreviewAsync[/code].
 static func preview(code: String, options := {}) -> OWClient.Reply:
 	var why := _check("OWJoin.preview", code, options, [])
 	if why != "":
@@ -362,7 +362,7 @@ static func preview(code: String, options := {}) -> OWClient.Reply:
 ## that order. keel's refusals: every bad code, and a person's, is the one 404 ([method OWApiError.is_not_found]); a
 ## taken pick [method OWApiError.is_character_taken], one off the list [method OWApiError.is_character_invalid], a
 ## world with its 50 players [method OWApiError.is_world_full]. None spends the code. Refused, nothing sent: an empty
-## code, an unknown option, a value of the wrong type. Mirrors the TypeScript SDK's [code]redeemJoin[/code] and the
+## or blank code, an unknown option, a value of the wrong type. Mirrors the TypeScript SDK's [code]redeemJoin[/code] and the
 ## Unity SDK's [code]OWJoin.RedeemAsync[/code].
 static func redeem(code: String, options := {}) -> OWClient.Reply:
 	var why := _check("OWJoin.redeem", code, options, _REDEEM_KEYS)
@@ -379,7 +379,7 @@ static func redeem(code: String, options := {}) -> OWClient.Reply:
 
 ## "" when the call may be sent; else the refusal.
 static func _check(call: String, code: String, options: Dictionary, sends: Array) -> String:
-	if code == "":
+	if OWUnicode.trim_white_space(code) == "":
 		return ("%s: a join code is required (the part of the link after #: OWJoin.parse_link reads it out of a pasted "
 			+ "link). Nothing was sent.") % call
 	var keys := _WHERE_KEYS + sends

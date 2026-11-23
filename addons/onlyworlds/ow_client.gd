@@ -360,7 +360,7 @@ func accept_join(code: String) -> Reply:
 		var held := "none" if key_kind == KEY_NONE else ("an %s key" if key_kind == KEY_UNKNOWN else "a %s key") % key_kind
 		return _refused(("accept_join needs an account token (ow_a_); this client holds %s. A world key cannot join a "
 			+ "world; a player's or an agent's code is redeemed with no key, OWJoin.redeem. Nothing was sent.") % held)
-	if code == "":
+	if OWUnicode.trim_white_space(code) == "":
 		return _refused("accept_join: a join code is required (OWJoin.parse_link reads it out of a pasted link). Nothing "
 			+ "was sent.")
 	var r := _object(await _request("POST", "/account/join", [], {"body": {"code": code}}))
