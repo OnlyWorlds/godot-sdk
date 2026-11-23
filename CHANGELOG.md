@@ -14,7 +14,7 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
-## [0.1.0] - RELEASE-DATE
+## [0.1.0] - 2026-11-23
 
 The first numbered release: the addon as built so far, every call as [docs/reference.md](docs/reference.md) describes
 it, in one zip.
