@@ -4,11 +4,13 @@ Notable changes to the OnlyWorlds SDK for Godot. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 **Where it stands.** Version 0.1.0 (`addons/onlyworlds/plugin.cfg`), not yet tagged: nothing is released, and `main`
-is the addon as it is. It reads and writes OnlyWorlds worlds over the API and on disk (world folders and `.owworld`
-files) as typed elements of all 22 types, and carries the schema distribution's profile readers (lenses, the graph,
-map space, calendars, charters, messages and more), each held to its profile's shared fixture. Built and tested on
-Godot 4.7, the standard build. Everything so far is under [Unreleased] below; the history before this file is in the
-git log. The [README](README.md) has the install and a first run.
+is the addon as it is. What a game can do with it today: read and write an OnlyWorlds world over the onlyworlds.com
+API and on disk (world folders and `.owworld` files), as typed elements of all 22 types; let a player join a world by
+an invite link; and read a world it holds without a server (as a graph, as map geometry, by its own calendar, as one
+reader may see it), each reader giving the same answers as the other OnlyWorlds SDKs on a shared set of test cases.
+Built and tested on Godot 4.7, the standard build. Everything so far is under [Unreleased] below, in the detail a
+maintainer needs; the history before this file is in the git log. The [README](README.md) has the install and a first
+run.
 
 ## [Unreleased]
 
