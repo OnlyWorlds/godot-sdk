@@ -72,9 +72,10 @@ which the world's owner can remove at any time.
 
 **A world on disk**, with no server at all. `OWWorld.read_folder(path)` reads a world folder,
 `OWWorldArchive.read_file(path)` an `.owworld` file (one zip that holds a folder), and both give the same typed
-elements. A world you never edited is written back byte for byte. This repository carries a small example world,
-Hyperion, at `codegen/schema-dist/example/hyperion`; `demo/world_map.tscn`, the project's main scene, draws its Map
-with its Pin.
+elements. A world you never edited is written back byte for byte. A pack (`OWWorldArchive.pack`, `OWWorld.pack`)
+is a copy: it carries every element, hidden ones included (the addon has no share yet). This repository carries a
+small example world, Hyperion, at `codegen/schema-dist/example/hyperion`; `demo/world_map.tscn`, the project's main
+scene, draws its Map with its Pin.
 
 **A player link** (`https://www.onlyworlds.com/join#ow_j_…`, made by a world's owner for one Character) needs no
 account. Redeem it once for that player's read key; the server then shows the key only what that Character may see.
