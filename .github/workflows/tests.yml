@@ -20,6 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The codegen's text normalisation is pinned to Unicode 15.1.0, which Python 3.13's unicodedata carries; the
+      # runner's own python3 is newer (Unicode 16.0.0) and the drift check refuses it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
       - name: Drift checks (Python standard library)
         run: |
           python3 codegen/generate.py --check
