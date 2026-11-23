@@ -1,11 +1,11 @@
 extends RefCounted
-## The Moppetopia demo's root Map (demo/moppetopia_map.gd, root_map_of): a Map with no parent_map that is not a layout
+## The map demo's root Map (demo/world_map.gd, root_map_of): a Map with no parent_map that is not a layout
 ## map. The map space profile's rule 8 marks a layout map by x_layout alone, a Dictionary whose method is a non-empty
 ## String; its Pins are placed by a method, so drawing them as the world's ground shows an arrangement as geography.
 ## Each case below names a layout map so it sorts first by name, the demo's last tie-break, or carries the world's
 ## image, its first: before the skip, each picked the layout.
 
-const DEMO := preload("res://demo/moppetopia_map.gd")
+const DEMO := preload("res://demo/world_map.gd")
 
 static func _world(image_url: String, maps: Array) -> OWWorld:
 	var w := OWWorld.new()

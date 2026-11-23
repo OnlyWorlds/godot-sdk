@@ -157,14 +157,14 @@ func _pack_real(t, root: String, label: String) -> void:
 
 func test_moppetopia_round_trip(t) -> void:
 	if not FileAccess.file_exists(P.moppetopia() + "/world.json"):
-		t.skip("no Moppetopia at %s" % P.moppetopia())
+		t.skip("no Moppetopia folder at OW_MOPPETOPIA ('%s')" % P.moppetopia())
 		return
 	_pack_real(t, P.moppetopia(), "Moppetopia")
 	t.done()
 
 func test_sikelia_round_trip(t) -> void:
 	if not FileAccess.file_exists(P.sikelia() + "/world.json"):
-		t.skip("no Sikelia at %s" % P.sikelia())
+		t.skip("no Sikelia folder at OW_SIKELIA ('%s')" % P.sikelia())
 		return
 	_pack_real(t, P.sikelia(), "Sikelia")
 	t.done()

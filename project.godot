@@ -6,7 +6,7 @@ config_version=5
 config/name="OnlyWorlds Godot SDK"
 config/description="The OnlyWorlds SDK for Godot: world folders and .owworld files as typed elements."
 config/features=PackedStringArray("4.7")
-run/main_scene="res://demo/moppetopia_map.tscn"
+run/main_scene="res://demo/world_map.tscn"
 
 [display]
 

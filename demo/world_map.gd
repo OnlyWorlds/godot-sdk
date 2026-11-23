@@ -2,10 +2,11 @@ extends Node2D
 ## A world in a scene: reads a world folder, draws its root Map's image, and each Pin on that map at its position
 ## (x, y from the map's bottom-left, per the schema) with its name (the pinned element's, when the pin has none).
 ##
-## The world: [code]-- --world=<folder | file.owworld>[/code] on the command line, else OW_MOPPETOPIA, else
-## Moppetopia's place on this machine. [code]-- --capture=<file.png>[/code] saves the third frame and quits.
+## The world: [code]-- --world=<folder | file.owworld>[/code] on the command line, else the folder OW_WORLD names,
+## else the example world vendored with the schema (Hyperion: one Map, one Pin; its map image is a web link, so the
+## Pin is drawn on a plain ground). [code]-- --capture=<file.png>[/code] saves the third frame and quits.
 
-const DEFAULT_WORLD := "C:/Users/Titus/Carrier/Armature/projects/moppetopia-world"
+const DEFAULT_WORLD := "res://codegen/schema-dist/example/hyperion"
 const IMAGE_EXTENSIONS := ["webp", "png", "jpg", "jpeg"]
 
 var world: OWWorld
@@ -17,7 +18,7 @@ var _capture := ""
 var _frames := 0
 
 func _ready() -> void:
-	var folder := OS.get_environment("OW_MOPPETOPIA")
+	var folder := OS.get_environment("OW_WORLD")
 	if folder == "":
 		folder = DEFAULT_WORLD
 	for a in OS.get_cmdline_user_args():

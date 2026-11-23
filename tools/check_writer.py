@@ -3,8 +3,8 @@
 
     python tools/check_writer.py FILE [FILE ...] [--source private] [--run-py DIR]
 
-The checker is not vendored (it is the fixture set's workshop, Armature/tools/owworld-fixtures/run_py.py); this
-imports it from DIR, and takes `source` (the files a conforming writer must carry byte-exact) from the pinned set's
+The checker (`run_py.py`, the reference reader and writer check the fixture set was made with) is not part of this
+repository; this imports it from DIR (--run-py, or the folder OW_RUN_PY names), and takes `source` (the files a conforming writer must carry byte-exact) from the pinned set's
 verdicts.json. Prints one line per file; exits 1 unless every file is accepted by the reader and by check_writer.
 """
 
@@ -16,7 +16,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VERDICTS = os.path.join(HERE, "..", "codegen", "schema-dist", "fixtures", "owworld", "verdicts.json")
-DEFAULT_RUN_PY = "C:/Users/Titus/Carrier/Armature/tools/owworld-fixtures"
+DEFAULT_RUN_PY = os.environ.get("OW_RUN_PY", "")
 
 
 def main() -> int:
@@ -25,6 +25,8 @@ def main() -> int:
     ap.add_argument("--source", help="one of verdicts.json's `sources` (default: the base world's `source`)")
     ap.add_argument("--run-py", default=DEFAULT_RUN_PY, help="the folder holding run_py.py")
     a = ap.parse_args()
+    if not a.run_py:
+        ap.error("no checker: pass --run-py DIR or set OW_RUN_PY to the folder holding run_py.py")
     sys.dont_write_bytecode = True  # read the checker, never write beside it
     spec =importlib.util.spec_from_file_location("run_py", os.path.join(a.run_py, "run_py.py"))
     run_py = importlib.util.module_from_spec(spec)

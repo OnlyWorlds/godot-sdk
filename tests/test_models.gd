@@ -11,7 +11,7 @@ func _read(path: String) -> Dictionary:
 func test_character_reads_typed(t) -> void:
 	var path := P.sikelia() + "/" + CHARACTER
 	if not FileAccess.file_exists(path):
-		t.skip("no Sikelia at %s" % P.sikelia())
+		t.skip("no Sikelia folder at OW_SIKELIA ('%s')" % P.sikelia())
 		return
 	var c := OWCharacter.new(_read(path))
 	t.eq(c.name, "Aballon of Thapsos", "name")
@@ -28,7 +28,7 @@ func test_character_reads_typed(t) -> void:
 func test_set_int_keeps_order_and_unknown_keys(t) -> void:
 	var path := P.sikelia() + "/" + CHARACTER
 	if not FileAccess.file_exists(path):
-		t.skip("no Sikelia at %s" % P.sikelia())
+		t.skip("no Sikelia folder at OW_SIKELIA ('%s')" % P.sikelia())
 		return
 	var d := _read(path)
 	var keys_before := d.keys()
@@ -50,7 +50,7 @@ func test_pin_generic_link_and_coordinates(t) -> void:
 	var root := P.moppetopia()
 	var path := root + "/elements/pin/01a1206c-e7c5-76c7-9ab5-d83743b47c02.json"
 	if not FileAccess.file_exists(path):
-		t.skip("no Moppetopia at %s" % root)
+		t.skip("no Moppetopia folder at OW_MOPPETOPIA ('%s')" % root)
 		return
 	var p := OWPin.new(_read(path))
 	t.eq(p.map, "01a1206b-efde-7a5c-8956-d0b871776154", "pin.map")

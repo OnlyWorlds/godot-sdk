@@ -1,6 +1,7 @@
 extends RefCounted
-## Where the tests find their worlds. The fixture set is the vendored, pinned copy; the two real worlds are folders on
-## this machine, overridable by environment variable (a test whose world is missing is skipped, never passed).
+## Where the tests find their worlds. The fixture set and the example world are the vendored, pinned copies; two large
+## real worlds are optional folders named by environment variable, OW_SIKELIA and OW_MOPPETOPIA (unset or missing: the
+## tests that need them are skipped, never passed).
 
 const FIXTURES := "res://codegen/schema-dist/fixtures/owworld"
 const EXAMPLE := "res://codegen/schema-dist/example/hyperion"
@@ -11,12 +12,10 @@ const OPENERS := "res://tests/data/openers.fixture.json"
 const TMP := "user://ow-test-tmp"
 
 static func sikelia() -> String:
-	var p := OS.get_environment("OW_SIKELIA")
-	return p if p != "" else "C:/Users/Titus/Development/OnlyWorlds/sikelia-world"
+	return OS.get_environment("OW_SIKELIA")
 
 static func moppetopia() -> String:
-	var p := OS.get_environment("OW_MOPPETOPIA")
-	return p if p != "" else "C:/Users/Titus/Carrier/Armature/projects/moppetopia-world"
+	return OS.get_environment("OW_MOPPETOPIA")
 
 static func remove_tree(path: String) -> void:
 	var d := DirAccess.open(path)

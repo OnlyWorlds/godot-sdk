@@ -1,12 +1,13 @@
 extends RefCounted
 ## World folders into typed models, and back: an unedited world is its own bytes; an edited file is the spec's
-## section 5 form (DECISIONS #2). Proven on Sikelia (about 20,570 element files) and Moppetopia.
+## section 5 form. Proven on two real worlds when their folders are given (OW_SIKELIA, about 20,570 element files;
+## OW_MOPPETOPIA); the vendored example world's byte-for-byte rewrite is test_json.gd's.
 
 const P = preload("res://tests/paths.gd")
 
 var _number_line: RegEx
 
-## A source line holding a number spelled N.0, rewritten as section 5 writes it (N): the one difference DECISIONS #2
+## A source line holding a number spelled N.0, rewritten as section 5 writes it (N): the one difference the writing rule
 ## allows between an element file and its edited form.
 func _normalised(text: String) -> String:
 	if _number_line == null:
@@ -68,21 +69,21 @@ func _check_world(t, root: String, label: String, expect_min: int) -> void:
 
 func test_sikelia(t) -> void:
 	if not FileAccess.file_exists(P.sikelia() + "/world.json"):
-		t.skip("no Sikelia at %s" % P.sikelia())
+		t.skip("no Sikelia folder at OW_SIKELIA ('%s')" % P.sikelia())
 		return
 	_check_world(t, P.sikelia(), "Sikelia", 20000)
 	t.done()
 
 func test_moppetopia(t) -> void:
 	if not FileAccess.file_exists(P.moppetopia() + "/world.json"):
-		t.skip("no Moppetopia at %s" % P.moppetopia())
+		t.skip("no Moppetopia folder at OW_MOPPETOPIA ('%s')" % P.moppetopia())
 		return
 	_check_world(t, P.moppetopia(), "Moppetopia", 100)
 	t.done()
 
 func test_edit_writes_only_the_edited_file(t) -> void:
 	if not FileAccess.file_exists(P.moppetopia() + "/world.json"):
-		t.skip("no Moppetopia at %s" % P.moppetopia())
+		t.skip("no Moppetopia folder at OW_MOPPETOPIA ('%s')" % P.moppetopia())
 		return
 	var w := OWWorld.read_folder(P.moppetopia())
 	var pin: OWPin = w.of_type("pin")[0]
