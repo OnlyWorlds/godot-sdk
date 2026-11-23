@@ -1,15 +1,17 @@
 # OnlyWorlds SDK for Godot
 
-Your [OnlyWorlds](https://www.onlyworlds.com) world, its characters, locations and laws, as typed objects in your
-Godot game.
+[OnlyWorlds](https://www.onlyworlds.com) is an open standard for world data: a world's characters, places, events
+and lore as elements of 22 types, linked by id, that any tool can read. This addon brings such a world into your Godot
+game: written outside the engine, then read at run time over the onlyworlds.com API, or shipped with the game as a
+folder.
 
-A GDScript addon. It reads and writes worlds through the OnlyWorlds API, and reads and writes them on disk as world
-folders and `.owworld` files, with a class for each of the 22 element types. It runs on the standard Godot build; no
-.NET is needed.
+A GDScript addon, with a class for each of the 22 element types. It reads and writes worlds through the API, and on
+disk as world folders and `.owworld` files. It runs on the standard Godot build; no .NET is needed.
 
 ## Install
 
-Godot 4.7, the standard build. Earlier 4.x versions are untested.
+Godot 4.7, the standard build. Earlier 4.x versions are untested, and so are exports other than Windows desktop (the
+web and mobile among them).
 
 1. Copy the `addons/onlyworlds/` folder of this repository into your project's `addons/` folder.
 2. Open the project in the editor once (or run `godot --headless --path . --import`), so Godot registers the `OW…`
@@ -46,13 +48,10 @@ Create a world at [onlyworlds.com](https://www.onlyworlds.com); its keys are on 
 once, so copy it then.
 
 - **`ow_r_`** reads, with no PIN. This is the key to ship in a game.
-- **`ow_w_`** reads and writes. Writes also send a secret as `api_pin`. For code, use an
-  [agent seat](https://onlyworlds.github.io/docs/development/agents): it has its own key and secret (`ow_s_…`),
-  works in one world, and the world's owner can remove it at any time. The account PIN works too, but it opens every
-  world on the account.
+- **`ow_w_`** reads and writes. Writes also send your PIN, as `api_pin`.
 
 ```gdscript
-var client := OWClient.new({"api_key": seat_key, "api_pin": seat_secret})   # ow_w_…, ow_s_…
+var client := OWClient.new({"api_key": world_key, "api_pin": pin})   # ow_w_…, your PIN
 var made := await client.create("character", {"name": "The Brine Cartographer"})
 await client.patch("character", made.value.id, {"description": "Maps the tide lines."})
 ```
@@ -61,6 +60,16 @@ await client.patch("character", made.value.id, {"description": "Maps the tide li
 `value` on success, else `error` (an `OWApiError` that says why). Keep write keys out of games you ship: a key written
 in a script, a scene or an exported variable is packed into the export, where anyone with the build can read it, so
 read write credentials at runtime.
+
+An AI agent that writes to your world takes a seat of its own instead, an
+[agent seat](https://onlyworlds.github.io/docs/development/agents): its own key and secret (`ow_s_…`), for one world,
+which the world's owner can remove at any time.
+
+**A world on disk**, with no server at all. `OWWorld.read_folder(path)` reads a world folder,
+`OWWorldArchive.read_file(path)` an `.owworld` file (one zip that holds a folder), and both give the same typed
+elements. A world you never edited is written back byte for byte. This repository carries a small example world,
+Hyperion, at `codegen/schema-dist/example/hyperion`; `demo/world_map.tscn`, the project's main scene, draws its Map
+with its Pin.
 
 **A player link** (`https://www.onlyworlds.com/join#ow_j_…`, made by a world's owner for one Character) needs no
 account. Redeem it once for that player's read key; the server then shows the key only what that Character may see.
@@ -73,11 +82,6 @@ var client := OWClient.new({"api_key": joined.value.key})
 
 `OWJoin.preview(code)` says who invites, to which world, without spending the code.
 
-**A world on disk.** `OWWorld.read_folder(path)` reads a world folder, `OWWorldArchive.read_file(path)` an `.owworld`
-file (one zip that holds a folder), and both give the same typed elements. A world you never edited is written back
-byte for byte. This repository carries a small example world, Hyperion, at `codegen/schema-dist/example/hyperion`;
-`demo/world_map.tscn`, the project's main scene, draws its Map with its Pin.
-
 ## What's in it
 
 | Part | Classes | What it does |
@@ -85,19 +89,19 @@ byte for byte. This repository carries a small example world, Hyperion, at `code
 | **Client** | `OWClient`, `OWJoin` | The API: read a world, list and page through its elements, the change feed, writes (create, upsert, patch, delete, link edits, bulk), joining by invite link. |
 | **Models** | `OWCharacter`, `OWLocation`, … (all 22), `OWElement` | One class per element type, generated from the schema; `OWTypes.make(type, body)` builds the right one. |
 | **On disk** | `OWWorld`, `OWWorldArchive`, `OWJson` | World folders and `.owworld` files, read and written in the folder format's own bytes. |
-| **Readers** | `OWLens`, `OWGraph`, `OWLanding`, `OWMapSpace`, `OWCharter`, `OWStrand`, `OWRecord`, `OWReport`, `OWMessage`, `OWNames`, `OWViews` | Pure readers over a world as one reader sees it: a saved lens, the world as nodes and edges, its first picture, its maps as geometry, its charter, its story in miniature, messages and reports, how an element is shown. |
+| **Readers** | `OWLens`, `OWGraph`, `OWLanding`, `OWMapSpace`, `OWCharter`, `OWStrand`, `OWRecord`, `OWReport`, `OWMessage`, `OWNames`, `OWViews` | Answers worked out from elements you already hold, with no request of their own: what one reader may see of a world, the world as nodes and edges, its most-linked Characters, its maps as points and outlines, the rules and the story a world shows first, a Character's record of game runs, in-world messages and reports, how an element is shown. |
 | **Helpers** | `OWCalendar`, `OWAddress`, `OWOpeners`, `OWTools`, `OWId`, `OWUnicode` | A world's own calendar, `ow://` links, an "Open with" menu of OnlyWorlds tools, ids, name comparison. |
 
 Every call, with what it answers and what it refuses: [docs/reference.md](docs/reference.md).
 
 ## How it follows the standard
 
-The 22 models are generated from one pinned release of the
-[schema distribution](https://github.com/OnlyWorlds/schema-dist) (`codegen/PIN`; `OWSchemaPin` names it at run time),
-vendored unchanged in `codegen/schema-dist/`. Each reader answers every case of its profile's shared fixture, the same
-cases the TypeScript, Python and Unity SDKs answer, and every request the client makes is checked against the API's
-own document (`tests/data/keel-wire.json`; keel is the server behind onlyworlds.com). The reference explains the
-standard's words used in this repository (keel, serial, rung).
+The 22 classes are generated from one pinned release of the
+[schema distribution](https://github.com/OnlyWorlds/schema-dist), the standard's published form (`codegen/PIN`;
+`OWSchemaPin` names it at run time), vendored unchanged in `codegen/schema-dist/`. Each reader gives the same answers
+as the TypeScript, Python and Unity SDKs on a shared set of test cases, and every request the client makes is checked
+against the API's own description of itself (`tests/data/keel-wire.json`). The reference opens with the few words of
+the standard it uses.
 
 ## Working on the SDK
 
@@ -125,10 +129,9 @@ judged by the fixture set's reference checker, which is not part of this reposit
 
 ## OnlyWorlds
 
-An open standard for world data: 22 element types, linked by id, usable by any tool. The schema lives at
-[OnlyWorlds/OnlyWorlds](https://github.com/OnlyWorlds/OnlyWorlds). Other clients: the
-[TypeScript SDK](https://github.com/OnlyWorlds/sdk), the [Python SDK](https://github.com/OnlyWorlds/python-sdk) and
-the [Unity SDK](https://github.com/OnlyWorlds/unity-sdk).
+The schema lives at [OnlyWorlds/OnlyWorlds](https://github.com/OnlyWorlds/OnlyWorlds). Other clients: the
+[TypeScript SDK](https://github.com/OnlyWorlds/sdk), the [Python SDK](https://github.com/OnlyWorlds/python-sdk), the
+[Unity SDK](https://github.com/OnlyWorlds/unity-sdk) and the [Unreal SDK](https://github.com/OnlyWorlds/unreal-sdk).
 
 ## Licence and contributions
 
