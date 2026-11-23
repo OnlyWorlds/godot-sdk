@@ -26,15 +26,21 @@ var elements: Array[OWElement] = []
 ## Files of the world that are not elements (media/, records/, a file of no known kind), by path inside the world,
 ## kept as bytes when the world came from an archive, so it packs back whole.
 var other_files: Dictionary = {}
-## What could not be read, one line each (a file that is not JSON, not an object, holds a number too large for a
-## double ([constant OWJson.NUMBER_OUT_OF_RANGE]), an id seen twice). A file skipped this way stays in
-## [member other_files] as its bytes, so a write or a pack carries it whole.
+## What could not be read, one line each, the file's path first (a file that is not JSON, not an object, holds a number
+## too large for a double ([constant OWJson.NUMBER_OUT_OF_RANGE]), an id seen twice; a name the folder format does not
+## read as an element file, [method _name_refusal]). A file skipped this way stays in [member other_files] as its bytes,
+## so a write or a pack carries it whole and a new element never takes its name. Ids are compared as written: one UUID
+## in capitals and in lower case is two ids.
 var errors := PackedStringArray()
 
 var _by_id: Dictionary = {}
 
 ## Read a world folder: world.json and every [code]elements/<type>/*.json[/code] (and the legacy
-## [code]spatial/<type>/[/code]). Media and records are not read. [code]null[/code] when there is no world.json.
+## [code]spatial/<type>/[/code]), the names compared as written, never by the file system's case-blind match: a type
+## folder is one of the 22 type words in lower case, an element file ends in [code].json[/code] in lower case. A file
+## that misses either only by its spelling ([code]X.JSON[/code], [code]elements/Character/[/code], or a folder that is no
+## type) is skipped with a line in [member errors]. Media and records are not read. [code]null[/code] when there is no
+## world.json.
 static func read_folder(path: String) -> OWWorld:
 	path = path.replace("\\", "/").trim_suffix("/")
 	var wpath := path + "/world.json"
@@ -57,10 +63,10 @@ static func read_folder(path: String) -> OWWorld:
 			var names := Array(DirAccess.get_files_at(base + "/" + type))
 			names.sort()
 			for name in names:
-				if name.begins_with(".") or not name.ends_with(".json"):
+				if name.begins_with(".") or not name.to_lower().ends_with(".json"):
 					continue
 				var rel: String = top + "/" + type + "/" + name
-				w._add_parsed(rel, type, FileAccess.get_file_as_bytes(path + "/" + rel), json)
+				w._add_file(rel, type, name, FileAccess.get_file_as_bytes(path + "/" + rel), json)
 	return w
 
 ## A world from files keyed by their path inside it (what [method OWWorldArchive.Result.to_world] passes).
@@ -74,9 +80,9 @@ static func from_files(files: Dictionary) -> OWWorld:
 			w._set_world_json(files[rel])
 			continue
 		var segs := rel.split("/")
-		if segs.size() == 3 and ELEMENT_FOLDERS.has(segs[0]) and segs[2].ends_with(".json") \
+		if segs.size() == 3 and ELEMENT_FOLDERS.has(segs[0]) and segs[2].to_lower().ends_with(".json") \
 				and not segs[1].begins_with(".") and not segs[2].begins_with("."):
-			w._add_parsed(rel, segs[1], files[rel], json)
+			w._add_file(rel, segs[1], segs[2], files[rel], json)
 		else:
 			w.other_files[rel] = files[rel]
 	if w.info == null:
@@ -95,6 +101,28 @@ func _set_world_json(bytes: PackedByteArray) -> void:
 	info = OWWorldInfo.new(data)
 	info.source_path = "world.json"
 	info.source_bytes = bytes
+
+## Why the folder format does not read [param name] in the folder [param type] as an element file, or "" when it does.
+## Each name is read as written (the folder format): the type folder's name is one of the 22 type words in lower
+## case, so [code]Character[/code] or [code]vessel[/code] is no type folder; and the extension is [code].json[/code] in
+## lower case, so [code]X.JSON[/code] is no element file. Only a name ending in [code].json[/code] in some spelling is
+## asked; any other file in a type folder is no element file and is passed over without a line.
+static func _name_refusal(type: String, name: String) -> String:
+	if not OWTypes.SCRIPTS.has(type):
+		return "not read: %s is no type folder (a type folder is named by one of the 22 type words, in lower case)" % type
+	if not name.ends_with(".json"):
+		return "not read: an element file's extension is .json in lower case, as written"
+	return ""
+
+## One file directly in a folder under elements/ or spatial/, its name ending in .json in some spelling: read as an
+## element, or skipped with its reason and kept as bytes.
+func _add_file(rel: String, type: String, name: String, bytes: PackedByteArray, json: JSON) -> void:
+	var why := _name_refusal(type, name)
+	if why != "":
+		errors.append("%s: %s" % [rel, why])
+		other_files[rel] = bytes
+		return
+	_add_parsed(rel, type, bytes, json)
 
 func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) -> void:
 	var text := bytes.get_string_from_utf8()   # a byte order mark is read past (measured)

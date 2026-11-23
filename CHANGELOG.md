@@ -14,6 +14,19 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Changed
+
+- A world folder and an `.owworld` are read with every name taken as written, as the folder format and the address
+  profile rule. A file whose extension is `.json` in another spelling (`X.JSON`, `a.Json`) is not an element file, and a folder
+  under `elements/` or `spatial/` whose name is not one of the 22 type words in lower case (`elements/Character/`,
+  `elements/vessel/`) is not a type folder, so its files are not read. Before, the reader served such a folder's files
+  as elements, under the folder's own word as their type. Each such file is now skipped with a line in
+  `OWWorld.errors` and kept as its bytes in `OWWorld.other_files`, so a write or a pack still carries it and a new
+  element never takes its name (on a disk that ignores case, a new `bo--0000000b.json` would have written over a
+  skipped `BO--0000000B.JSON`). Ids were already compared as written, never as a UUID: one UUID in capitals in one file
+  and in lower case in another is two elements. A test (`tests/test_names_as_written.gd`) holds all three for a folder,
+  for a world's files and for an `.owworld`.
+
 ## [0.1.1] - 2026-11-23
 
 The addon's calls are 0.1.0's; what changed is what travels with the folder, so that a download of any commit is an
