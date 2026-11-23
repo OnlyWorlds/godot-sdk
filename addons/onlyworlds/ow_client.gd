@@ -909,6 +909,9 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 	if response.body.strip_edges() == "" or json.parse(response.body) != OK:
 		return Reply.failed(OWApiError.of(OWApiError.ANSWER, "%s %s answered %d with a body that is not JSON"
 			% [method, path, response.status], response.status, response.body), response)
+	if OWJson.holds_out_of_range(json.data):   # read as an infinity: served wrong, and a patch would send null
+		return Reply.failed(OWApiError.of(OWApiError.ANSWER, "%s %s answered %d with a body that cannot be read: %s"
+			% [method, path, response.status, OWJson.OUT_OF_RANGE_WHY], response.status, response.body), response)
 	return Reply.of(json.data, response)
 
 ## A 202 on a write that may become a proposal: kind [constant OWApiError.API], status 202, carrying the row (the Unity

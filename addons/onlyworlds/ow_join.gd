@@ -417,6 +417,9 @@ static func _post(path: String, body: Dictionary, options: Dictionary) -> OWClie
 	if response.body.strip_edges() == "" or json.parse(response.body) != OK or not (json.data is Dictionary):
 		return OWClient.Reply.failed(OWApiError.of(OWApiError.ANSWER, "POST %s answered %d with a body that is not a JSON object"
 			% [path, response.status], response.status, response.body), response)
+	if OWJson.holds_out_of_range(json.data):
+		return OWClient.Reply.failed(OWApiError.of(OWApiError.ANSWER, "POST %s answered %d with a body that cannot be read: %s"
+			% [path, response.status, OWJson.OUT_OF_RANGE_WHY], response.status, response.body), response)
 	return OWClient.Reply.of(json.data, response)
 
 static func _refused(why: String) -> OWClient.Reply:

@@ -3,7 +3,9 @@ extends RefCounted
 ## One world: world.json and its elements, typed, read from a world folder or an [code].owworld[/code].
 ##
 ## Writing: an element nobody edited is written back as the bytes it was read with; an edited one
-## (and world.json, once edited) in the folder spec's section 5 form ([OWJson]).
+## (and world.json, once edited) in the folder spec's section 5 form ([OWJson]). An edit to a file that is not UTF-8,
+## or that holds a number too large for a double, is never written: the first is refused by name
+## ([method write_refusal]), the second is not read as an element at all ([member errors]).
 ##
 ## [codeblock]
 ## var world := OWWorld.read_folder("res://worlds/moppetopia")
@@ -24,7 +26,9 @@ var elements: Array[OWElement] = []
 ## Files of the world that are not elements (media/, records/, a file of no known kind), by path inside the world,
 ## kept as bytes when the world came from an archive, so it packs back whole.
 var other_files: Dictionary = {}
-## What could not be read, one line each (a file that is not JSON, not an object, an id seen twice).
+## What could not be read, one line each (a file that is not JSON, not an object, holds a number too large for a
+## double ([constant OWJson.NUMBER_OUT_OF_RANGE]), an id seen twice). A file skipped this way stays in
+## [member other_files] as its bytes, so a write or a pack carries it whole.
 var errors := PackedStringArray()
 
 var _by_id: Dictionary = {}
@@ -82,7 +86,10 @@ static func from_files(files: Dictionary) -> OWWorld:
 func _set_world_json(bytes: PackedByteArray) -> void:
 	world_bytes = bytes
 	var data = OWJson.parse_bytes(bytes)
-	if not (data is Dictionary):
+	if OWJson.holds_out_of_range(data):
+		errors.append("world.json: " + OWJson.OUT_OF_RANGE_WHY)   # no world: no id served, nothing written over it
+		data = {}
+	elif not (data is Dictionary):
 		errors.append("world.json: not a JSON object")
 		data = {}
 	info = OWWorldInfo.new(data)
@@ -97,6 +104,10 @@ func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) 
 		return
 	if not (json.data is Dictionary):
 		errors.append("%s: not a JSON object" % rel)
+		other_files[rel] = bytes
+		return
+	if OWJson.holds_out_of_range(json.data):
+		errors.append("%s: %s" % [rel, OWJson.OUT_OF_RANGE_WHY])
 		other_files[rel] = bytes
 		return
 	var e := OWTypes.make(type, json.data)
@@ -138,20 +149,37 @@ func add_element(e: OWElement) -> void:
 ## String). A writer mints no id (folder spec §4.1; §3.4, format 0.3.22: a draft world conforms as any other, its id
 ## the tool's own until a host gives one), so the caller sets it. A file read with no id and not edited is not an
 ## element; it is carried back as read.
+##
+## Also an edited element (or world.json) whose file is not UTF-8: it was read leniently, a replacement character
+## (U+FFFD) where its bytes could not be read, and written in the spec's form that character would stand in place of
+## the person's bytes. Left unedited, such a file is written as its bytes, at every door.
 func write_refusal(only_edited := false) -> String:
 	if info.edited or not only_edited:
 		var id = info.get_value("id")
 		if not (id is String and OWUnicode.strip_ws(id) != ""):
 			return "world.json has no id (a non-empty String), and a writer mints none: set info.id first"
+	if info.edited and _read_not_utf8(info):
+		return _not_utf8_refusal(info)
 	for e in elements:
 		if only_edited and not e.edited:
 			continue
 		var eid = e.get_value("id")
 		if (e.edited or e.source_path == "") and not (eid is String and eid != ""):
 			return "a new or edited %s has no id (a non-empty String), and a writer mints none: set its id first" % e.get_type()
+		if e.edited and _read_not_utf8(e):
+			return _not_utf8_refusal(e)
 	return ""
 
-## An element file's bytes: as read when unedited, else in the spec's section 5 form.
+## True when [param e] was read from a file whose bytes are not well-formed UTF-8.
+static func _read_not_utf8(e: OWElementCore) -> bool:
+	return e.source_path != "" and not OWUnicode.is_utf8(e.source_bytes)
+
+static func _not_utf8_refusal(e: OWElementCore) -> String:
+	return ("%s is not UTF-8, so it was read with a replacement character where its bytes could not be read, and "
+		+ "written edited that character would replace them: save the file as UTF-8 first, or leave it unedited") % e.source_path
+
+## An element file's bytes: as read when unedited, else in the spec's section 5 form. These bytes are not checked:
+## [method write_refusal] says whether they should be written, as [method write_folder] and [method pack] ask it.
 static func element_bytes(e: OWElementCore) -> PackedByteArray:
 	if not e.edited and e.source_path != "":
 		return e.source_bytes

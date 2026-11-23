@@ -190,6 +190,8 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 		return _refuse(r, "not_a_world", "world.json does not parse")
 	if not (world is Dictionary):
 		return _refuse(r, "not_a_world", "world.json is not an object")
+	if OWJson.holds_out_of_range(world):
+		return _refuse(r, "not_a_world", "world.json: " + OWJson.OUT_OF_RANGE_WHY)
 	var wid = world.get("id")
 	if not (wid is String) or OWUnicode.strip_ws(wid) == "":
 		return _refuse(r, "not_a_world", "world.json has no id that is a non-empty string")
@@ -314,10 +316,17 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 		return out
 	var world_bytes := FileAccess.get_file_as_bytes(world_path)
 	var world = OWJson.parse_bytes(world_bytes)
+	if OWJson.holds_out_of_range(world):
+		out.message = "world.json in %s: %s" % [folder, OWJson.OUT_OF_RANGE_WHY]
+		return out
 	if not (world is Dictionary) or not (world.get("id") is String) or OWUnicode.strip_ws(world["id"]) == "":
 		out.message = "world.json in %s is not an object with an id (a non-empty string)" % folder
 		return out
 	if world.has("api") and not keep_api:
+		if not OWUnicode.is_utf8(world_bytes):   # read leniently: rewritten, a replacement character would take its bytes' place
+			out.message = ("world.json in %s is not UTF-8, so its api block cannot be stripped without writing a "
+				+ "replacement character over its bytes: save it as UTF-8 first") % folder
+			return out
 		world.erase("api")
 		world_bytes = OWJson.to_bytes(world)
 	var files := {WORLD: world_bytes}

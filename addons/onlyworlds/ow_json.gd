@@ -11,7 +11,30 @@ extends RefCounted
 
 const _MAX_SAFE := 9007199254740992.0   # 2^53: past it a float no longer holds every integer
 
+## The word for a file or an answer that holds a number no double can hold (the TypeScript and Python packages' word).
+const NUMBER_OUT_OF_RANGE := "number_out_of_range"
+## What a refusal says after the file's name: [constant NUMBER_OUT_OF_RANGE] and why.
+const OUT_OF_RANGE_WHY := NUMBER_OUT_OF_RANGE + ": holds a number too large for a double"
+
 static var _needs_escape: RegEx
+
+## True when a parsed value holds a number Godot's parser read as an infinity: one past the largest double, by its
+## digits (4,301 nines) or its exponent ([code]1e400[/code]). JSON has no infinity, so the value read is not the number
+## written, and the section 5 form has nothing to write it as. Godot's parser never shows a number's text, so this is
+## the one line it can draw: any number a double cannot hold, as the TypeScript package draws it.
+static func holds_out_of_range(value: Variant) -> bool:
+	var stack: Array = [value]
+	while not stack.is_empty():
+		var v = stack.pop_back()
+		match typeof(v):
+			TYPE_FLOAT:
+				if is_inf(v):
+					return true
+			TYPE_DICTIONARY:
+				stack.append_array(v.values())
+			TYPE_ARRAY:
+				stack.append_array(v)
+	return false
 
 ## [param value] in the spec's form: 2-space indent, key order kept, a trailing newline.
 static func stringify(value: Variant) -> String:
@@ -83,7 +106,9 @@ static func _write(v: Variant, indent: String, parts: PackedStringArray) -> void
 			parts.append(quote(str(v)))   # not a JSON value; written as its text rather than dropped
 
 ## A float as JavaScript writes a number: an integer when integral (and within 2^53), otherwise the shortest digits
-## that read back to the same double, in ECMAScript's Number::toString layout. NaN and the infinities are null.
+## that read back to the same double, in ECMAScript's Number::toString layout. NaN and the infinities are null, as
+## JavaScript writes them: only a value a caller made can be one, since a file or an answer holding a number too large
+## for a double is refused where it is read ([method holds_out_of_range]).
 static func number(v: float) -> String:
 	if is_nan(v) or is_inf(v):
 		return "null"

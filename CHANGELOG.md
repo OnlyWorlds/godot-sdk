@@ -423,6 +423,24 @@ it, in one zip.
 
 ### Fixed
 
+- A number no double can hold (4,301 digits, `1e400`, `-1e400`) is no longer read as an infinity and written back as
+  `null`. Godot's JSON parser turns such a number into `inf` (printing at most `Exponent too high`), and the folder
+  format's writer has no form for an infinity, so an edited element holding one lost the value without a word. Now a
+  file holding one is refused where it is read, with the word the TypeScript and Python packages use,
+  `number_out_of_range` (`OWJson.holds_out_of_range`, `OWJson.NUMBER_OUT_OF_RANGE`): an element file in a folder or an
+  `.owworld` is skipped into `OWWorld.errors` by its path and kept as its bytes in `other_files`, so every write and
+  pack carries it whole and the other elements load; a `world.json` holding one is no world (`errors` in the folder
+  reader, `not_a_world` from `OWWorldArchive.read`, a refusal from `pack_folder`, which before rewrote it with `null`
+  when stripping an `api` block); an API answer holding one, the client's and a join's, is `OWApiError.ANSWER` with
+  the word in its message. The line is the double's: a 308-digit integer still reads, as the nearest double.
+  `tests/test_number_out_of_range.gd`.
+- A file that is not UTF-8 is never rewritten with a replacement character over its bytes. The reader decodes such a
+  file leniently (U+FFFD where a byte could not be read), and an edited element was written in the folder format's
+  form with U+FFFD in place of the person's byte. Now `OWWorld.write_refusal` names an edited element, or an edited
+  `world.json`, whose file is not UTF-8, so `write_folder` and `pack` refuse before anything is written (a refused
+  batch writes nothing); unedited, such a file is written as its bytes at every door, as before. `pack_folder` refuses
+  a `world.json` that is not UTF-8 when it would rewrite it to strip an `api` block (`keep_api` packs it as its bytes).
+  `tests/test_lenient_save.gd`.
 - The Moppetopia demo never draws a layout map as its root Map: among the Maps with no `parent_map` it skips any whose
   `x_layout` is a Dictionary with a non-empty String `method` (the map space profile's rule 8, read through
   `OWMapSpace.layout_of`), so a layout map with the world's image or a name that sorts first is no longer drawn as the
