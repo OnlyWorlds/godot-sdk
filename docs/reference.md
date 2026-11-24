@@ -197,7 +197,14 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   (rules 13 and 14) into `{parent_frame, lint, points, stop}`: the child's `x_parent_frame` (a box `[x0, y0, x1, y1]`
   in its parent's pixels) or its lint, and the point `[x, y]` carried up `parent_map` one level at a time, in 64-bit
   floats in the page's order, until the walk stops (`top`, `dangling`, `cycle`, `no_frame`, `no_carry`). Every frame
-  case of the fixture, each coordinate compared exactly.
+  case of the fixture, each coordinate compared exactly. `OWMapSpace.pins_known_to(pins, served)` (a rule of the
+  TypeScript SDK and the Python package, not of the standard) says which of a map's Pins one reader knows, for a map
+  drawn as one Character sees it: `{known, unknown, out}`, a Pin known when the element it places (its `element_type`
+  and `element_id`, as written) is among `served`, the elements as that reader was served them, each known Pin
+  `{pin, map, element_type, element_id, how}` by Pin id, `how` `whole` or `known_of` (the served row a stub). It reads
+  nothing else; the Pins whose element was not served are a count, never ids, and a Pin that places nothing is
+  counted `no_link`. A drawing keeps the Pins both it and `map_space` name. Every case of the packages' shared file
+  (31, and its 8 refusals, each the answer's `error` naming the argument). Parity with the TypeScript SDK 4.200.0.
 - **Reading aids** (the charter profile, serial 83): `OWCharter.charter_of(world, reader)` is the packet every front
   door shows first (`{charter, guide, domains}` as that reader sees the world), `domains_of` the list alone, as keel's
   `reading_aids` reads it: the newest marked Charter and Guide, the Domains in the Guide's order then by folded name,
