@@ -287,16 +287,22 @@ static func read_link_at(text: String, index := 0) -> Found:
 		while run < n and run - start <= path_max and _is_path_char(text.unicode_at(run)):
 			run += 1
 
+	# Every path the parser takes here ends in an id (a world's in the text form, an element's after a world), so an
+	# end whose last 36 characters are not an id is passed over without a parse, as npm's readOwLinkAt does: a parse
+	# reads a fresh substring whole, and a run of bare prefixes paid one at every length of each run.
 	var p := run
 	while p > low:
-		if _parses(text, index, p):
+		var at := p - _ID_LENGTH
+		if at >= start and _hyphens_at(text, at) and is_uuid(text.substr(at, _ID_LENGTH)) \
+				and _worth_parsing(text, start, at) and _parses(text, index, p):
 			end = p
 			break
 		p -= 1
 	if end == -1:
 		return null
 
-	# A moment: its whole run of an optional minus and digits, taken only when it reads as a step.
+	# A moment: its whole run of an optional minus and digits, taken only when it reads as a step (a step the parser
+	# refuses is passed over without a parse).
 	if end < n and text.unicode_at(end) == 0x40:
 		var step_end := end + 1
 		if step_end < n and text.unicode_at(step_end) == 0x2D:
@@ -304,7 +310,8 @@ static func read_link_at(text: String, index := 0) -> Found:
 		var digits := step_end
 		while step_end < n and text.unicode_at(step_end) >= 0x30 and text.unicode_at(step_end) <= 0x39:
 			step_end += 1
-		if step_end > digits and _parses(text, index, step_end):
+		if step_end > digits and _text_step(text.substr(end + 1, step_end - end - 1)) != null \
+				and _parses(text, index, step_end):
 			end = step_end
 
 	# A lens: an id, which ends where its 36 characters end.
@@ -359,6 +366,21 @@ static func _starts_at(text: String, index: int, prefix: String) -> bool:
 ## Whether the text from [param index] to [param end] parses whole as an address.
 static func _parses(text: String, index: int, end: int) -> bool:
 	return parse_link(text.substr(index, end - index)).ok
+
+## An id's four hyphens at their places in the text from [param at]: checked before a substring is cut, so an end that
+## holds no id costs four reads. The caller holds [code]at + 36[/code] within the text.
+static func _hyphens_at(text: String, at: int) -> bool:
+	return text.unicode_at(at + 8) == 0x2D and text.unicode_at(at + 13) == 0x2D and text.unicode_at(at + 18) == 0x2D \
+			and text.unicode_at(at + 23) == 0x2D
+
+## Whether an id at [param at] is worth a parse: right after the prefix (a world's), not after a [code]/[/code], or
+## after [code]/<word>/[/code] whose word is one of the 22 types as written. An id after any other word is one the
+## parser refuses (uppercase or unknown_type), so it is passed over without a parse (npm's worthParsing).
+static func _worth_parsing(text: String, start: int, at: int) -> bool:
+	if at == start or text.unicode_at(at - 1) != 0x2F:
+		return true
+	var from := maxi(text.rfind("/", at - 2) + 1, start)
+	return _is_type_word(text.substr(from, at - 1 - from))
 
 ## The characters a path segment can hold (an id, a slug, a type word in any case) and the slash between them.
 static func _is_path_char(c: int) -> bool:

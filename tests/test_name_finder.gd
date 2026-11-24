@@ -9,9 +9,9 @@ const CASES := "res://tests/data/name-finder.cases.json"
 const CASES_SHA256 := "8e91e79981830511055976011f9fc6d4f4b62fb0183c29bad61c2d05fd4b13e4"
 ## The cases' underMs (2,000) is the TypeScript SDK's line, about 28 times its slowest recipe on Node (70 ms). GDScript
 ## is an interpreter: on Godot 4.7 this matcher took 11 to 150 times Node's time on the recipes that time it alone, and
-## about 400 times on "address prefixes with no address", whose cost is OWAddress.find_links (60,000 prefixes that
-## read as no address, about 0.1 ms each: 3 to 7 s of the recipe's 7.6 s, measured twice). So npm's line cannot hold
-## here. Fifteen times it, 30 s, sits about four times over the slowest recipe, room for a loaded machine (one probe
+## about 400 times on "address prefixes with no address", whose cost was OWAddress.find_links (60,000 prefixes that
+## read as no address, about 0.1 ms each: 3 to 7 s of the recipe's 7.6 s, measured twice; since find_links reads each
+## candidate once, about 0.3 s, held by test_address.gd). So npm's line cannot hold here. Fifteen times it, 30 s, sits about four times over the slowest recipe, room for a loaded machine (one probe
 ## read find_links twice as slow on its second run), and far under the shape this test exists to catch: a matcher that
 ## reads a 5,000-character name again at each of 200,000 places, a billion steps, minutes in GDScript.
 const FACTOR := 15
