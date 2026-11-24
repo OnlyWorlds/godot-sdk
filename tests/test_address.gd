@@ -283,6 +283,32 @@ func test_find_links_finds_every_address_in_order_by_read_link_at_at_each_prefix
 	t.eq(OWAddress.find_links("no address here, OW://object/" + ELEMENT).size(), 0, "the prefix as written, lowercase")
 	t.done()
 
+## What the npm package's findOwLinks (4.203.0, its built dist/ on Node 22) took on each text below, in ms, the slower
+## of two medians of five runs: the name finder's timed recipe "address prefixes with no address" (60,000
+## "ow://character/", npm's test/fixtures/name-finder.cases.json) and 10,000 bare prefixes of both forms.
+const _NPM_BARE_MS := {"recipe": 14.3, "both forms": 4.0}
+## GDScript is an interpreter: on Godot 4.7 the name finder took 11 to 150 times Node's time on the recipes that time
+## it alone (test_name_finder.gd). A hundred times npm sits inside that range, and far under the shape this test
+## exists to catch: a parse of a fresh substring at every length of each run, 200 to 500 times npm on the recipe
+## (2.8 s to 7.2 s, 47 to 120 microseconds a prefix, measured before the finder read each candidate once; about 23
+## times npm after).
+const _BARE_FACTOR := 100
+
+func test_find_links_reads_each_bare_prefix_once(t) -> void:
+	var texts := {
+		"recipe": "ow://character/".repeat(60000),
+		"both forms": "ow://the-world/character/someone https://www.onlyworlds.com/w/ab/character/ ".repeat(5000),
+	}
+	for name: String in texts:
+		var t0 := Time.get_ticks_usec()
+		var found := OWAddress.find_links(texts[name])
+		var ms := (Time.get_ticks_usec() - t0) / 1000.0
+		var line: float = _NPM_BARE_MS[name] * _BARE_FACTOR
+		t.eq(found.size(), 0, "%s: no address" % name)
+		t.ok(ms < line, "%s: %.1f ms, the line %.0f ms" % [name, ms, line])
+		print("       %.1f ms: find_links on %s" % [ms, name])
+	t.done()
+
 func test_read_link_at_the_sites_form_a_run_cut_inside_a_word_is_no_address(t) -> void:
 	var h := "https://www.onlyworlds.com/w/"
 	t.ok(OWAddress.read_link_at(h + "hyperion" + String.chr(0x1D49C) + ".") == null, "a letter above U+FFFF cuts")
