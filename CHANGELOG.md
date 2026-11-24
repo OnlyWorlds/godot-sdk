@@ -59,6 +59,14 @@ build. The entries below are in the detail a maintainer needs; the history befor
   Parity with the TypeScript SDK 4.201.2, its cost cases replayed (`tests/data/calendar-cost.cases.json`, the same
   bytes as the TypeScript SDK's and the Python package's, its sha256 held by the test): all eight inside its 50 ms
   line, with no allowance for the interpreter.
+- **`OWAddress.find_links` reads a prefix that holds no address once.** `read_link_at` parsed a fresh substring at
+  every length of the path after a prefix, so a text full of bare prefixes paid a whole parse a character: 60,000
+  `ow://character/` took 2.8 to 7.3 s here, about 0.1 ms a prefix, and `OWNameFinder.find` paid the same on such a
+  text. Now an end is parsed only when its last 36 characters are an id and the word before it is one of the 22 as
+  written, as the TypeScript SDK's `readOwLinkAt` does, and a moment only when it reads as a step: the same text
+  takes about 0.3 s (Godot 4.7, about 20 times the TypeScript SDK's 14 ms on Node; GDScript is an interpreter), and
+  the name finder's timed recipe on it about 1 s, from 7.9 s. Every answer is the same: the address fixture's cases
+  and 30,000 made texts compared against the old finder. A timed test holds both texts (`tests/test_address.gd`).
 
 ### Changed
 
