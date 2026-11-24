@@ -100,7 +100,19 @@ static func by_code_point(a: String, b: String) -> int:
 ## Whether [param c] is a letter of any script or a combining mark (general category L or M, Unicode 15.1): a binary
 ## search of the generated ranges.
 static func is_letter_or_mark(c: int) -> bool:
-	var ranges: Array = D.LETTER_OR_MARK
+	return _in_ranges(D.LETTER_OR_MARK, c)
+
+## Whether [param c] is a decimal digit of any script (general category Nd, Unicode 15.1): a binary search of the
+## generated ranges. Not a superscript or a digit in a circle, which are No.
+static func is_decimal_digit(c: int) -> bool:
+	return _in_ranges(D.DECIMAL_DIGIT, c)
+
+## [param c] by simple case folding (the C and S rows of CaseFolding 15.1), one code point to one code point:
+## [method profile_fold]'s fold, without the trim. A code point with no row is itself.
+static func fold_code_point(c: int) -> int:
+	return D.FOLD.get(c, c)
+
+static func _in_ranges(ranges: Array, c: int) -> bool:
 	var lo := 0
 	var hi := (ranges.size() >> 1) - 1
 	while lo <= hi:
