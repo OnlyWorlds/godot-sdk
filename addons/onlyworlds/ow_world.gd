@@ -265,15 +265,21 @@ func write_folder(path: String, only_edited := false) -> Error:
 		f.close()
 	return OK
 
-## Pack the world as an [code].owworld[/code]'s bytes, its top folder [param top]. Not ok, its message
-## [method write_refusal]'s, when the world would not be written.
-func pack(top: String) -> OWWorldArchive.Packed:
+## Pack the world as an [code].owworld[/code]'s bytes, its top folder [param top]. The author fields are left out
+## of every file under elements/ and spatial/ that is one JSON object ([method OWWorldArchive.strip_author_fields],
+## counted in [member OWWorldArchive.Packed.author_fields_left_out]) unless [param include_author_fields]. Not ok,
+## its message [method write_refusal]'s, when the world would not be written.
+func pack(top: String, include_author_fields := false) -> OWWorldArchive.Packed:
 	var why := write_refusal()
 	if why != "":
 		var refused := OWWorldArchive.Packed.new()
 		refused.message = why
 		return refused
-	return OWWorldArchive.pack_files(to_files(), top)
+	var files := to_files()
+	var left := PackedStringArray() if include_author_fields else OWWorldArchive.strip_author_fields(files)
+	var packed := OWWorldArchive.pack_files(files, top)
+	packed.author_fields_left_out = left
+	return packed
 
 ## Where each new element (no [member OWElementCore.source_path]) is written: its short name
 ## ([code]<slug>--<id tail>.json[/code], [method _name_of]), or, when that path is already held, its full id in place of

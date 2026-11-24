@@ -146,11 +146,44 @@ func _pack_real(t, root: String, label: String) -> void:
 	var r := OWWorldArchive.read(packed.bytes)
 	var ms_read := Time.get_ticks_msec() - t0
 	t.ok(r.ok, "%s reads back (%s)" % [label, r.message])
+	# By default the author fields are left out: a file the pack lists has lost them and is the same object otherwise;
+	# every other file is the folder's bytes. A file that holds one and keeps it was not one the pack may rewrite
+	# (OWWorldArchive.without_author_fields: a number Godot reads or writes otherwise, mostly).
+	var left := {}
+	for rel in packed.author_fields_left_out:
+		left[rel] = true
 	var same := 0
+	var stripped := 0
+	var holding := 0
 	for rel: String in r.files:
-		if r.files[rel] == FileAccess.get_file_as_bytes(root + "/" + rel):
-			same += 1
-	t.eq(same, r.files.size(), "%s: every packed file is the folder's bytes" % label)
+		var src := FileAccess.get_file_as_bytes(root + "/" + rel)
+		if not left.has(rel):
+			if r.files[rel] == src:
+				same += 1
+			if rel.begins_with("elements/") or rel.begins_with("spatial/"):
+				var ascii := src.get_string_from_ascii()
+				for field: String in OWWorldArchive.AUTHOR_FIELDS:
+					if ascii.contains("\"" + field + "\""):
+						holding += 1
+						break
+			continue
+		var was = JSON.parse_string(src.get_string_from_utf8())
+		var now = JSON.parse_string((r.files[rel] as PackedByteArray).get_string_from_utf8())
+		for field: String in OWWorldArchive.AUTHOR_FIELDS:
+			was.erase(field)
+		if now == was and r.files[rel] != src:
+			stripped += 1
+	t.eq(same + stripped, r.files.size(), "%s: every packed file is the folder's bytes, or its object without the author fields" % label)
+	t.eq(stripped, packed.author_fields_left_out.size(), "%s: every file listed lost them" % label)
+	print("       %s: %d files without their author fields, %d kept with them (a number Godot reads or writes otherwise)" % [label, stripped, holding])
+	var copy := OWWorldArchive.pack_folder(root, false, false, true)
+	t.ok(copy.author_fields_left_out.is_empty(), "%s: asked, nothing left out" % label)
+	var back := OWWorldArchive.read(copy.bytes)
+	var copied := 0
+	for rel: String in back.files:
+		if back.files[rel] == FileAccess.get_file_as_bytes(root + "/" + rel):
+			copied += 1
+	t.eq(copied, back.files.size(), "%s: asked, every packed file is the folder's bytes" % label)
 	var w := r.to_world()
 	t.eq(w.elements.size(), P.count_element_files(root), "%s: every element in the archive" % label)
 	print("       %s: %d entries, %.1f MB, packed in %d ms, read back (every rule, every CRC) in %d ms" % [label, packed.names.size(), packed.bytes.size() / 1e6, ms_pack, ms_read])

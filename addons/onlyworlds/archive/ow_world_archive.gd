@@ -5,7 +5,8 @@ extends RefCounted
 ## [method read] holds an archive to every reader rule, in the reference checker's order
 ## ([code]run_py.py[/code]'s [code]read_archive[/code]), and refuses with one cause from the spec's list.
 ## [method pack] writes a folder as a portable [code].owworld[/code]: the marker stored first, only the folder's parts,
-## entries in UTF-8 byte order, every one stamped 1980-01-01 00:00, methods 0 and 8.
+## entries in UTF-8 byte order, every one stamped 1980-01-01 00:00, methods 0 and 8, and who wrote each element left
+## out unless asked ([method strip_author_fields]).
 
 const MEDIA_TYPE := "application/vnd.onlyworlds.world+zip"
 const MARKER := "mimetype"
@@ -56,6 +57,9 @@ class Packed:
 	var message := ""
 	var names := PackedStringArray()
 	var bytes: PackedByteArray
+	## The files written without their author fields, by path inside the world, in code point order
+	## ([method strip_author_fields]); empty when they were asked to travel, and for [method pack_files].
+	var author_fields_left_out := PackedStringArray()
 
 # -- read -------------------------------------------------------------------------------------------------------------
 
@@ -283,15 +287,18 @@ static func _parse_strict(bytes: PackedByteArray) -> Variant:
 
 ## Pack a world folder into a portable [code].owworld[/code] at [param archive_path]. Writes only the archive.
 ## [param keep_api] keeps world.json's api block (a private copy, not a portable file, OW-10);
-## [param include_private] carries the producers records/RECORDS.json marks private (section 4.5 rule 11).
-static func pack(folder: String, archive_path: String, keep_api := false, include_private := false) -> Packed:
+## [param include_private] carries the producers records/RECORDS.json marks private (section 4.5 rule 11);
+## [param include_author_fields] carries the author fields, for a byte copy of your own folder
+## ([method strip_author_fields] says what goes without it).
+static func pack(folder: String, archive_path: String, keep_api := false, include_private := false,
+		include_author_fields := false) -> Packed:
 	var abs_folder := ProjectSettings.globalize_path(folder).simplify_path().trim_suffix("/")
 	var abs_archive := ProjectSettings.globalize_path(archive_path).simplify_path()
 	if abs_archive.to_lower().begins_with(abs_folder.to_lower() + "/"):
 		var bad := Packed.new()
 		bad.message = "the archive %s would be written inside the folder it packs" % archive_path
 		return bad
-	var p := pack_folder(folder, keep_api, include_private)
+	var p := pack_folder(folder, keep_api, include_private, include_author_fields)
 	if not p.ok:
 		return p
 	var f := FileAccess.open(archive_path, FileAccess.WRITE)
@@ -304,7 +311,8 @@ static func pack(folder: String, archive_path: String, keep_api := false, includ
 	return p
 
 ## [method pack]'s bytes, in memory.
-static func pack_folder(folder: String, keep_api := false, include_private := false) -> Packed:
+static func pack_folder(folder: String, keep_api := false, include_private := false,
+		include_author_fields := false) -> Packed:
 	var out := Packed.new()
 	folder = folder.trim_suffix("/").trim_suffix("\\")
 	if not DirAccess.dir_exists_absolute(folder):
@@ -351,7 +359,218 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 	var top := folder.replace("\\", "/").get_file()
 	if top == "":
 		top = "world"
-	return pack_files(files, top)
+	var left := PackedStringArray() if include_author_fields else strip_author_fields(files)
+	var packed := pack_files(files, top)
+	packed.author_fields_left_out = left
+	return packed
+
+# -- author fields ----------------------------------------------------------------------------------------------------
+
+## Which member and which tool wrote an element (a membership id, a door): nothing to someone the world is handed to,
+## so a pack leaves them out unless asked. The TypeScript SDK's AUTHOR_FIELDS, in its order.
+const AUTHOR_FIELDS := ["created_by", "changed_by", "changed_via", "changed_client", "doors"]
+## The deepest nesting the TypeScript SDK reads a file it did not write to (OUTSIDE_JSON_MAX_DEPTH): an object or an
+## array at the top is 1.
+const OUTSIDE_JSON_MAX_DEPTH := 200
+
+# One JSON token at the scan's offset, white space before it skipped: a string (1), a number (2), a word (3) or a
+# mark (4), by RFC 8259's grammar. A string holds no raw character below U+0020 and only JSON's escapes.
+static var _token_re: RegEx
+static var _end_re: RegEx
+
+## Leave the author fields out of [param files] (path inside the world -> bytes), in place: every file under
+## elements/ or spatial/ that [method without_author_fields] rewrites. Returns their paths, in code point order.
+## What [method pack_folder] and [method OWWorld.pack] do unless asked to carry them; [method pack_files] never does.
+static func strip_author_fields(files: Dictionary) -> PackedStringArray:
+	var left := PackedStringArray()
+	var rels: Array = files.keys()
+	rels.sort()               # String order is code point order
+	var json := JSON.new()
+	for rel: String in rels:
+		if not (rel.begins_with("elements/") or rel.begins_with("spatial/")):
+			continue
+		var bare = without_author_fields(files[rel], json)
+		if bare != null:
+			files[rel] = bare
+			left.append(rel)
+	return left
+
+## A file without its author fields, in the folder's own form ([method OWJson.to_bytes]: two-space indent, a trailing
+## newline, the other keys in their order, no byte order mark), or [code]null[/code] when its bytes travel as they
+## are: it holds none of the five at its top level, or it is not one JSON object as the TypeScript SDK reads a file it
+## did not write (strict UTF-8, a byte order mark read past, one value by JSON's grammar and nothing after it but white
+## space, at most [constant OUTSIDE_JSON_MAX_DEPTH] deep, every number one a double holds), or a rewrite would write
+## a value other than JavaScript's. Only top-level keys go: an x_ value that holds one of the names stays.
+## [br][br]
+## A rewrite never writes a value the file does not hold, nor one JSON.stringify writes differently: each number's
+## text must hold the value [method OWJson.number] writes for what Godot's parser read. Godot reads every number as
+## a double, and about one long decimal in ten as its neighbour (measured on 4.7.2); OWJson.number writes a few doubles
+## with 17 digits where 16 read back; an integer past 2^53 is read rounded. A file holding any of these keeps its
+## bytes, the five included. So does one holding the escape of a lone surrogate ([code]"\ud800"[/code]).
+static func without_author_fields(bytes: PackedByteArray, json: JSON = null) -> Variant:
+	if bytes.size() >= 3 and bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF:
+		bytes = bytes.slice(3)
+	# Cheap first: a file with none of the five names written plainly, and no escape that could spell one, keeps its
+	# bytes without a read.
+	var ascii := bytes.get_string_from_ascii()
+	if not ascii.contains("\\u"):
+		var named := false
+		for field: String in AUTHOR_FIELDS:
+			if ascii.contains("\"" + field + "\""):
+				named = true
+				break
+		if not named:
+			return null
+	if not OWUnicode.is_utf8(bytes):
+		return null
+	var text := bytes.get_string_from_utf8()
+	if json == null:
+		json = JSON.new()
+	if not _is_one_json_value(text, json):
+		return null
+	if json.parse(text) != OK or not (json.data is Dictionary) or OWJson.holds_out_of_range(json.data):
+		return null
+	var doc: Dictionary = json.data
+	var present := false
+	for field: String in AUTHOR_FIELDS:
+		if doc.has(field):
+			present = true
+			doc.erase(field)
+	return OWJson.to_bytes(doc) if present else null
+
+## Whether [param text] is one JSON value by RFC 8259's grammar, with nothing after it but JSON's white space, nested at
+## most [constant OUTSIDE_JSON_MAX_DEPTH] deep, every number one [method OWJson.number] writes back with the value its
+## text holds, and no string holding a lone surrogate's escape. No value is built; [param json] reads each number.
+static func _is_one_json_value(text: String, json: JSON) -> bool:
+	if _token_re == null:
+		_token_re = RegEx.create_from_string('\\G[ \\t\\n\\r]*+(?:("(?:[^"\\\\\\x00-\\x1f]++|\\\\["\\\\/bfnrt]|\\\\u[0-9a-fA-F]{4})*+")|(-?(?:0|[1-9][0-9]*+)(?:\\.[0-9]++)?+(?:[eE][+-]?[0-9]++)?+)|(true|false|null)|([{}\\[\\],:]))')
+		_end_re = RegEx.create_from_string('\\G[ \\t\\n\\r]*+\\z')
+	# What comes next: a value; a key or the close of an object just opened; a key; the colon; a comma or the close;
+	# a value or the close of an array just opened.
+	const VALUE := 0
+	const KEY_OR_CLOSE := 1
+	const KEY := 2
+	const COLON := 3
+	const NEXT := 4
+	const VALUE_OR_CLOSE := 5
+	var open := PackedByteArray()   # 1 an object, 0 an array, innermost last
+	var want := VALUE
+	var at := 0
+	while true:
+		var m := _token_re.search(text, at)
+		if m == null:
+			return false
+		at = m.get_end()
+		var done := false     # a value ended here
+		if m.get_start(1) >= 0:
+			var s := m.get_string(1)
+			if s.contains("\\u") and _holds_lone_surrogate(s):
+				return false
+			if want == KEY_OR_CLOSE or want == KEY:
+				want = COLON
+			elif want == VALUE or want == VALUE_OR_CLOSE:
+				done = true
+			else:
+				return false
+		elif m.get_start(2) >= 0 or m.get_start(3) >= 0:
+			if want != VALUE and want != VALUE_OR_CLOSE:
+				return false
+			if m.get_start(2) >= 0 and not _number_as_written(m.get_string(2), json):
+				return false
+			done = true
+		else:
+			var c := m.get_string(4)
+			if c == "{" or c == "[":
+				if want != VALUE and want != VALUE_OR_CLOSE:
+					return false
+				if open.size() >= OUTSIDE_JSON_MAX_DEPTH:
+					return false
+				open.append(1 if c == "{" else 0)
+				want = KEY_OR_CLOSE if c == "{" else VALUE_OR_CLOSE
+			elif c == "}" or c == "]":
+				var obj := c == "}"
+				if open.is_empty() or (open[-1] == 1) != obj:
+					return false
+				if not (want == NEXT or (obj and want == KEY_OR_CLOSE) or (not obj and want == VALUE_OR_CLOSE)):
+					return false
+				open.resize(open.size() - 1)
+				done = true
+			elif c == ":":
+				if want != COLON:
+					return false
+				want = VALUE
+			else:   # ","
+				if want != NEXT:
+					return false
+				want = KEY if open[-1] == 1 else VALUE
+		if done:
+			if open.is_empty():
+				return _end_re.search(text, at) != null
+			want = NEXT
+	return false
+
+## Whether the number [param lit] (JSON's grammar) is written back by [method OWJson.number], from what Godot's parser
+## reads for it, as a text with the same value: so the rewrite writes what the file holds, in JavaScript's spelling.
+static func _number_as_written(lit: String, json: JSON) -> bool:
+	if json.parse(lit) != OK:
+		return false
+	var v = json.data
+	if typeof(v) == TYPE_INT:
+		return _decimal(str(v)) == _decimal(lit)
+	if typeof(v) != TYPE_FLOAT or is_inf(v) or is_nan(v):
+		return false
+	return _decimal(OWJson.number(v)) == _decimal(lit)
+
+## A JSON number's value as one text: its significant digits and the power of ten before the first ("12.50" and
+## "1.25e1" are "125e2"), both zeros "0".
+static func _decimal(s: String) -> String:
+	var sign := ""
+	if s.begins_with("-"):
+		sign = "-"
+		s = s.substr(1)
+	var exp := 0
+	var e := s.findn("e")
+	if e >= 0:
+		var x := s.substr(e + 1)
+		if x.length() > 6:     # past any double either way; such a text never reaches here from a double's spelling
+			return "?" + s
+		exp = x.to_int()
+		s = s.substr(0, e)
+	var dot := s.find(".")
+	var whole := s if dot < 0 else s.substr(0, dot)
+	var digits := whole + ("" if dot < 0 else s.substr(dot + 1))
+	var point := whole.length() + exp
+	var lead := 0
+	while lead < digits.length() and digits[lead] == "0":
+		lead += 1
+	digits = digits.substr(lead).rstrip("0")
+	if digits == "":
+		return "0"
+	return "%s%se%d" % [sign, digits, point - lead]
+
+## Whether a string token (its quotes included) holds a \u escape of a surrogate that is not one half of an escaped
+## pair: Godot's parser does not keep one as JSON.parse does, so a rewrite would write another string.
+static func _holds_lone_surrogate(s: String) -> bool:
+	var pending := false   # the last character was an escaped high surrogate
+	var i := 1
+	var n := s.length() - 1
+	while i < n:
+		if s.unicode_at(i) == 0x5C and s.unicode_at(i + 1) == 0x75:
+			var unit := s.substr(i + 2, 4).hex_to_int()
+			i += 6
+			if unit >= 0xDC00 and unit <= 0xDFFF:
+				if not pending:
+					return true
+				pending = false
+				continue
+			if pending:
+				return true
+			pending = unit >= 0xD800 and unit <= 0xDBFF
+			continue
+		if pending:
+			return true
+		i += 2 if s.unicode_at(i) == 0x5C else 1
+	return pending
 
 ## Pack exactly the files given (path inside the world -> bytes) under the top folder [param top]: the marker first,
 ## then every file in UTF-8 byte order, deflated (an empty one stored). Nothing is filtered: what a caller hands in is

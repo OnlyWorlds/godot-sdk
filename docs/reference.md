@@ -32,7 +32,8 @@ var r := OWWorldArchive.read_file("moppetopia.owworld")  # every archive rule of
 if r.ok:
     var w := r.to_world()
 OWWorldArchive.pack("res://worlds/moppetopia", "user://moppetopia.owworld")
-# A pack is a copy: it carries every element, hidden ones included (the addon has no share yet).
+# A pack carries every element, hidden ones included (the addon has no share yet), without the author fields
+# (created_by, changed_by, changed_via, changed_client, doors); a last `true` (include_author_fields) keeps them.
 
 var link := OWAddress.parse_link("ow://character/019a1f3c-2b4e-7d10-8c3a-6f2e9b0d4a71@302")   # link.reason on a refusal
 var url := OWAddress.element_address(OWAddress.HUMAN, world_id, "pin", pin.id).address

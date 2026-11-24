@@ -14,6 +14,37 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Changed
+
+- **A pack leaves out who wrote each element.** `OWWorldArchive.pack`, `pack_folder` and `OWWorld.pack` now remove
+  the five author fields (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`: which member and which
+  tool wrote an element, a membership id and a door, nothing to someone the world is handed to) from every file under
+  `elements/` and the legacy `spatial/` that is one JSON object, whatever its name, extension or depth: a `.owworld`
+  is a file handed on (folder spec 4.2). Only top-level keys go (an `x_` value that holds one of the names stays), and
+  a key present with `null` goes too. Such a file is written in the folder's own form (`OWJson.to_bytes`); a file
+  holding none of the five, a file that is no JSON object (an array, a write cut short, not UTF-8), and `world.json`,
+  `media/` and `records/` keep their bytes. A trailing `include_author_fields` (`pack`, `pack_folder`, `OWWorld.pack`;
+  `--include-author-fields` for `tools/pack.gd`) carries them, for a byte copy of your own folder;
+  `Packed.author_fields_left_out` lists the files rewritten, and `OWWorldArchive.strip_author_fields(files)` does the
+  same to a file map. `pack_files` is unchanged: it writes what it is handed (OW-9). Parity with the TypeScript SDK
+  4.203.1 (and 4.109.0): `tests/data/author-fields.fixture.json` (7 cases, the same bytes as the TypeScript SDK's and
+  the Python package's) is vendored byte for byte with its sha256 held, and every case passes, packed from a folder on
+  disk and from a world read, each entry compared byte for byte, with the count.
+
+  "One JSON object" is read as the TypeScript SDK reads a file it did not write: strict UTF-8 (a byte order mark read
+  past), one value by JSON's grammar and nothing after it, at most 200 deep, every number one a double holds. So a
+  file Godot's parser reads but `JSON.parse` does not (a trailing comma, a leading zero, a raw tab inside a string,
+  nesting past 200) keeps its bytes. **Where Godot's reading or writing of a number differs from JavaScript's, a file
+  keeps its bytes, which is the safe side for every reader:** a rewrite never writes a value the file does not hold,
+  nor one the TypeScript SDK would write differently. Godot's parser reads about one long decimal in ten as a
+  neighbouring double (543 of 5,000 of Python's shortest strings, measured on 4.7.2) and the smallest double as 0;
+  `OWJson.number` writes a few doubles with 17 digits where 16 read back (2 of the 5,000); an integer past 2^53 that
+  JavaScript reads rounded (`12345678901234567891`) is read rounded here too. A file holding any of these keeps its
+  bytes, the author fields included, as a number no double holds (`1e400`) does in both. So does a file holding the
+  escape of a lone surrogate (`"\ud800"`). An integer-like key (`"0"`, `"12"`) keeps its place in the object, where
+  `JSON.stringify` would put it first. On Sikelia (20,913 element files, every one holding an author field) all 20,913
+  are rewritten, none kept, and the pack takes about 22 seconds where it took 4: each such file is read whole.
+
 ### Added
 
 - The addon is listed in Godot's Asset Library, as

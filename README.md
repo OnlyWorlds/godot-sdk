@@ -108,7 +108,10 @@ which the world's owner can remove at any time.
 **A world on disk**, with no server at all. `OWWorld.read_folder(path)` reads a world folder,
 `OWWorldArchive.read_file(path)` an `.owworld` file (one zip that holds a folder), and both give the same typed
 elements. A world you never edited is written back byte for byte. A pack (`OWWorldArchive.pack`, `OWWorld.pack`)
-is a copy: it carries every element, hidden ones included (the addon has no share yet). This repository carries a
+carries every element, hidden ones included (the addon has no share yet), but not who wrote each one: the five
+author fields (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`) are left out of every element
+file that is one JSON object, since a `.owworld` is a file handed on. Pass `include_author_fields` for a byte copy of
+your own folder. This repository carries a
 small example world, Hyperion, at `codegen/schema-dist/example/hyperion`; `demo/world_map.tscn`, the project's main
 scene, draws its Map with its Pin.
 
