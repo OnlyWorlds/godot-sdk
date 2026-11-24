@@ -42,6 +42,7 @@ var seen := OWLens.resolve(world, lens_id, {"rung": "guest", "whole": ids}, {"as
 for row in seen.rows: print(row["name"])                         # seen.cut: what was left out, by reason
 var g := OWGraph.world_graph(world, {"rung": "owner"}, {"lens": lens_id})   # nodes, edges, edges_cut
 var land := OWLanding.landing_of(g, {"heads": 5})                         # mode, size, clusters, unclustered, gaps
+var top := OWLanding.most_linked_of(g, {"per_type": 3})                   # per_type, by_type: a few of each type
 var space := OWMapSpace.map_space(bodies)                                  # maps, zones, pins, out: in the Map's pixels
 var lay := OWMapSpace.layout_of(map_row, map_rows, pin_rows)               # layout, ground, hand: one Map's layout keys
 var view := OWViews.view_of(body)                                          # row, sentence, banners, order: how it is shown
@@ -178,7 +179,11 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   numbers of 1 or more (`2.0` is 2), an unknown key or a bad value refused by name; counts are ints and ids compare
   by code point. `orphan` and `near_orphan` go by the page's own degree (`OWGraph.degree_of`: a link to itself once,
   each place in a list once), and a whole number too large to hold reads as the largest. Every case of the profile's
-  fixture (33).
+  fixture (33). Beside it, `OWLanding.most_linked_of(graph, {"per_type": 3})` is the TypeScript SDK's
+  `mostLinkedOf` (4.203.0): for each type, its most linked elements by the same degree, highest first, ties by id,
+  at most `per_type` of each (a whole number from 1 to 2^53 - 1, refused by name otherwise), never a node of degree 0
+  or a known-of node; `to_dict()` is `{per_type, by_type}`, the types in code point order, each entry
+  `{id, name, degree}`. A draft reading beside the profile: every case of the packages' shared fixture (18).
 - **Map space** (the map space profile, serial 106): `OWMapSpace.map_space(elements)` reads a world's Maps, Zones,
   Markers and Pins, as the reader is served them, into `{maps, zones, pins, out}`, whole numbers in the Map's pixels:
   each Map's frame (`width` and `height` its own, or measured from its points with `extent: "points"`; `depth`,
@@ -272,7 +277,9 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   leap rule with `except` and `offset`, eras with an open end skipping down eras, free and nested weeks, the template's
   close-up on JavaScript's white space); `world_calendars` finds them by the field. Every case of the profile's fixture
   (77: 34 calendars, 209 steps, 43 refusals). A whole number is a safe integer (2^53 - 1), `1.0` is 1, a boolean is
-  never a number; a month's days are found by arithmetic, never listed. The axis labels `format_year_label` ("22 FT")
+  never a number; a month's days are found by arithmetic, never listed, and a label's close-up and trims are one
+  pass, so a stored calendar never sets what one label costs (the TypeScript SDK 4.201.2's cost cases, all eight
+  inside their 50 ms line). The axis labels `format_year_label` ("22 FT")
   and `format_mid_label` ("11 Greening 454"), `format_duration` ("19 years", "12 days", "1.5 years"),
   `approx_year_length` and `month_start_steps` read as npm's `formatYearLabel`, `formatMidLabel`, `formatDuration`,
   `approxYearLength` and `monthStartSteps` do; `parse_date(calendar, text, {"now": step})` reads a typed date as
