@@ -39,6 +39,26 @@ build. The entries below are in the detail a maintainer needs; the history befor
   test), every case and refusal replayed.
 - `OWUnicode.is_decimal_digit` (general category Nd, Unicode 15.1, a table generated beside the letters and marks)
   and `OWUnicode.fold_code_point` (simple case folding of one code point), which the name finder reads.
+- **The most linked elements of each type**: `OWLanding.most_linked_of(graph, {"per_type": 3})` reads the graph
+  `OWGraph.world_graph` answered for a reader and gives, for each type, its most linked elements by
+  `OWGraph.degree_of`, highest first, ties by id in code point order, at most `per_type` of each: a few of every
+  type, never one ranking, so a game can offer what a world turns on. A node of degree 0 and a known-of node are
+  never picked. `to_dict()` is `{per_type, by_type}`, each entry `{id, name, degree}`; an unknown option, or a
+  `per_type` that is not a whole number from 1 to 2^53 - 1, is refused by name. Parity with the TypeScript SDK
+  4.203.0 and the Python package: their shared fixture (`tests/data/most-linked.fixture.json`, the same bytes, its
+  sha256 held by the test), all 18 cases replayed.
+
+### Fixed
+
+- **A stored calendar no longer sets what one date label costs.** `format_step` closed up the separators around
+  an empty token and trimmed a label's edges with regular expressions whose time grew faster than a long run of
+  white space or marks: a month name with 3,000 spaces took 13.7 s for one label, 20,000 commas at a label's edge
+  about 1.2 s. Both are one pass now, and so is the calendar's own trim (a step word with 20,000 spaces in it took
+  1.2 s in `format_duration`). A month of millions of days already cost nothing here: a day is found by walking
+  the months. Every answer is the same: 4,000 made templates are compared against the old regular expressions.
+  Parity with the TypeScript SDK 4.201.2, its cost cases replayed (`tests/data/calendar-cost.cases.json`, the same
+  bytes as the TypeScript SDK's and the Python package's, its sha256 held by the test): all eight inside its 50 ms
+  line, with no allowance for the interpreter.
 
 ### Changed
 
