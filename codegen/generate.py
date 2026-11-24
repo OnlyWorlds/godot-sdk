@@ -20,7 +20,8 @@ Standard library only. What it reads and writes:
                                                   fields in the walk's order, for OWViews; the file is checked first
                                                   (check_views) and refused whole when it fails
   -> addons/onlyworlds/unicode/ow_unicode_data.gd NFC data and the C+S case folds (OW-18), the letters and
-                                                  combining marks an address in prose is cut by, and what each code
+                                                  combining marks an address in prose is cut by, the decimal digits
+                                                  that with them hold a name found in prose in a word, and what each code
                                                   point gives an element file's slug (§3.2), as GDScript constants
   -> tests/data/unicode_vectors.txt               what Python says NFC and the fold give, for the tests
 
@@ -630,6 +631,19 @@ def word_ranges() -> list[list[int]]:
     serial 123): general category L or M, any letter or combining mark, from the vendored UnicodeData file (a
     `<..., First>` and `<..., Last>` pair is a range), checked equal to Python's unicodedata. As ranges, first and last
     inclusive. The underscore, the set's third member, is Pc and the reader's own."""
+    return category_ranges(lambda gc: gc[0] in "LM", "letters and marks")
+
+
+def digit_ranges() -> list[list[int]]:
+    """The decimal digits (general category Nd) of every script, from the same vendored UnicodeData file and checked
+    the same way: with the letters and marks, what puts a name found in prose inside a word (the TypeScript and Python
+    packages' name finder: L, M, Nd and the underscore). As ranges, first and last inclusive."""
+    return category_ranges(lambda gc: gc == "Nd", "decimal digits")
+
+
+def category_ranges(wanted, what: str) -> list[list[int]]:
+    """The code points whose general category [wanted] takes, from the vendored UnicodeData file (a `<..., First>`
+    and `<..., Last>` pair is a range), checked equal to Python's unicodedata, as sorted inclusive ranges."""
     cps, first = set(), None
     for line in UNICODE_DATA.read_text(encoding="utf-8").splitlines():
         fields = line.split(";")
@@ -639,11 +653,11 @@ def word_ranges() -> list[list[int]]:
             continue
         lo = first if fields[1].endswith(", Last>") else cp
         first = None
-        if fields[2][0] in "LM":
+        if wanted(fields[2]):
             cps.update(range(lo, cp + 1))
-    oracle = {cp for cp in range(0x110000) if unicodedata.category(chr(cp))[0] in "LM"}
+    oracle = {cp for cp in range(0x110000) if wanted(unicodedata.category(chr(cp)))}
     if cps != oracle:
-        sys.exit("The letters and marks from the vendored UnicodeData and from Python's unicodedata disagree.")
+        sys.exit(f"The {what} from the vendored UnicodeData and from Python's unicodedata disagree.")
     ranges: list[list[int]] = []
     for cp in sorted(cps):
         if ranges and ranges[-1][1] == cp - 1:
@@ -706,7 +720,8 @@ def slug_table() -> dict[int, str]:
     return table
 
 
-def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int]], slugs: dict[int, str]) -> str:
+def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int]], digits: list[list[int]],
+                 slugs: dict[int, str]) -> str:
     def h(cp):
         return "0x%X" % cp
 
@@ -722,6 +737,8 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int
         "# - WHITE_SPACE: what Python's str.strip() strips, for trimming a world id as the reference checker does.",
         f"# - LETTER_OR_MARK: general category L or M from UnicodeData-{UNICODE_VERSION}.txt, what glues an address",
         "#   found in prose into a word.",
+        f"# - DECIMAL_DIGIT: general category Nd from UnicodeData-{UNICODE_VERSION}.txt; with LETTER_OR_MARK and the",
+        "#   underscore, what puts a name found in prose inside a word.",
         f"# - SLUG: what a code point gives the element file slug (folder spec 3.2): NFKD from UnicodeData-{UNICODE_VERSION}.txt,",
         "#   U+0300..U+036F dropped, as the TypeScript and Python packages make it; checked equal to Python's unicodedata.",
         "extends RefCounted",
@@ -743,6 +760,9 @@ def emit_unicode(nfc: dict, folds: dict, spaces: list[int], words: list[list[int
     out += ["]", "", "## Letters and combining marks (general category L or M): ranges as first, last, first, last, ...",
             "## ascending, each inclusive.", "const LETTER_OR_MARK := ["]
     out += ["\t%s, %s," % (h(lo), h(hi)) for lo, hi in words]
+    out += ["]", "", "## Decimal digits (general category Nd): ranges as first, last, first, last, ... ascending, each inclusive.",
+            "const DECIMAL_DIGIT := ["]
+    out += ["\t%s, %s," % (h(lo), h(hi)) for lo, hi in digits]
     out += ["]", "", "## The element file slug's pieces: a code point beyond ASCII -> its NFKD's ASCII letters and digits, lowercase,",
             "## with \"-\" where anything else stands, or \"\" where nothing is left. A code point not here gives \"\" in",
             "## U+0300..U+036F and \"-\" everywhere else.", "const SLUG := {"]
@@ -816,7 +836,8 @@ def outputs() -> dict[Path, str]:
     if nfc != nfc_tables_from_unicodedata():
         sys.exit("NFC from the vendored files and from Python's unicodedata disagree; read both before trusting either.")
     folds = simple_folds()
-    out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space(), word_ranges(), slug_table())
+    out[ADDON / "unicode" / "ow_unicode_data.gd"] = emit_unicode(nfc, folds, white_space(), word_ranges(), digit_ranges(),
+                                                                  slug_table())
     out[ROOT / "tests" / "data" / "unicode_vectors.txt"] = unicode_vectors(nfc, folds)
     return out
 

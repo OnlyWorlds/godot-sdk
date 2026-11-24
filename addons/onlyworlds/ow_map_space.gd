@@ -8,7 +8,7 @@ extends RefCounted
 ## [method layout_of]: one Map's layout keys ([code]x_layout[/code] on the Map, [code]x_hand[/code] on its Pins),
 ## the fixture's [code]layout_cases[/code] its test; and its third, [method carry_of]: where a point on a child Map
 ## lies on its parent and on each Map above it ([code]x_parent_frame[/code]), the fixture's [code]frame_cases[/code]
-## its test.
+## its test. Beside them, the npm SDK's [method pins_known_to] (4.200.0): which of a map's Pins one reader knows.
 
 ## The reasons [member MapSpace.out] counts, in the order it lists them.
 const OUT_REASONS := ["no_point", "no_markers", "dangling", "no_map"]
@@ -341,6 +341,95 @@ static func carry_of(map: Variant, point: Variant, maps: Variant) -> Carry:
 		frame = _frame_of(at)[0]
 	a.parent_frame = own[2]
 	a.lint = own[1]
+	return a
+
+## How the element a known Pin places reached the reader: whole.
+const HOW_WHOLE := "whole"
+## How the element a known Pin places reached the reader: as a stub it only knows of ([code]known_of: true[/code]).
+const HOW_KNOWN_OF := "known_of"
+## The reason [member PinsKnownTo.out] counts: a Pin that places nothing.
+const NO_LINK := "no_link"
+
+## What [method pins_known_to] answers: the three parts, always all there. [member error] names a caller's mistake
+## (nothing read), "" otherwise.
+class PinsKnownTo:
+	## One [code]{pin, map, element_type, element_id, how}[/code] per known Pin, by Pin id in code point order:
+	## [code]map[/code] the Pin's [code]map[/code] as written when it is a non-empty String, else null (not checked
+	## against any Map); [code]how[/code] [constant HOW_WHOLE] or [constant HOW_KNOWN_OF].
+	var known := []
+	## How many Pins place an element the reader was not served. A count, never ids.
+	var unknown := 0
+	## The Pins left aside, by reason: [constant NO_LINK] for a Pin that places nothing. A reason with nothing counted
+	## is absent.
+	var out := {}
+	var error := ""
+
+	## The answer in the shared cases' shape: the three keys in order.
+	func to_dict() -> Dictionary:
+		return {"known": known, "unknown": unknown, "out": out}
+
+## Which of [param pins] one reader knows, for a map drawn as one Character sees it: a Pin is known when the element
+## it places is among [param served], the elements as that reader was served them, stubs included (a list read with
+## the reader's own key, or the owner's read as that Character). The npm SDK's [code]pinsKnownTo[/code] (4.200.0) and
+## the Python package's [code]pins_known_to[/code], ported: a rule of those packages, not of the standard. It reads
+## nothing else, so it cannot show a reader more than the world told them, and it does not ask whether a Pin has a
+## point or its Map exists: that is [method map_space]'s reading, and a drawing keeps the Pins both name.
+##
+## [param pins] is an Array of element Dictionaries, of which the rows of type [code]pin[/code] are read (so a whole
+## world's list can be passed); [param served] an Array of element Dictionaries. A Pin is known when a row of
+## [param served] has the Pin's [code]element_type[/code] as its [code]type[/code] and the Pin's
+## [code]element_id[/code] as its [code]id[/code], both as written ([code]Location[/code] is no [code]location[/code],
+## and the same id under another type is another element). [code]how[/code] is [constant HOW_KNOWN_OF] when that row
+## is a stub ([code]known_of[/code] the bool [code]true[/code]), else [constant HOW_WHOLE]; of two served rows with one
+## type and id, the last decides. A Pin with only one of [code]element_type[/code] and [code]element_id[/code] places
+## nothing: counted in [constant NO_LINK], never known. A row without a String [code]type[/code] and a non-empty
+## String [code]id[/code] is no element and is not counted; of two Pin rows with one id, the last is read. The answer
+## carries ids and the two words only, never an element's name or body. Pure: the input is never changed and every
+## part of the answer is the caller's own. Every case of the packages' shared file
+## ([code]tests/data/pins-known-to.cases.json[/code]).
+static func pins_known_to(pins: Variant, served: Variant) -> PinsKnownTo:
+	var a := PinsKnownTo.new()
+	if not pins is Array:
+		a.error = "pins_known_to: pins is a list of elements, an Array; got %s" % var_to_str(pins)
+		return a
+	if not served is Array:
+		a.error = "pins_known_to: served is a list of elements, an Array; got %s" % var_to_str(served)
+		return a
+	var served_how := {}   # type -> {id -> how}
+	for e in served:
+		if not (e is Dictionary and (e.get("type") is String or e.get("type") is StringName)):
+			continue
+		var id: Variant = _id_of(e.get("id"))
+		if id == null:
+			continue
+		var type := String(e["type"])
+		if not served_how.has(type):
+			served_how[type] = {}
+		served_how[type][id] = HOW_KNOWN_OF if (e.get("known_of") is bool and e["known_of"]) else HOW_WHOLE
+	var rows := {}   # pin id -> row, the last one served
+	for p in pins:
+		if not (p is Dictionary and (p.get("type") is String or p.get("type") is StringName) and String(p["type"]) == "pin"):
+			continue
+		var id: Variant = _id_of(p.get("id"))
+		if id != null:
+			rows[id] = p
+	var ids := rows.keys()
+	ids.sort()   # a Godot String's order is code point order
+	var no_link := 0
+	for id in ids:
+		var p: Dictionary = rows[id]
+		var type: Variant = _id_of(p.get("element_type"))
+		var element: Variant = _id_of(p.get("element_id"))
+		if type == null or element == null:
+			no_link += 1
+			continue
+		var how: Variant = served_how.get(type, {}).get(element)
+		if how == null:
+			a.unknown += 1
+			continue
+		a.known.append({"pin": id, "map": _id_of(p.get("map")), "element_type": type, "element_id": element, "how": how})
+	if no_link > 0:
+		a.out[NO_LINK] = no_link
 	return a
 
 ## A Map row's id: [code]type[/code] exactly [code]map[/code] (reading K) and a non-empty String id (reading H); else
