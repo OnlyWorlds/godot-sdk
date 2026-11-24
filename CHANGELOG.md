@@ -20,6 +20,25 @@ build. The entries below are in the detail a maintainer needs; the history befor
   [OnlyWorlds SDK](https://godotengine.org/asset-library/asset/5621) (0.1.1, for Godot 4.7). The README's Install
   names it first. The Library's download of the release commit was unpacked as the editor's installer maps it by
   default, into an empty project: it lands at `addons/onlyworlds/`, imports, and reads a world.
+- **Element names found in prose**: `OWNameFinder.name_finder(elements, name_case, names)` reads a world's names
+  once and answers a finder whose `find(text)` lists each name a text mentions, `{start, end, element}` in order,
+  so a game can mark the words that are elements (a hover, a tooltip, a link the player follows). It finds and never
+  writes. `name_case` is `OWNameFinder.EXACT` or `FOLDED` and must be given. A name is found only whole, where no
+  letter, combining mark, decimal digit or underscore of any script stands beside it; a name two elements share is
+  never answered and is listed in `shared`; nothing is read inside an address or a Markdown link. Indexes count code
+  points, as a Godot String does. The text is read once, from its end, so the work grows with the text's length
+  alone, whatever the names. Parity with the TypeScript SDK 4.198.0 and the Python package: their shared cases file
+  (`tests/data/name-finder.cases.json`, version 2, the same bytes, its sha256 held by the test), every case and its
+  ten timed recipes replayed.
+- **Which of a map's Pins one reader knows**: `OWMapSpace.pins_known_to(pins, served)` answers `{known, unknown,
+  out}` for a map drawn as one Character sees it: a Pin is known when the element it places is among the elements
+  that reader was served, whole or as a stub (`how` is `whole` or `known_of`), and nothing else is read, so the map
+  cannot show more than the world told that reader. The Pins whose element was not served are a count, never ids;
+  a Pin that places nothing is counted `no_link`. Parity with the TypeScript SDK 4.200.0 and the Python package:
+  their shared cases file (`tests/data/pins-known-to.cases.json`, version 1, the same bytes, its sha256 held by the
+  test), every case and refusal replayed.
+- `OWUnicode.is_decimal_digit` (general category Nd, Unicode 15.1, a table generated beside the letters and marks)
+  and `OWUnicode.fold_code_point` (simple case folding of one code point), which the name finder reads.
 
 ### Changed
 
