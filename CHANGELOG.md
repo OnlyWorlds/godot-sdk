@@ -42,6 +42,9 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Changed
 
+- README: a first run with no editor, as a script that extends `SceneTree` (`demo/first_run_headless.gd`), since
+  `godot --headless --script` refuses a `Node` script; and the write example shows a link field taking an id and a
+  list of links changed with `edit_links`.
 - A world folder and an `.owworld` are read with every name taken as written, as the folder format and the address
   profile rule. A file whose extension is `.json` in another spelling (`X.JSON`, `a.Json`) is not an element file, and a folder
   under `elements/` or `spatial/` whose name is not one of the 22 type words in lower case (`elements/Character/`,

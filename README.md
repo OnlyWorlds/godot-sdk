@@ -57,6 +57,29 @@ Attach it to any node and run the scene. The Output panel shows `Moppetopia`, th
 `await client.list_all("character")` pages through every character. In this repository the same script is
 `demo/first_run.tscn`.
 
+**Without the editor.** `godot --headless --script` runs only a script that extends `SceneTree` (a `Node` script is
+refused: "doesn't inherit from SceneTree or MainLoop"). The same first run as one:
+
+```gdscript
+extends SceneTree
+
+func _init() -> void:
+	await process_frame   # TLS starts with the first frame: an https request before it gets no answer
+	var client := OWClient.new({"api_key": "0000000001"})   # demo key: Moppetopia, read-only
+	var world := await client.get_world()
+	if not world.ok:
+		print(world.error)
+		quit(1)
+		return
+	print(world.value["name"])
+	var found := await client.list("character", {"name_contains": "fluffington"})
+	print(found.value.data[0].name)
+	quit()
+```
+
+From your project's folder, after the import: `godot --headless --script res://first_run_headless.gd`. It prints
+`Moppetopia`, then `Admiral Fluffington`. In this repository it is `demo/first_run_headless.gd`.
+
 ## Your own world
 
 Create a world at [onlyworlds.com](https://www.onlyworlds.com); its keys are on the world's page. A new key is shown
@@ -67,11 +90,13 @@ once, so copy it then.
 
 ```gdscript
 var client := OWClient.new({"api_key": world_key, "api_pin": pin})   # ow_w_…, your PIN
-var made := await client.create("character", {"name": "The Brine Cartographer"})
+var made := await client.create("character", {"name": "The Brine Cartographer", "location": harbour_id})
 await client.patch("character", made.value.id, {"description": "Maps the tide lines."})
+await client.edit_links("character", made.value.id, "friends", {"add": [friend_id]})
 ```
 
-`patch` sends only the fields you pass; `delete("character", id)` removes one. Every call answers a reply with
+A link field takes the linked element's id (`"location": harbour_id`); a list of links (`friends`) is changed with
+`edit_links`, which adds or removes ids without touching the others. `patch` sends only the fields you pass; `delete("character", id)` removes one. Every call answers a reply with
 `value` on success, else `error` (an `OWApiError` that says why). Keep write keys out of games you ship: a key written
 in a script, a scene or an exported variable is packed into the export, where anyone with the build can read it, so
 read write credentials at runtime.
