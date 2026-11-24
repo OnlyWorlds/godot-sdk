@@ -19,6 +19,10 @@ repository; the demo opens on a smaller example world that is.*
 Godot 4.7, the standard build. Earlier 4.x versions are untested, and so are exports other than Windows desktop (the
 web and mobile among them).
 
+- **Godot's Asset Library**: [OnlyWorlds SDK](https://godotengine.org/asset-library/asset/5621), also found from the
+  editor's **AssetLib** tab by searching for OnlyWorlds. Download it and install with the installer's defaults ("Ignore
+  Asset Root" stays ticked), and it lands at `addons/onlyworlds/`. The Library carries a release, so it can be a step
+  behind this repository.
 - **The release zip**: `onlyworlds-godot-0.1.1.zip`, from this repository's
   [Releases](https://github.com/OnlyWorlds/godot-sdk/releases) page. Unpack it into your project folder: it holds
   `addons/onlyworlds/`, which joins your project's `addons/` folder.

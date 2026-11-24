@@ -14,6 +14,13 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- The addon is listed in Godot's Asset Library, as
+  [OnlyWorlds SDK](https://godotengine.org/asset-library/asset/5621) (0.1.1, for Godot 4.7). The README's Install
+  names it first. The Library's download of the release commit was unpacked as the editor's installer maps it by
+  default, into an empty project: it lands at `addons/onlyworlds/`, imports, and reads a world.
+
 ### Changed
 
 - A world folder and an `.owworld` are read with every name taken as written, as the folder format and the address
