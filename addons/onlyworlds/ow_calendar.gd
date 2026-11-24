@@ -36,10 +36,7 @@ const _JS_WS := "\\t\\n\\x{0B}\\f\\r \\x{A0}\\x{1680}\\x{2000}-\\x{200A}\\x{2028
 const _EMPTY_KNOWN := "\ue000"
 
 static var _token_re: RegEx
-static var _collapse_re: RegEx
 static var _runs_re: RegEx
-static var _edges_re: RegEx
-static var _trim_re: RegEx
 static var _ws_re: RegEx
 static var _int_re: RegEx
 static var _decimal_re: RegEx
@@ -556,22 +553,75 @@ static func render_template(template: String, values: Dictionary) -> String:
 			parts.append(_EMPTY_KNOWN if v == null or (v is String and v == "") else _js_string(v))
 		at = m.get_end()
 	parts.append(template.substr(at))
-	var out := "".join(parts)
-	out = _collapse_re.sub(out, " ", true)
+	var out := _collapse_empty("".join(parts))
 	out = _runs_re.sub(out, " ", true)
-	out = _edges_re.sub(out, "", true)   # trim, then the separators left at either edge: one pass covers both
-	return out
+	return _trim_edges(out)   # trim, then the separators left at either edge: one pass covers both
+
+## What [code]/\s*[,;·]?\s*MARKER\s*[,;·]?\s*/g[/code] replaced by one space (MARKER the empty-known code point), in
+## one pass (npm 4.201.2's [code]collapseEmpty[/code]): each marker takes the white space, at most one mark and white
+## space before it (back to where the last replacement ended) and the same after it. As a regular expression it took
+## quadratic time on a long run of marks or white space before a marker.
+static func _collapse_empty(text: String) -> String:
+	var i := text.find(_EMPTY_KNOWN)
+	if i == -1:
+		return text
+	var n := text.length()
+	var done := 0
+	var parts := PackedStringArray()
+	while i != -1:
+		var j := i
+		while j > done and _is_js_ws(text.unicode_at(j - 1)):
+			j -= 1
+		if j > done and _is_mark(text.unicode_at(j - 1)):
+			j -= 1
+			while j > done and _is_js_ws(text.unicode_at(j - 1)):
+				j -= 1
+		var k := i + 1
+		while k < n and _is_js_ws(text.unicode_at(k)):
+			k += 1
+		if k < n and _is_mark(text.unicode_at(k)):
+			k += 1
+			while k < n and _is_js_ws(text.unicode_at(k)):
+				k += 1
+		parts.append(text.substr(done, j - done))
+		parts.append(" ")
+		done = k
+		i = text.find(_EMPTY_KNOWN, done)
+	parts.append(text.substr(done))
+	return "".join(parts)
+
+## [param text] without the white space and the marks [code], ; ·[/code] at either edge (npm 4.201.2's
+## [code]trimEdges[/code], after its trim), in one pass: the regular expression it replaces took quadratic time on a
+## long run of marks that did not reach the end.
+static func _trim_edges(text: String) -> String:
+	var a := 0
+	var b := text.length()
+	while a < b and (_is_js_ws(text.unicode_at(a)) or _is_mark(text.unicode_at(a))):
+		a += 1
+	while b > a and (_is_js_ws(text.unicode_at(b - 1)) or _is_mark(text.unicode_at(b - 1))):
+		b -= 1
+	return text.substr(a, b - a)
+
+## A mark the close-up absorbs: a comma, a semicolon or a middle dot (U+00B7).
+static func _is_mark(c: int) -> bool:
+	return c == 0x2C or c == 0x3B or c == 0xB7
+
+## JavaScript's white space ([code]\s[/code] and [code]trim[/code]: WhiteSpace and LineTerminator), the set
+## [constant _JS_WS] spells for the regular expressions.
+static func _is_js_ws(c: int) -> bool:
+	if c <= 0x20:
+		return c == 0x20 or (c >= 0x09 and c <= 0x0D)
+	if c < 0xA0:
+		return false
+	return c == 0xA0 or c == 0x1680 or (c >= 0x2000 and c <= 0x200A) or c == 0x2028 or c == 0x2029 \
+		or c == 0x202F or c == 0x205F or c == 0x3000 or c == 0xFEFF
 
 static func _compile() -> void:
 	if _token_re != null:
 		return
 	_token_re = RegEx.create_from_string("\\{([a-z_]+)\\}")
 	var ws := "[" + _JS_WS + "]"
-	_collapse_re = RegEx.create_from_string(ws + "*[,;·]?" + ws + "*" + _EMPTY_KNOWN + ws + "*[,;·]?" + ws + "*")
 	_runs_re = RegEx.create_from_string(ws + "{2,}")
-	_edges_re = RegEx.create_from_string("^[" + _JS_WS + ",;·]+|[" + _JS_WS + ",;·]+$")
-	# \z, not $: PCRE's $ also matches before a final newline, JavaScript's (no m flag) only at the end.
-	_trim_re = RegEx.create_from_string("^" + ws + "+|" + ws + "+\\z")
 	_ws_re = RegEx.create_from_string(ws + "+")
 	_int_re = RegEx.create_from_string("^-?[0-9]+\\z")   # JavaScript's \d with no u flag: ASCII digits only
 	_decimal_re = RegEx.create_from_string("^[+-]?(Infinity|([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][+-]?[0-9]+)?)\\z")
@@ -1319,10 +1369,16 @@ static func _utf16_less(a: String, b: String) -> bool:
 		i += 2
 	return ua.size() < ub.size()
 
-## String.prototype.trim: JavaScript's white space off both ends.
+## String.prototype.trim: JavaScript's white space off both ends, in one pass (a regular expression's
+## [code]\s+\z[/code] half took quadratic time on a long run of white space inside the text).
 static func _js_trim(s: String) -> String:
-	_compile()
-	return _trim_re.sub(s, "", true)
+	var a := 0
+	var b := s.length()
+	while a < b and _is_js_ws(s.unicode_at(a)):
+		a += 1
+	while b > a and _is_js_ws(s.unicode_at(b - 1)):
+		b -= 1
+	return s.substr(a, b - a)
 
 # -- numbers and truth ------------------------------------------------------------------------------------------------
 
