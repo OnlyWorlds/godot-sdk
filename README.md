@@ -165,7 +165,8 @@ godot --path . res://demo/world_map.tscn -- --world=<folder | file.owworld>   # 
 
 The tests need no network and no key: the client's tests run against a fake transport. A few tests read two large
 real worlds when their folders are named by `OW_SIKELIA` and `OW_MOPPETOPIA`; without them those tests are skipped,
-never passed. A stale class cache shows as `Could not find type "OW…"` parse errors, and a test file that fails to
+never passed. The `.owworld` conformance set is the vendored copy, or a draft copy when `OW_OWWORLD_FIXTURES` names
+a folder holding its `verdicts.json`. A stale class cache shows as `Could not find type "OW…"` parse errors, and a test file that fails to
 parse drops out of the total rather than counting as failed: import again and rerun.
 
 `tools/` holds `pack.gd` and `extract.gd` (shell tools for `.owworld` files), `check_writer.py` (an `.owworld` file

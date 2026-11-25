@@ -17,9 +17,9 @@ const EXTENSION := "owworld"
 const DEFAULT_MAX_BYTES := 2147483648
 const DEFAULT_MAX_ENTRIES := 500000
 
-## The one list of refusal causes (section 4.7).
+## The one list of refusal causes (section 4.7; name_case, a fixed name in another case, section 4.8).
 const REASONS := ["unsafe_path", "too_big", "too_many", "not_a_world", "more_than_one", "not_openable",
-	"duplicate", "collision", "link", "method", "name", "marker"]
+	"duplicate", "collision", "link", "method", "name", "marker", "name_case"]
 
 const _JUNK := {"__MACOSX": true, ".DS_Store": true, "Thumbs.db": true}
 const _PARTS := ["elements", "spatial", "media"]
@@ -47,7 +47,8 @@ class Result:
 	var held_world_json: PackedByteArray
 	var entries: Array = []
 
-	## The archive as an [OWWorld]: its elements typed, every other file kept for writing back.
+	## The archive as an [OWWorld]: its elements typed, every other file kept for writing back ([code]null[/code] only
+	## where [method OWWorld.from_files] refuses, which an accepted archive never is).
 	func to_world() -> OWWorld:
 		return OWWorld.from_files(files)
 
@@ -162,6 +163,15 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 			if n.count("/") == 1 and n.ends_with("/" + WORLD) and not n.begins_with("."):
 				roots[n.get_slice("/", 0) + "/"] = true
 		if roots.is_empty():
+			# Section 4.8 (ruled 2026-11-25): a world.json in another case, where a world would sit, is said as its cause.
+			var cased := PackedStringArray()
+			for n in candidates:
+				if n.count("/") <= 1 and not n.begins_with(".") \
+						and OWWorld.fixed_name_fault(PackedStringArray([n.get_file()]), [WORLD]) != "":
+					cased.append(n)
+			if not cased.is_empty():
+				cased.sort()
+				return _refuse(r, "name_case", "world.json in another case and no world.json: %s" % str(cased))
 			return _refuse(r, "not_a_world", "no world.json at the root or in one top-level folder")
 		if roots.size() > 1:
 			var list := roots.keys()
@@ -177,6 +187,16 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 			var rel := n.substr(r.prefix.length())
 			if rel != WORLD and rel.ends_with("/" + WORLD) and not rel.begins_with("records/"):
 				return _refuse(r, "more_than_one", "a second world.json inside the world: %s" % n.c_escape())
+
+	# Section 4.8 (ruled 2026-11-25): world.json, elements/ and spatial/ are read as written, and one held in another case
+	# without the name itself refuses the archive, never reads as an empty world (OW-18 refuses the two side by side;
+	# this, the one alone). Before one byte is inflated, as the reference checker orders it.
+	var tops := PackedStringArray()
+	for n in inside:
+		tops.append(n.substr(r.prefix.length()).get_slice("/", 0))
+	var why := OWWorld.fixed_name_fault(tops)
+	if why != "":
+		return _refuse(r, "name_case", why)
 
 	# OW-14: every entry inflated within what it declares, its CRC and length right.
 	var content := {}
@@ -317,6 +337,12 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 	folder = folder.trim_suffix("/").trim_suffix("\\")
 	if not DirAccess.dir_exists_absolute(folder):
 		out.message = "no world folder at %s" % folder
+		return out
+	# Section 4.8: a folder its own reader refuses is never packed, so the file system's fold never turns Elements/ into
+	# elements/ in the archive (Windows, macOS), nor packs a world without it (Linux).
+	var why := OWWorld.folder_fault(folder)
+	if why != "":
+		out.message = "the world folder %s is refused, %s" % [folder, why]
 		return out
 	var world_path := folder + "/" + WORLD
 	if not FileAccess.file_exists(world_path):

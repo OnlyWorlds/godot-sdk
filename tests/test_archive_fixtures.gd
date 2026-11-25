@@ -52,5 +52,5 @@ func test_the_set_is_the_pinned_one(t) -> void:
 		if v.get("status") != "not_generated":
 			generated += 1
 	t.eq(on_disk, generated, "every generated fixture is on disk, and nothing else")
-	print("       the set: %d fixtures in verdicts.json, %d on disk" % [doc["fixtures"].size(), on_disk])
+	print("       the set: %d fixtures in verdicts.json, %d on disk, at %s" % [doc["fixtures"].size(), on_disk, P.FIXTURES])
 	t.done()

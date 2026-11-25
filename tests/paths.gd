@@ -3,13 +3,21 @@ extends RefCounted
 ## real worlds are optional folders named by environment variable, OW_SIKELIA and OW_MOPPETOPIA (unset or missing: the
 ## tests that need them are skipped, never passed).
 
-const FIXTURES := "res://codegen/schema-dist/fixtures/owworld"
+## The conformance set: the vendored copy, or the folder the environment variable OW_OWWORLD_FIXTURES names when it
+## holds a verdicts.json (a draft set before its serial, as the Unity SDK's runner takes it).
+static var FIXTURES: String = _fixtures()
 const EXAMPLE := "res://codegen/schema-dist/example/hyperion"
 const ADDRESS := "res://codegen/schema-dist/profiles/address.fixture.json"
 const LENS := "res://codegen/schema-dist/profiles/lens.fixture.json"
 ## The npm SDK's and the Python package's shared Open with fixture, vendored byte for byte (not a dist file).
 const OPENERS := "res://tests/data/openers.fixture.json"
 const TMP := "user://ow-test-tmp"
+
+static func _fixtures() -> String:
+	var env := OS.get_environment("OW_OWWORLD_FIXTURES").replace("\\", "/").trim_suffix("/")
+	if env != "" and FileAccess.file_exists(env + "/verdicts.json"):
+		return env
+	return "res://codegen/schema-dist/fixtures/owworld"
 
 static func sikelia() -> String:
 	return OS.get_environment("OW_SIKELIA")

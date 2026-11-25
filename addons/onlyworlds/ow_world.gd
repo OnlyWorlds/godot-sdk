@@ -40,9 +40,15 @@ var _by_id: Dictionary = {}
 ## folder is one of the 22 type words in lower case, an element file ends in [code].json[/code] in lower case. A file
 ## that misses either only by its spelling ([code]X.JSON[/code], [code]elements/Character/[/code], or a folder that is no
 ## type) is skipped with a line in [member errors]. Media and records are not read. [code]null[/code] when there is no
-## world.json.
+## world.json, and when the folder holds world.json, elements/ or spatial/ in another case and not as written
+## ([code]Elements/[/code], [code]World.JSON[/code]): those three names are read as written, so the world would read as
+## empty, and the error printed names the cause, [code]name_case[/code], and both spellings ([method fixed_name_fault]).
 static func read_folder(path: String) -> OWWorld:
 	path = path.replace("\\", "/").trim_suffix("/")
+	var why := folder_fault(path)
+	if why != "":
+		push_error("OnlyWorlds: the world folder %s is refused, %s" % [path, why])
+		return null
 	var wpath := path + "/world.json"
 	if not FileAccess.file_exists(wpath):
 		push_error("OnlyWorlds: no world.json in %s" % path)
@@ -70,7 +76,16 @@ static func read_folder(path: String) -> OWWorld:
 	return w
 
 ## A world from files keyed by their path inside it (what [method OWWorldArchive.Result.to_world] passes).
+## [code]null[/code], as [method read_folder] answers, when a first-level name is world.json, elements or spatial in
+## another case and the name itself is absent; the error printed names the cause and both spellings.
 static func from_files(files: Dictionary) -> OWWorld:
+	var tops := PackedStringArray()
+	for rel: String in files:
+		tops.append(rel.get_slice("/", 0))
+	var why := fixed_name_fault(tops)
+	if why != "":
+		push_error("OnlyWorlds: the world's files are refused, %s" % why)
+		return null
 	var w := OWWorld.new()
 	var json := JSON.new()
 	var rels := files.keys()
@@ -88,6 +103,42 @@ static func from_files(files: Dictionary) -> OWWorld:
 	if w.info == null:
 		w._set_world_json(PackedByteArray())
 	return w
+
+## The three fixed names of a world, read as written (folder spec section 4.8, ruled 2026-11-25).
+const FIXED_NAMES := ["world.json", "elements", "spatial"]
+
+## Why a level of a world holding [param names] is refused, or [code]""[/code]: a name of [param wanted] (the three fixed
+## names) absent as written while one or more of [param names] is it in another case, compared by OW-18's fold
+## ([method OWUnicode.fold]: NFC, then simple case folding), so [code]\u017Fpatial[/code] is spatial in another case. The
+## reason begins with the cause, [code]name_case[/code], and names both spellings. A level holding both (only a disk that
+## keeps case can) has no fault: the name as written is read, the other left unread. One listing answers it for the
+## folder reader, [method from_files], the archive reader, the pack and the writer, never the file system's lookup,
+## which folds case on Windows and macOS.
+static func fixed_name_fault(names: PackedStringArray, wanted: Array = FIXED_NAMES) -> String:
+	for want: String in wanted:
+		if names.has(want):
+			continue
+		var key := OWUnicode.fold(want)
+		var others := PackedStringArray()
+		for n in names:
+			if OWUnicode.fold(n) == key:
+				others.append(n)
+		if others.is_empty():
+			continue
+		others.sort()
+		return ("name_case: it holds '%s' and no '%s', and the name is read as written, so '%s' is not %s and the "
+			+ "world would read without it (folder spec section 4.8); rename it '%s'") \
+			% ["', '".join(others), want, others[0], want, want]
+	return ""
+
+## [method fixed_name_fault] for a folder on disk, from its root's listing (files and folders, as written);
+## [code]""[/code] for a folder that is not there.
+static func folder_fault(path: String) -> String:
+	if not DirAccess.dir_exists_absolute(path):
+		return ""
+	var names := DirAccess.get_files_at(path)
+	names.append_array(DirAccess.get_directories_at(path))
+	return fixed_name_fault(names)
 
 func _set_world_json(bytes: PackedByteArray) -> void:
 	world_bytes = bytes
@@ -247,11 +298,18 @@ func to_files(only_edited := false) -> Dictionary:
 
 ## Write the world as a folder at [param path]: world.json and every element file (and, for a world read from an
 ## archive, its other files). [param only_edited] writes just the edited files (writing back into the folder read).
-## [constant ERR_INVALID_DATA], and nothing written, when [method write_refusal] says why it would not.
+## [constant ERR_INVALID_DATA], and nothing written, when [method write_refusal] says why it would not, and when the
+## folder holds world.json, elements/ or spatial/ in another case and not as written: on a disk that folds case the
+## files would land inside [code]Elements/[/code], where no reader reads them (the error printed says so,
+## [method fixed_name_fault]).
 func write_folder(path: String, only_edited := false) -> Error:
 	if write_refusal(only_edited) != "":
 		return ERR_INVALID_DATA
 	path = path.replace("\\", "/").trim_suffix("/")
+	var why := folder_fault(path)
+	if why != "":
+		push_error("OnlyWorlds: nothing written to the world folder %s, %s" % [path, why])
+		return ERR_INVALID_DATA
 	var files := to_files(only_edited)
 	for rel: String in files:
 		var full := path + "/" + rel

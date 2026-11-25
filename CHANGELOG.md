@@ -16,6 +16,21 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Changed
 
+- **`world.json`, `elements/` and `spatial/` are read as written, and one held in another case is refused, never
+  read as an empty world** (folder spec 4.8, ruled 2026-11-25). A folder holding `Elements/`, `World.JSON` or
+  `Spatial/` and not the name itself is refused by `OWWorld.read_folder` (`null`, as for no world.json, the error
+  printed naming the cause `name_case` and both spellings). Before, on Windows and macOS the folder was read as if the
+  name were right, and on Linux it read with no elements: one folder, two worlds. Every other door asks the same
+  question of a listing, never of the file system: `OWWorld.from_files` (`null` the same way), `OWWorldArchive.read`
+  (cause `name_case`, now in `REASONS`: a world file holding `abbey/Elements/` alone was accepted as empty, and
+  `abbey/World.JSON` refused as `not_a_world`), `pack_folder` and `pack` (on Windows they wrote `Elements/` into the
+  archive as `elements/`; now not ok, the message naming the cause), and `OWWorld.write_folder` (`ERR_INVALID_DATA`,
+  nothing written: on Windows the files landed inside `Elements/`, where no reader looks). Names are compared by
+  `OWUnicode.fold` (OW-18's NFC and simple case folding), so `ſpatial/` is `spatial/` in another case; a folder that
+  holds both spellings (only a case-sensitive disk can) reads the name as written. `OWWorld.fixed_name_fault(names)`
+  and `folder_fault(path)` answer the question for a caller's own listing. The tests' conformance set may be pointed at
+  a draft copy with the environment variable `OW_OWWORLD_FIXTURES` (a folder holding `verdicts.json`), as the Unity
+  SDK's runner takes it; unset, the vendored copy is read.
 - **A pack leaves out who wrote each element.** `OWWorldArchive.pack`, `pack_folder` and `OWWorld.pack` now remove
   the five author fields (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`: which member and which
   tool wrote an element, a membership id and a door, nothing to someone the world is handed to) from every file under
