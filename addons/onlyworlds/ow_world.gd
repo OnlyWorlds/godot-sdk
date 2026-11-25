@@ -142,6 +142,33 @@ static func folder_fault(path: String) -> String:
 	names.append_array(DirAccess.get_directories_at(path))
 	return fixed_name_fault(names)
 
+## Why writing [param rels] (paths inside the world) into the folder [param path] would put a file into a type folder
+## that is held in another spelling, by the folder's own listing or by another of [param rels], or [code]""[/code]. Type
+## folders are the second level under elements/ and spatial/, compared by OW-18's fold ([method OWUnicode.fold]); the
+## reason names both spellings. A folder holding both spellings already (only a disk that keeps case can) is written as
+## each is spelled.
+static func type_folder_fault(path: String, rels: Array) -> String:
+	for top in ELEMENT_FOLDERS:
+		var held := {}                          # each type folder's spelling, by its fold
+		var base: String = path + "/" + top
+		if DirAccess.dir_exists_absolute(base):
+			for d in DirAccess.get_directories_at(base):
+				held[d] = true
+		var written := {}
+		for rel: String in rels:
+			var segs := rel.split("/")
+			if segs.size() >= 3 and segs[0] == top:
+				written[segs[1]] = true
+		for name: String in written:
+			for other: String in held.keys() + written.keys():
+				if other != name and OWUnicode.fold(other) == OWUnicode.fold(name) and not (held.has(name) and held.has(other)):
+					var pair := [name, other]
+					pair.sort()
+					return ("%s/%s/ and %s/%s/ are one folder on a disk that ignores case, and a type folder is read as written "
+						+ "(folder spec section 4.8), so a file written into %s/%s/ would be read by no one; rename the "
+						+ "folder") % [top, pair[0], top, pair[1], top, name]
+	return ""
+
 func _set_world_json(bytes: PackedByteArray) -> void:
 	world_bytes = bytes
 	var data = OWJson.parse_bytes(bytes)
@@ -307,7 +334,10 @@ func to_files(only_edited := false) -> Dictionary:
 ## [constant ERR_INVALID_DATA], and nothing written, when [method write_refusal] says why it would not, and when the
 ## folder holds world.json, elements/ or spatial/ in another case and not as written: on a disk that folds case the
 ## files would land inside [code]Elements/[/code], where no reader reads them (the error printed says so,
-## [method fixed_name_fault]).
+## [method fixed_name_fault]). So too when a file would go into a type folder that the folder, or this write itself,
+## holds in another spelling ([code]elements/character/[/code] beside [code]elements/Character/[/code]): on such a disk
+## the two are one folder, and a type folder is read as written, so the file would be read by no one (the error printed
+## names both folders, [method type_folder_fault]).
 func write_folder(path: String, only_edited := false) -> Error:
 	if write_refusal(only_edited) != "":
 		return ERR_INVALID_DATA
@@ -317,6 +347,10 @@ func write_folder(path: String, only_edited := false) -> Error:
 		push_error("OnlyWorlds: nothing written to the world folder %s, %s" % [path, why])
 		return ERR_INVALID_DATA
 	var files := to_files(only_edited)
+	why = type_folder_fault(path, files.keys())
+	if why != "":
+		push_error("OnlyWorlds: nothing written to the world folder %s: %s" % [path, why])
+		return ERR_INVALID_DATA
 	for rel: String in files:
 		var full := path + "/" + rel
 		var err := DirAccess.make_dir_recursive_absolute(full.get_base_dir())

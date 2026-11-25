@@ -132,6 +132,44 @@ func test_a_write_into_a_folder_holding_elements_in_another_case_is_refused(t) -
 	_cleanup()
 	t.done()
 
+## A type folder is read as written (ruled 2026-11-23), so a write into elements/Character/ is read by no one: refused,
+## nothing written, the folder named in the error printed.
+func test_a_write_into_a_type_folder_in_another_case_is_refused(t) -> void:
+	var root := _root("type-case")
+	_write_tree(root, {"world.json": WORLD, "elements/Character/old.json": _body(ID_A, "Old")})
+	_say_the_disk(root)
+	var w := OWWorld.read_folder(root)
+	w.add_element(OWCharacter.new({"id": ID_B, "name": "Bo"}))
+	t.eq(w.write_folder(root, true), ERR_INVALID_DATA, "an edited write: refused")
+	t.eq(w.write_folder(root), ERR_INVALID_DATA, "a whole write: refused")
+	t.eq(_files_under(root), ["elements/Character/old.json", "world.json"],
+		"nothing written (on a disk that folds case, elements/character/ would land in Character/)")
+	_cleanup()
+	t.done()
+
+## The same when the world itself carries the folder in another case (read from an archive) and the target is new: on a
+## disk that ignores case the two spellings would become one folder as they are written.
+func test_a_write_whose_own_files_hold_a_type_folder_in_two_spellings_is_refused(t) -> void:
+	var root := _root("type-case-new")
+	P.remove_tree(root)
+	var w := OWWorld.from_files(_as_bytes({"world.json": WORLD, "elements/Character/old.json": _body(ID_A, "Old")}))
+	w.add_element(OWCharacter.new({"id": ID_B, "name": "Bo"}))
+	t.eq(w.write_folder(root), ERR_INVALID_DATA, "refused")
+	t.ok(not DirAccess.dir_exists_absolute(root + "/elements"), "nothing written")
+	_cleanup()
+	t.done()
+
+func test_another_types_folder_in_another_case_does_not_stop_a_write(t) -> void:
+	var root := _root("type-other")
+	_write_tree(root, {"world.json": WORLD, "elements/Location/old.json": _body(ID_A, "Old")})
+	var w := OWWorld.read_folder(root)
+	w.add_element(OWCharacter.new({"id": ID_B, "name": "Bo"}))
+	t.eq(w.write_folder(root, true), OK, "written")
+	t.ok(OWWorld.read_folder(root).get_element(ID_B) != null, "read back")
+	t.eq(w.write_folder(root), OK, "a whole write back carries Location/ as it is")
+	_cleanup()
+	t.done()
+
 func test_a_write_into_a_new_folder_writes_as_before(t) -> void:
 	var root := _root("fresh")
 	P.remove_tree(root)
