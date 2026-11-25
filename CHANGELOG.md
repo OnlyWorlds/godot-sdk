@@ -112,6 +112,14 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Fixed
 
+- **A new element whose type is not one of the 22 type slugs, exactly, is refused, and so can no longer be written
+  outside `elements/`.** A new element's file goes to `elements/<its type>/`, and any type was taken:
+  `OWTypes.make("Character", …)` or `"widget"` wrote a folder no reader reads, a plain `OWElement` (no type) wrote its
+  file loose in `elements/`, and a type such as `"../escape"` wrote the file beside `elements/`,
+  `"../../x"` outside the world folder. Now `OWWorld.write_refusal` names the cause and the 22, and `write_folder`
+  (`ERR_INVALID_DATA`, nothing written) and `pack` (not ok, the same words) refuse, as the TypeScript SDK's and the
+  Python package's folder writers refuse an unknown type. Elements read from a file keep the path they were read from.
+
 - **A write into a type folder spelled in another case is refused.** `OWWorld.write_folder` put a new Character into
   `elements/character/`, which on Windows and macOS is the folder's `elements/Character/`, where no reader reads it (a
   type folder is read as written, folder spec 4.8, ruled 2026-11-23). It now returns `ERR_INVALID_DATA` and writes

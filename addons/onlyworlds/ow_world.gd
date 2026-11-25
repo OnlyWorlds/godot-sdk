@@ -279,6 +279,10 @@ func add_element(e: OWElement) -> void:
 ## Also an edited element (or world.json) whose file is not UTF-8: it was read leniently, a replacement character
 ## (U+FFFD) where its bytes could not be read, and written in the spec's form that character would stand in place of
 ## the person's bytes. Left unedited, such a file is written as its bytes, at every door.
+##
+## Also a new element whose type is not one of the 22 type slugs as written ([code]"Character"[/code], an unknown word,
+## [code]""[/code] for a plain [OWElement], a path such as [code]"../x"[/code]): its file would go to a folder no reader
+## reads, or outside elements/.
 func write_refusal(only_edited := false) -> String:
 	if info.edited or not only_edited:
 		var id = info.get_value("id")
@@ -294,6 +298,10 @@ func write_refusal(only_edited := false) -> String:
 			return "a new or edited %s has no id (a non-empty String), and a writer mints none: set its id first" % e.get_type()
 		if e.edited and _read_not_utf8(e):
 			return _not_utf8_refusal(e)
+		if e.source_path == "":
+			var why := _type_refusal(e)
+			if why != "":
+				return why
 	var fresh := _new_paths()
 	for e in fresh:
 		if fresh[e] == "":
@@ -305,6 +313,21 @@ func write_refusal(only_edited := false) -> String:
 			return "a new %s's two file names (%s, %s) are both held by files of this world, and a writer never writes over one: rename it" \
 				% [e.get_type(), short, full]
 	return ""
+
+## Why a new element cannot be written by its type, or [code]""[/code]. Its file goes in [code]elements/<type>/[/code], and
+## a reader reads a type folder only when it is one of the 22 type slugs as written (folder spec section 4.8), so any
+## other type (another case, an unknown word, [code]""[/code] or a path such as [code]"../x"[/code], which would put the
+## file outside elements/) is refused, as the TypeScript SDK's and the Python package's writers refuse an unknown type.
+static func _type_refusal(e: OWElementCore) -> String:
+	var type := String(e.get_type())
+	if OWTypes.SCRIPTS.has(type):
+		return ""
+	if type == "":
+		return "a new element (%s) has no type, and a writer has no type folder to put it in: make it with OWTypes.make" \
+			% e.get_value("id")
+	return ("a new element (%s) has the type '%s', which is not one of the 22 type slugs as the standard spells them "
+		+ "(%s): a reader reads no other type folder, so nothing is written") \
+		% [e.get_value("id"), type, ", ".join(OWTypes.slugs())]
 
 ## True when [param e] was read from a file whose bytes are not well-formed UTF-8.
 static func _read_not_utf8(e: OWElementCore) -> bool:
