@@ -324,11 +324,13 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   stands beside it (L, M and Nd as Unicode 15.1 assigns them, from the addon's own table, so every engine and runtime
   reads one answer); it is trimmed of White_Space and three characters at least; the longest whole name wins where
   several start; a name two elements share is never answered and is listed in `finder.shared` (each `Shared`: the
-  name as compared and the elements, both read only); nothing is read inside an address (`OWAddress.find_links`) or
-  a Markdown link. Indexes count code points, as a Godot String does (npm counts UTF-16 units). The text is read once,
+  name as compared and the elements, both read only); nothing is read inside an address (`OWAddress.find_links`),
+  a Markdown link, a bare web address (`https://…` to the next white space or `<`) or an autolink (`<scheme:…>`);
+  `finder.find(text, true)`, for a text known to be Markdown, also passes over inline code, fenced code blocks, HTML
+  tags and comments, and reference definitions. Indexes count code points, as a Godot String does (npm counts UTF-16 units). The text is read once,
   from its end, so the work grows with its length alone. A caller's mistake is the finder's `error`, by name, and it
-  finds nothing. Every case of the packages' shared file (62, version 2) and its ten timed recipes, each under fifteen
+  finds nothing. Every case of the packages' shared file (84, version 3, 16 with the Markdown option) and its fourteen timed recipes, each under fifteen
   times the file's line (an interpreter's; `tests/test_name_finder.gd` gives the reason). Parity with the TypeScript
-  SDK 4.198.0.
+  SDK 4.208.0.
 - **Writing an archive**: its own zip bytes: the marker stored first, UTF-8 byte order, fixed 1980 stamps, methods 0
   and 8, zip64 from 65,535 entries.

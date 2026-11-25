@@ -16,6 +16,12 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Added
 
+- **The name finder passes over web addresses, and over Markdown's code, HTML and definitions when told the text is
+  Markdown.** In any text a bare web address (`http://` or `https://` in any ASCII case, to the next white space or
+  `<`) and an autolink (`<scheme:…>`) are passed over. `finder.find(text, true)` also reads nothing inside an inline
+  code span, a fenced code block, an HTML tag or comment, or a reference definition's line; `find(text)` keeps a
+  rich-text node's literal backticks as prose. Parity with the TypeScript SDK 4.208.0, its version 3 cases (84, 16
+  with the option, 14 timed) vendored byte for byte.
 - **A file nested past 200 is refused by name, `too_deep`** (the folder format's OW-25): the depth of its deepest object
   or array, the file's top value at 1, objects and arrays both counted. The count is made in the file's text as each
   object or array opens, before any parse (`OWJson.opens_past`, `OWJson.MAX_DEPTH`, `OWJson.TOO_DEEP`), so every value

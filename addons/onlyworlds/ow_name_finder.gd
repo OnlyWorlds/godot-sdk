@@ -82,8 +82,12 @@ var _longest := PackedInt32Array()
 ## - Where several names start at one place, the longest whole one is taken ("Iron Gate" over "Iron").
 ## - A name two elements share is never answered, and nothing inside it is: the text stays plain there. One element
 ##   listed twice, or found by two of its own names, is one element (by its id, as written).
-## - Nothing is read inside an address (what [method OWAddress.find_links] finds) or a Markdown link
-##   [code][label](target)[/code], and no name is read across the edge of one.
+## - Nothing is read inside an address (what [method OWAddress.find_links] finds), a Markdown link
+##   [code][label](target)[/code], a bare web address ([code]https://…[/code] to the next white space or [code]<[/code])
+##   or an autolink ([code]<scheme:…>[/code]), and no name is read across the edge of one. With
+##   [code]find(text, true)[/code], for a text known to be Markdown, nothing is read inside an inline code span, a fenced
+##   code block, an HTML tag or comment, or a reference definition's line either. An indented code block, a fence
+##   inside a quote or a list, and a definition's title on the next line are read as prose.
 ## - Text is compared as written: no Unicode normalisation, and a space in a name matches that one space.
 ##
 ## [member shared] lists every name two or more elements hold. Nothing given is changed. The work for one text grows
@@ -203,12 +207,14 @@ static func name_finder(elements: Variant, name_case: Variant, names: Variant = 
 
 ## Every name of the finder's elements in [param text], each a [Found], in order, none overlapping (the rules are
 ## [method name_finder]'s). [member Found.start] and [member Found.end] count code points. Each call answers a new
-## Array, the caller's own.
-func find(text: String) -> Array:
+## Array, the caller's own. [param markdown] true says the text is Markdown: its code, HTML and reference definitions are
+## passed over too (the TypeScript SDK's [code]find(text, { markdown: true })[/code], 4.208.0); false, the default,
+## keeps a rich-text node's literal backticks as prose.
+func find(text: String, markdown: bool = false) -> Array:
 	var found := []
 	if _hits.is_empty():
 		return found
-	var spans := _passed_over(text)
+	var spans := _passed_over(text, markdown)
 	var length := text.length()
 	# Where a whole name starts and the longest one that does, as the backward pass meets them: last place first.
 	var starts := PackedInt32Array()
@@ -317,11 +323,226 @@ static func _markdown_links(text: String) -> Array:
 		open = text.find("[", paren + 1)
 	return spans
 
-## The stretches no name is read in: every address and every Markdown link, in order, none overlapping.
-static func _passed_over(text: String) -> Array:
+## Unicode's White_Space code points: the end of a bare web address and of an autolink.
+static func _is_white_space(c: int) -> bool:
+	return (c >= 0x09 and c <= 0x0d) or c == 0x20 or c == 0x85 or c == 0xa0 or c == 0x1680 \
+		or (c >= 0x2000 and c <= 0x200a) or c == 0x2028 or c == 0x2029 or c == 0x202f or c == 0x205f or c == 0x3000
+
+static func _is_ascii_letter(c: int) -> bool:
+	return (c >= 0x41 and c <= 0x5a) or (c >= 0x61 and c <= 0x7a)
+
+static func _is_scheme_char(c: int) -> bool:
+	return _is_ascii_letter(c) or (c >= 0x30 and c <= 0x39) or c == 0x2b or c == 0x2e or c == 0x2d
+
+## The code point at [param i], or -1 outside the text.
+static func _at(text: String, i: int) -> int:
+	return text.unicode_at(i) if i >= 0 and i < text.length() else -1
+
+## [param text].find, -1 when [param from] is past the end.
+static func _find_from(text: String, what: String, from: int) -> int:
+	return -1 if from > text.length() else text.find(what, from)
+
+## True when the four or five code points before [param at] spell [code]http[/code] (or [code]https[/code] when
+## [param s]), in ASCII case alone.
+static func _scheme_before(text: String, at: int, s: bool) -> bool:
+	var word := "https" if s else "http"
+	for k in word.length():
+		if (_at(text, at + k) | 0x20) != word.unicode_at(k):
+			return false
+	return true
+
+## Every bare web address and every autolink, in any text. A bare address starts at [code]http://[/code] or
+## [code]https://[/code] (the scheme in any ASCII case) and runs to just before the first white space or [code]<[/code].
+## An autolink is [code]<[/code], a scheme (an ASCII letter, then 1 to 31 of letters, digits, [code]+[/code],
+## [code].[/code] or [code]-[/code]), [code]:[/code], then anything but white space, a control character, [code]<[/code]
+## or [code]>[/code], up to the closing [code]>[/code]. The TypeScript SDK's webAddresses (4.208.0).
+static func _web_addresses(text: String) -> Array:
+	var spans := []
+	var n_text := text.length()
+	var floor_at := 0
+	var p := text.find("://")
+	while p != -1:
+		var at := -1
+		if p - 5 >= floor_at and _scheme_before(text, p - 5, true):
+			at = p - 5
+		elif p - 4 >= floor_at and _scheme_before(text, p - 4, false):
+			at = p - 4
+		if at == -1:
+			p = _find_from(text, "://", p + 1)
+			continue
+		var end := p + 3
+		while end < n_text:
+			var c := text.unicode_at(end)
+			if _is_white_space(c) or c == 0x3c:
+				break
+			end += 1
+		spans.append([at, end])
+		floor_at = end
+		p = _find_from(text, "://", end)
+	var open := text.find("<")
+	while open != -1:
+		var i := open + 1
+		if _is_ascii_letter(_at(text, i)):
+			var n := 1
+			i += 1
+			while i < n_text and n < 32 and _is_scheme_char(text.unicode_at(i)):
+				i += 1
+				n += 1
+			if n >= 2 and _at(text, i) == 0x3a:
+				i += 1
+				var c := _at(text, i)
+				while i < n_text and c != 0x3e and c != 0x3c and c >= 0x20 and c != 0x7f and not _is_white_space(c):
+					i += 1
+					c = _at(text, i)
+				if i < n_text and c == 0x3e:
+					spans.append([open, i + 1])
+					open = _find_from(text, "<", i + 1)
+					continue
+		open = _find_from(text, "<", open + 1)
+	return spans
+
+## A line's fence, after at most three spaces: [char, length, after] for a run of three or more backticks or tildes,
+## or an empty Array.
+static func _fence_of(text: String, start: int, end: int) -> Array:
+	var i := start
+	while i < end and i - start < 3 and text.unicode_at(i) == 0x20:
+		i += 1
+	var ch := _at(text, i)
+	if ch != 0x60 and ch != 0x7e:
+		return []
+	var j := i
+	while j < end and text.unicode_at(j) == ch:
+		j += 1
+	return [ch, j - i, j] if j - i >= 3 else []
+
+## The Markdown stretches no name is read in ([code]markdown[/code] true). Fenced code blocks first: a line whose fence
+## opens one (a backtick fence holds no backtick in the rest of its line) runs to a later line holding only a fence of
+## the same character, at least as long, and spaces or tabs after it, or to the end of the text. Outside them: an inline
+## code span (a run of backticks to the next run of exactly as many; a run with none is prose), an HTML comment
+## ([code]<!--[/code] to the first [code]-->[/code]), an HTML tag ([code]<[/code], an optional [code]/[/code], an ASCII
+## letter, to the first [code]>[/code]), and a reference definition's line (after at most three spaces, [code][[/code],
+## a label, and the line's first [code]][/code] followed by [code]:[/code]). The TypeScript SDK's markdownStretches.
+static func _markdown_stretches(text: String) -> Array:
+	var spans := []
+	var n_text := text.length()
+	var lines := []
+	var start := 0
+	while true:
+		var nl := _find_from(text, "\n", start)
+		if nl == -1:
+			lines.append([start, n_text])
+			break
+		lines.append([start, nl])
+		start = nl + 1
+	var outside := []
+	var seg_start := 0
+	var bracket := -2 # the next ] at or after the place last asked about, searched for once per place passed
+	var k := 0
+	while k < lines.size():
+		var ls: int = lines[k][0]
+		var le: int = lines[k][1]
+		var open := _fence_of(text, ls, le)
+		var tick := -1
+		if not open.is_empty() and open[0] == 0x60:
+			tick = _find_from(text, "`", open[2])
+		if open.is_empty() or (tick != -1 and tick < le):
+			var i := ls
+			while i < le and i - ls < 3 and text.unicode_at(i) == 0x20:
+				i += 1
+			if _at(text, i) == 0x5b:
+				if bracket != -1 and bracket < i + 1:
+					bracket = _find_from(text, "]", i + 1)
+				var close := bracket
+				if close != -1 and close < le and close > i + 1 and _at(text, close + 1) == 0x3a:
+					spans.append([ls, le])
+			k += 1
+			continue
+		var m := k + 1
+		while m < lines.size():
+			var cs: int = lines[m][0]
+			var ce: int = lines[m][1]
+			var shut := _fence_of(text, cs, ce)
+			if not shut.is_empty() and shut[0] == open[0] and shut[1] >= open[1]:
+				var j: int = shut[2]
+				while j < ce and (text.unicode_at(j) == 0x20 or text.unicode_at(j) == 0x09 or text.unicode_at(j) == 0x0d):
+					j += 1
+				if j == ce:
+					break
+			m += 1
+		var block_end: int = lines[m][1] if m < lines.size() else n_text
+		if ls > seg_start:
+			outside.append([seg_start, ls])
+		spans.append([ls, block_end])
+		seg_start = block_end
+		k = m + 1
+	if seg_start < n_text:
+		outside.append([seg_start, n_text])
+	for seg in outside:
+		var s: int = seg[0]
+		var e: int = seg[1]
+		# Inline code spans: every maximal backtick run, then each opening run to the next run of its length.
+		var run_at := PackedInt32Array()
+		var run_n := PackedInt32Array()
+		var t := _find_from(text, "`", s)
+		while t != -1 and t < e:
+			var j := t
+			while j < e and text.unicode_at(j) == 0x60:
+				j += 1
+			run_at.append(t)
+			run_n.append(j - t)
+			t = _find_from(text, "`", j)
+		var by_length := {}
+		for idx in run_at.size():
+			if not by_length.has(run_n[idx]):
+				by_length[run_n[idx]] = []
+			by_length[run_n[idx]].append(idx)
+		var cursor := {}
+		var r := 0
+		while r < run_at.size():
+			var n := run_n[r]
+			var list: Array = by_length[n]
+			var c: int = cursor.get(n, 0)
+			while c < list.size() and list[c] <= r:
+				c += 1
+			cursor[n] = c
+			if c < list.size():
+				spans.append([run_at[r], run_at[list[c]] + n])
+				r = list[c] + 1
+			else:
+				r += 1
+		# HTML comments and tags.
+		var gt := -2
+		var comment_end := -2
+		var lt := _find_from(text, "<", s)
+		while lt != -1 and lt < e:
+			if text.substr(lt, 4) == "<!--":
+				if comment_end != -1 and comment_end < lt + 4:
+					comment_end = _find_from(text, "-->", lt + 4)
+				if comment_end != -1 and comment_end + 3 <= e:
+					spans.append([lt, comment_end + 3])
+					lt = _find_from(text, "<", comment_end + 3)
+					continue
+			else:
+				var name := lt + 2 if _at(text, lt + 1) == 0x2f else lt + 1
+				if _is_ascii_letter(_at(text, name)):
+					if gt != -1 and gt < name:
+						gt = _find_from(text, ">", name)
+					if gt != -1 and gt < e:
+						spans.append([lt, gt + 1])
+						lt = _find_from(text, "<", gt + 1)
+						continue
+			lt = _find_from(text, "<", lt + 1)
+	return spans
+
+## The stretches no name is read in, in order, none overlapping: every address, every Markdown link, every bare web
+## address and autolink, and with [param markdown] the Markdown stretches too.
+static func _passed_over(text: String, markdown: bool = false) -> Array:
 	var spans := _markdown_links(text)
 	for a in OWAddress.find_links(text):
 		spans.append([a.start, a.end])
+	spans.append_array(_web_addresses(text))
+	if markdown:
+		spans.append_array(_markdown_stretches(text))
 	spans.sort_custom(func(x, y): return x[0] < y[0] or (x[0] == y[0] and x[1] < y[1]))
 	var out := []
 	for s in spans:

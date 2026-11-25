@@ -6,7 +6,7 @@ extends RefCounted
 ## TypeScript SDK's answer.
 
 const CASES := "res://tests/data/name-finder.cases.json"
-const CASES_SHA256 := "8e91e79981830511055976011f9fc6d4f4b62fb0183c29bad61c2d05fd4b13e4"
+const CASES_SHA256 := "9c6fcf52eaa7a435b88f7524fdd1020a696b97ecc31d2a1efcf9431a49384b57"
 ## The cases' underMs (2,000) is the TypeScript SDK's line, about 28 times its slowest recipe on Node (70 ms). GDScript
 ## is an interpreter: on Godot 4.7 this matcher took 11 to 150 times Node's time on the recipes that time it alone, and
 ## about 400 times on "address prefixes with no address", whose cost was OWAddress.find_links (60,000 prefixes that
@@ -29,7 +29,7 @@ static func _names_of(e: Variant) -> Array:
 func _answer(c: Dictionary) -> Array:
 	var find := OWNameFinder.name_finder(c["elements"], c["case"], _names_of)
 	var out := []
-	for f in find.find(c["text"]):
+	for f in find.find(c["text"], c.get("markdown") == true):
 		out.append({"at": f.start, "length": f.end - f.start, "id": f.element["id"]})
 	return out
 
@@ -56,9 +56,10 @@ static func _spans(name: String, name_case: String, text: String) -> Array:
 
 func test_the_cases_file_is_the_shared_bytes(t) -> void:
 	t.eq(FileAccess.get_sha256(CASES), CASES_SHA256, "the bytes the TypeScript SDK and the Python package run")
-	t.eq(int(_fixture()["version"]), 2, "version 2")
-	t.eq(_fixture()["cases"].size(), 62, "62 cases")
-	t.eq(_fixture()["timed"].size(), 10, "10 timed recipes")
+	t.eq(int(_fixture()["version"]), 3, "version 3")
+	t.eq(_fixture()["cases"].filter(func(c): return c.get("markdown") == true).size(), 16, "16 cases with the markdown option")
+	t.eq(_fixture()["cases"].size(), 84, "84 cases")
+	t.eq(_fixture()["timed"].size(), 14, "14 timed recipes")
 	t.done()
 
 func test_every_case_what_find_answers(t) -> void:
@@ -142,7 +143,7 @@ func test_the_timed_recipes(t) -> void:
 		var built := _build(r)
 		var find := OWNameFinder.name_finder(built[0], OWNameFinder.EXACT)
 		var t0 := Time.get_ticks_usec()
-		var found := find.find(built[1])
+		var found := find.find(built[1], r.get("markdown") == true)
 		var ms := (Time.get_ticks_usec() - t0) / 1000.0
 		print("       timed: %s: %d found in %.0f ms" % [r["name"], found.size(), ms])
 		t.eq(found.size(), int(r["count"]), r["name"])
