@@ -19,7 +19,7 @@ const DEFAULT_MAX_ENTRIES := 500000
 
 ## The one list of refusal causes (section 4.7; name_case, a fixed name in another case, section 4.8).
 const REASONS := ["unsafe_path", "too_big", "too_many", "not_a_world", "more_than_one", "not_openable",
-	"duplicate", "collision", "link", "method", "name", "marker", "name_case", "too_deep"]
+	"duplicate", "collision", "link", "method", "name", "marker", "name_case"]
 
 const _JUNK := {"__MACOSX": true, ".DS_Store": true, "Thumbs.db": true}
 const _PARTS := ["elements", "spatial", "media"]
@@ -216,9 +216,10 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 
 	# OW-3: the world's own world.json is a JSON object whose id is a non-empty string once trimmed.
 	r.held_world_json = content[r.prefix + WORLD]
-	# OW-25: the world's own file counted as an element file is, in its text before any parse; refused by its own cause.
+	# OW-25: the world's own file counted as an element file is, in its text before any parse: a world.json the reader
+	# cannot read, so no world (OW-3), its message naming the word.
 	if OWJson.opens_past(r.held_world_json.get_string_from_utf8()):
-		return _refuse(r, "too_deep", "world.json: " + OWJson.TOO_DEEP_WHY)
+		return _refuse(r, "not_a_world", "world.json: " + OWJson.TOO_DEEP_WHY)
 	var world = _parse_strict(r.held_world_json)
 	if world == null:
 		return _refuse(r, "not_a_world", "world.json does not parse")

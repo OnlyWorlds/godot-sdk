@@ -21,9 +21,9 @@ build. The entries below are in the detail a maintainer needs; the history befor
   object or array opens, before any parse (`OWJson.opens_past`, `OWJson.MAX_DEPTH`, `OWJson.TOO_DEEP`), so every value
   of a key given twice counts, where Godot's parser keeps the last and reads past 200. An element file past it is
   skipped into `OWWorld.errors` as `<path>: too_deep: ...`, its bytes kept in `other_files`, as the TypeScript SDK's
-  folder reader skips it. A share leaves it out as unread. A `.owworld` whose world.json is that deep is refused with
-  its own cause, `too_deep` (now in `OWWorldArchive.REASONS`), and a folder whose world.json is that deep does not
-  pack. Tests: `tests/test_too_deep.gd`.
+  folder reader skips it. A share leaves it out as unread. A `.owworld` whose world.json is that deep is no world,
+  `not_a_world`, as any world.json it cannot read, its message naming `too_deep`; a folder whose world.json is that
+  deep does not pack. Tests: `tests/test_too_deep.gd`.
 
 ## [0.3.0] - 2026-11-25
 
