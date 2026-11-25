@@ -101,7 +101,7 @@ func _calendar(t, c: Dictionary) -> void:   # bound arguments come after the cal
 
 func _validate(t) -> void:
 	var rows: Array = _parity()["validate"]
-	t.eq(rows.size(), 149, "the validate rows")
+	t.eq(rows.size(), 150, "the validate rows")
 	var thrown := 0
 	for row in rows:
 		var name: String = row["case"] if row.has("case") else row["name"]
@@ -154,7 +154,7 @@ func test_the_vectors_name_their_source(t) -> void:
 	for c in doc["calendars"]:
 		if c.has("case"):
 			named += 1
-	t.eq(named, 35, "every calendar of the fixture")
+	t.eq(named, 36, "every calendar of the fixture")
 	t.done()
 
 func test_parse_refuses_a_callers_mistake(t) -> void:
