@@ -179,13 +179,15 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 			return _refuse(r, "more_than_one", "worlds in %s" % str(list))
 		r.prefix = roots.keys()[0]
 
-	# OW-5: no world.json inside the world but its own, except a producer's under records/.
+	# OW-5: no world.json inside the world but its own, except a producer's under records/, and except under a folder
+	# whose name starts with a dot: a dot-folder is never a world, wherever it sits (ruled 2026-11-24; ..atlas/ too).
+	# Only this check skips them: every other check reads their entries.
 	var inside: Array[String] = []
 	for n in candidates:
 		if n.begins_with(r.prefix):
 			inside.append(n)
 			var rel := n.substr(r.prefix.length())
-			if rel != WORLD and rel.ends_with("/" + WORLD) and not rel.begins_with("records/"):
+			if rel != WORLD and rel.ends_with("/" + WORLD) and not rel.begins_with("records/") and not _under_a_dot_folder(rel):
 				return _refuse(r, "more_than_one", "a second world.json inside the world: %s" % n.c_escape())
 
 	# Section 4.8 (ruled 2026-11-25): world.json, elements/ and spatial/ are read as written, and one held in another case
@@ -230,6 +232,15 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 	r.ok = true
 	r.message = "world %s, %d files" % [wid, r.files.size()]
 	return r
+
+## Whether [param rel] sits under a folder whose name starts with a dot, at any depth (its last segment, the file, not
+## counted). The names are already plain paths: OW-16 refused a segment that is exactly "." or "..".
+static func _under_a_dot_folder(rel: String) -> bool:
+	var segs := rel.split("/")
+	for i in segs.size() - 1:
+		if segs[i].begins_with("."):
+			return true
+	return false
 
 static func _refuse(r: Result, reason: String, message: String) -> Result:
 	r.ok = false

@@ -104,6 +104,11 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Fixed
 
+- **A tool's `world.json` under a dot-folder inside the world no longer refuses a world file** (folder spec 4.7,
+  OW-5, ruled 2026-11-24). `OWWorldArchive.read` refused `abbey/.atlas/world.json` as a second world
+  (`more_than_one`); a dot-folder is never a world, wherever it sits (`..atlas/`, `elements/character/.trash/` too), so
+  the second-world check no longer looks under one, as the folder reader never reads one. Every other check still
+  reads those entries. The fixture set's `pass-OW-5-dot-folder-inside` passes (`tests/test_dot_folder_world.gd`).
 - **A stored calendar no longer sets what one date label costs.** `format_step` closed up the separators around
   an empty token and trimmed a label's edges with regular expressions whose time grew faster than a long run of
   white space or marks: a month name with 3,000 spaces took 13.7 s for one label, 20,000 commas at a label's edge
