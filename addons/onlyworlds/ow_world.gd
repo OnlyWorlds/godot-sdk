@@ -45,6 +45,8 @@ var _by_id: Dictionary = {}
 ## world.json, and when the folder holds world.json, elements/ or spatial/ in another case and not as written
 ## ([code]Elements/[/code], [code]World.JSON[/code]): those three names are read as written, so the world would read as
 ## empty, and the error printed names the cause, [code]name_case[/code], and both spellings ([method fixed_name_fault]).
+## Each element's type, and so its class, is the one its body declares when that is one of the 22 slugs exactly, else
+## its type folder's ([method declared_type]).
 static func read_folder(path: String) -> OWWorld:
 	path = path.replace("\\", "/").trim_suffix("/")
 	var why := folder_fault(path)
@@ -208,6 +210,15 @@ func _add_file(rel: String, type: String, name: String, bytes: PackedByteArray, 
 		return
 	_add_parsed(rel, type, bytes, json)
 
+## The type an element file's [param body] declares, else [param folder_type], the type folder it sits in. A declared
+## type is a String exactly equal to one of the 22 type slugs (folder spec section 4.1, ruled 2026-11-22): anything else
+## in [code]type[/code] (another case such as [code]"Location"[/code], a space around it, an unknown word, a number,
+## [code]true[/code], a list, an object, [code]null[/code]) declares nothing, so the folder's type is served. The body
+## keeps what it says either way. The element is made in the type's own class ([method OWTypes.make]).
+static func declared_type(body: Dictionary, folder_type: String) -> String:
+	var declared = body.get("type")
+	return declared if declared is String and OWTypes.SCRIPTS.has(declared) else folder_type
+
 func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) -> void:
 	var text := bytes.get_string_from_utf8()   # a byte order mark is read past (measured)
 	if json.parse(text) != OK:
@@ -222,7 +233,7 @@ func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) 
 		errors.append("%s: %s" % [rel, OWJson.OUT_OF_RANGE_WHY])
 		other_files[rel] = bytes
 		return
-	var e := OWTypes.make(type, json.data)
+	var e := OWTypes.make(declared_type(json.data, type), json.data)
 	e.source_path = rel
 	e.source_bytes = bytes
 	elements.append(e)

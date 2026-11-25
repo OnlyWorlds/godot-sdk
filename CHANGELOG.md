@@ -31,6 +31,14 @@ build. The entries below are in the detail a maintainer needs; the history befor
   and `folder_fault(path)` answer the question for a caller's own listing. The tests' conformance set may be pointed at
   a draft copy with the environment variable `OW_OWWORLD_FIXTURES` (a folder holding `verdicts.json`), as the Unity
   SDK's runner takes it; unset, the vendored copy is read.
+- **A body's `type` decides an element's type and class when it is one of the 22 type slugs, exactly** (folder spec
+  4.1, ruled 2026-11-22). `OWWorld.read_folder` and `OWWorld.from_files` (so an `.owworld` too) never asked the body:
+  a file in `elements/character/` saying `"type": "location"` was read as an `OWCharacter`. Now it is an
+  `OWLocation`, and `of_type("location")` finds it; it keeps the path it was read from. Anything but one of the 22 as
+  written (another case such as `"Location"`, a space around it, an unknown word, a number, a list) declares nothing,
+  and the type folder's type is served, as before. The body keeps what it says. `OWWorld.declared_type(body,
+  folder_type)` answers it for a caller's own body. The cases are the Python package's and the TypeScript SDK's shared
+  `declared-type.cases.json` (21), vendored as `tests/data/declared-type.cases.json` with its sha256 held.
 - **Under the legacy `spatial/` only `map`, `pin`, `zone` and `marker` are read** (folder spec 4.8, ruled
   2026-11-25). Before, a folder under `spatial/` named by any of the 22 type words was read, so
   `spatial/character/c.json` was served as a Character. Now such a folder is no type folder there: its files are
