@@ -402,17 +402,22 @@ func write_folder(path: String, only_edited := false) -> Error:
 ## Pack the world as an [code].owworld[/code]'s bytes, its top folder [param top]. The author fields are left out
 ## of every file under elements/ and spatial/ that is one JSON object ([method OWWorldArchive.strip_author_fields],
 ## counted in [member OWWorldArchive.Packed.author_fields_left_out]) unless [param include_author_fields]. Not ok,
-## its message [method write_refusal]'s, when the world would not be written.
-func pack(top: String, include_author_fields := false) -> OWWorldArchive.Packed:
+## its message [method write_refusal]'s, when the world would not be written. A copy by default; with
+## [param include_hidden] false a share ([method OWWorldArchive.leave_out_for_share], folder spec section 4.8).
+func pack(top: String, include_author_fields := false, include_hidden := true) -> OWWorldArchive.Packed:
 	var why := write_refusal()
 	if why != "":
 		var refused := OWWorldArchive.Packed.new()
 		refused.message = why
 		return refused
 	var files := to_files()
+	var share := {} if include_hidden else OWWorldArchive.leave_out_for_share(files)
 	var left := PackedStringArray() if include_author_fields else OWWorldArchive.strip_author_fields(files)
 	var packed := OWWorldArchive.pack_files(files, top)
 	packed.author_fields_left_out = left
+	if not include_hidden:
+		packed.hidden_left_out = share["hidden"]
+		packed.unread_left_out = share["unread"]
 	return packed
 
 ## Where each new element (no [member OWElementCore.source_path]) is written: its short name

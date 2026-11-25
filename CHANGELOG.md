@@ -14,6 +14,16 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- A share (the folder format's section 4.8): `OWWorldArchive.pack`, `pack_folder` and `OWWorld.pack` take
+  `include_hidden` (true by default: a copy, as before). A share leaves out an element marked `hidden` (any value but
+  absent, null and false) and every file under `elements/` and `spatial/` the folder reader would not serve as one
+  element, read strictly (not UTF-8, not JSON, no id, a number no double holds, not in a type folder, in a deeper
+  folder, or one of two files holding the same id), and names them in `Packed.hidden_left_out` and, apart,
+  `unread_left_out`. `OWWorldArchive.leave_out_for_share` is the read itself. The world-file set's two share cases
+  (OW-23) are a test.
+
 ### Fixed
 
 - `OWWorld.to_files` leaves out a new element whose type is not one of the 22 type slugs, as it already left out one

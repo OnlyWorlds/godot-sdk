@@ -107,8 +107,11 @@ which the world's owner can remove at any time.
 
 **A world on disk**, with no server at all. `OWWorld.read_folder(path)` reads a world folder,
 `OWWorldArchive.read_file(path)` an `.owworld` file (one zip that holds a folder), and both give the same typed
-elements. A world you never edited is written back byte for byte. A pack (`OWWorldArchive.pack`, `OWWorld.pack`)
-carries every element, hidden ones included (the addon has no share yet), but not who wrote each one: the five
+elements. A world you never edited is written back byte for byte. A pack (`OWWorldArchive.pack`, `OWWorld.pack`) is
+a copy by default: every element file travels whole, hidden ones included, as you would back up or move your own
+world. With `include_hidden` false it is a share, a file to hand to someone else: an element marked `hidden` is left
+out, and so is every file under `elements/` the reader could not read as one element; the result names each, hidden
+apart from unread (`hidden_left_out`, `unread_left_out`). Either way a pack leaves out who wrote each one: the five
 author fields (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`) are left out of every element
 file that is one JSON object, since a `.owworld` is a file handed on. Pass `include_author_fields` for a byte copy of
 your own folder. This repository carries a

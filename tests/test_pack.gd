@@ -125,6 +125,60 @@ func test_private_records_left_out_unless_asked(t) -> void:
 	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
 	t.done()
 
+## The share (folder spec section 4.8, OW-23): the copy side's world packed again as a share gives the share side's
+## files and names what the side's left_out names, the hidden apart from the unread; packed as a copy, the copy side's.
+func test_share_leaves_hidden_and_unread_out(t) -> void:
+	var doc := _doc()
+	var copy := OWWorldArchive.read_file(P.FIXTURES + "/pass-OW-23-copy-carries-unread.owworld")
+	var share := OWWorldArchive.read_file(P.FIXTURES + "/pass-OW-23-share-leaves-unread-out.owworld")
+	t.ok(copy.ok and share.ok, "both sides read")
+	var left: Dictionary = {}
+	for f in doc["fixtures"]:
+		if f["file"] == "pass-OW-23-share-leaves-unread-out.owworld":
+			left = f.get("left_out", {})
+	t.ok(not left.is_empty(), "the share side names what it leaves out")
+	var root := _tmp("abbey")
+	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
+	_write_tree(root, copy.files)
+	var as_share := OWWorldArchive.pack_folder(root, false, false, false, false)
+	t.ok(as_share.ok, "packed as a share (%s)" % as_share.message)
+	t.eq(OWWorldArchive.read(as_share.bytes).files, share.files, "the share side's files, byte for byte")
+	t.eq(as_share.hidden_left_out, PackedStringArray(left.get("hidden", [])), "the hidden left out, by path")
+	t.eq(as_share.unread_left_out, PackedStringArray(left.get("unread", [])), "the unread left out, apart from the hidden")
+	var as_copy := OWWorldArchive.pack_folder(root)
+	t.eq(OWWorldArchive.read(as_copy.bytes).files, copy.files, "by default a copy: every file byte for byte")
+	t.ok(as_copy.hidden_left_out.is_empty() and as_copy.unread_left_out.is_empty(), "and a copy names nothing left out")
+	t.eq(_writer_faults(as_copy.bytes, doc["sources"]["hidden"], "abbey/"), PackedStringArray(), "writer faults, copy")
+	var w := OWWorld.from_files(copy.files)
+	t.eq(OWWorldArchive.read(w.pack("abbey", false, false).bytes).files, share.files, "a world's pack as a share")
+	t.eq(OWWorldArchive.read(w.pack("abbey").bytes).files, copy.files, "a world's pack, a copy by default")
+	t.ok(OWWorldArchive.pack(root, _tmp("abbey-share.owworld"), false, false, false, false).ok, "pack writes a share to disk")
+	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
+	t.done()
+
+## The mark's values: absent, null and false travel in a share; any other value (true, 0, "", {}) is the mark. And the
+## two cases the folder reader serves but a share must not: a file not UTF-8, and a body whose id is empty.
+func test_share_reads_the_mark_and_reads_strictly(t) -> void:
+	var world := '{"id": "019a9200-0000-7000-8000-000000000001", "name": "W"}'.to_utf8_buffer()
+	var rel := "elements/character/bo--000000c1.json"
+	for mark in [["", false], [', "hidden": null', false], [', "hidden": false', false], [', "hidden": true', true],
+			[', "hidden": 0', true], [', "hidden": ""', true], [', "hidden": {}', true]]:
+		var body := ('{"id": "019a9300-0000-7000-8000-0000000000c1", "name": "Bo"%s}' % mark[0]).to_utf8_buffer()
+		var files := {"world.json": world, rel: body}
+		var out := OWWorldArchive.leave_out_for_share(files)
+		var label: String = "no mark" if mark[0] == "" else mark[0].substr(2)
+		t.eq(files.has(rel), not mark[1], label + (": left out" if mark[1] else ": travels"))
+		t.eq(out["hidden"].size(), 1 if mark[1] else 0, label + ": counted hidden")
+		t.eq(out["unread"].size(), 0, label + ": nothing unread")
+	var latin := '{"id": "019a9300-0000-7000-8000-0000000000c1", "name": "caf'.to_utf8_buffer()
+	latin.append(0xE9)
+	latin.append_array('"}'.to_utf8_buffer())
+	var bad := {"world.json": world, rel: latin}
+	t.eq(OWWorldArchive.leave_out_for_share(bad)["unread"], PackedStringArray([rel]), "not UTF-8: unread")
+	var empty := {"world.json": world, rel: '{"id": "", "name": "Bo"}'.to_utf8_buffer()}
+	t.eq(OWWorldArchive.leave_out_for_share(empty)["unread"], PackedStringArray([rel]), "an empty id: unread")
+	t.done()
+
 func test_api_block_stripped_unless_kept(t) -> void:
 	var r := OWWorldArchive.read_file(P.FIXTURES + "/pass-OW-10-api.owworld")
 	var root := _tmp("abbey")

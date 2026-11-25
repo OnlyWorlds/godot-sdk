@@ -61,6 +61,11 @@ class Packed:
 	## The files written without their author fields, by path inside the world, in code point order
 	## ([method strip_author_fields]); empty when they were asked to travel, and for [method pack_files].
 	var author_fields_left_out := PackedStringArray()
+	## On a share ([code]include_hidden[/code] false, folder spec section 4.8), by path inside the world in code point
+	## order: the element files left out for their [code]hidden[/code] mark, and apart from them every other file under
+	## elements/ and spatial/ left out because the folder reader would not serve it as one element. Empty on a copy.
+	var hidden_left_out := PackedStringArray()
+	var unread_left_out := PackedStringArray()
 
 # -- read -------------------------------------------------------------------------------------------------------------
 
@@ -321,15 +326,18 @@ static func _parse_strict(bytes: PackedByteArray) -> Variant:
 ## [param include_private] carries the producers records/RECORDS.json marks private (section 4.5 rule 11);
 ## [param include_author_fields] carries the author fields, for a byte copy of your own folder
 ## ([method strip_author_fields] says what goes without it).
+## [param include_hidden] true (the default) packs a copy: every file under elements/ and spatial/ byte for byte, as
+## keel's own download keeps an owner's hidden elements and as a person backs up or moves their own world. False packs a
+## share, a file to hand to someone else (folder spec section 4.8, ruled 2026-11-23): [method leave_out_for_share].
 static func pack(folder: String, archive_path: String, keep_api := false, include_private := false,
-		include_author_fields := false) -> Packed:
+		include_author_fields := false, include_hidden := true) -> Packed:
 	var abs_folder := ProjectSettings.globalize_path(folder).simplify_path().trim_suffix("/")
 	var abs_archive := ProjectSettings.globalize_path(archive_path).simplify_path()
 	if abs_archive.to_lower().begins_with(abs_folder.to_lower() + "/"):
 		var bad := Packed.new()
 		bad.message = "the archive %s would be written inside the folder it packs" % archive_path
 		return bad
-	var p := pack_folder(folder, keep_api, include_private, include_author_fields)
+	var p := pack_folder(folder, keep_api, include_private, include_author_fields, include_hidden)
 	if not p.ok:
 		return p
 	var f := FileAccess.open(archive_path, FileAccess.WRITE)
@@ -343,7 +351,7 @@ static func pack(folder: String, archive_path: String, keep_api := false, includ
 
 ## [method pack]'s bytes, in memory.
 static func pack_folder(folder: String, keep_api := false, include_private := false,
-		include_author_fields := false) -> Packed:
+		include_author_fields := false, include_hidden := true) -> Packed:
 	var out := Packed.new()
 	folder = folder.trim_suffix("/").trim_suffix("\\")
 	if not DirAccess.dir_exists_absolute(folder):
@@ -396,10 +404,82 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 	var top := folder.replace("\\", "/").get_file()
 	if top == "":
 		top = "world"
+	var share := {} if include_hidden else leave_out_for_share(files)
 	var left := PackedStringArray() if include_author_fields else strip_author_fields(files)
 	var packed := pack_files(files, top)
 	packed.author_fields_left_out = left
+	if not include_hidden:
+		packed.hidden_left_out = share["hidden"]
+		packed.unread_left_out = share["unread"]
 	return packed
+
+# -- the share --------------------------------------------------------------------------------------------------------
+
+## A share's read (folder spec section 4.8, ruled 2026-11-23), done in place on [param files] (paths inside the world
+## to bytes): under elements/ and spatial/ nothing stays but a file the folder reader ([method OWWorld.from_files])
+## serves as one element, its bytes UTF-8 and its id a non-empty string, with no [code]hidden[/code] mark (a mark is any
+## value but absent, null and false). A served element with the mark is erased and named in [code]"hidden"[/code]; every
+## other file there is erased and named in [code]"unread"[/code]: one that is not UTF-8 (the folder reader decodes
+## leniently; a share reads strictly), not JSON, not an object, has no id or holds a number no double holds; one no
+## reader serves (a notes.txt, a file in a deeper folder, a folder that is no type, a name spelled .JSON); and both files
+## of an id two files hold, since the share cannot say which file's mark is the element's. Returns
+## [code]{"hidden": PackedStringArray, "unread": PackedStringArray}[/code], each in code point order.
+static func leave_out_for_share(files: Dictionary) -> Dictionary:
+	var view := {}
+	for rel: String in files:
+		if rel == WORLD or rel.begins_with("elements/") or rel.begins_with("spatial/"):
+			view[rel] = files[rel]
+	var served := {}   # path -> carries the mark
+	var w := OWWorld.from_files(view)
+	if w != null:
+		var holders := {}   # id -> how many files the strict reader parses as an element hold it
+		var candidates: Array = []
+		for e in w.elements:
+			if e.id != "" and OWUnicode.is_utf8(e.source_bytes):
+				holders[e.id] = holders.get(e.id, 0) + 1
+				candidates.append(e)
+		for rel: String in w.other_files:   # parsed with an id but refused for a number: still a holder of its id
+			var id := _parsed_id(rel, w.other_files[rel])
+			if id != "":
+				holders[id] = holders.get(id, 0) + 1
+		for e in candidates:
+			if holders[e.id] == 1:
+				served[e.source_path] = _is_hidden_mark(e._data)
+	var hidden := PackedStringArray()
+	var unread := PackedStringArray()
+	var rels := files.keys()
+	rels.sort()
+	for rel: String in rels:
+		if not (rel.begins_with("elements/") or rel.begins_with("spatial/")):
+			continue
+		if served.has(rel) and not served[rel]:
+			continue
+		if served.has(rel):
+			hidden.append(rel)
+		else:
+			unread.append(rel)
+		files.erase(rel)
+	return {"hidden": hidden, "unread": unread}
+
+## The id of a file in an element's place that the strict reader parses as an object with a non-empty string id, or "".
+static func _parsed_id(rel: String, bytes: PackedByteArray) -> String:
+	var segs := rel.split("/")
+	if segs.size() != 3 or not OWWorld.ELEMENT_FOLDERS.has(segs[0]) or segs[1].begins_with(".") \
+			or segs[2].begins_with(".") or OWWorld._name_refusal(segs[0], segs[1], segs[2]) != "" \
+			or not OWUnicode.is_utf8(bytes):
+		return ""
+	var json := JSON.new()
+	if json.parse(bytes.get_string_from_utf8()) != OK or not (json.data is Dictionary):
+		return ""
+	var id = json.data.get("id")
+	return id if id is String and id != "" else ""
+
+## Section 4.8's hidden mark: any value but absent, null and false (the Unity package's OWPayload.IsHiddenMark).
+static func _is_hidden_mark(body: Dictionary) -> bool:
+	if not body.has("hidden"):
+		return false
+	var mark = body["hidden"]
+	return mark != null and not (mark is bool and not mark)
 
 # -- author fields ----------------------------------------------------------------------------------------------------
 
