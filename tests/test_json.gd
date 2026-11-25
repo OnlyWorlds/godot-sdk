@@ -18,6 +18,28 @@ func test_numbers_as_javascript_writes_them(t) -> void:
 	t.eq(OWJson.stringify(7), "7\n", "an int")
 	t.done()
 
+## Every double of tests/data/shortest-doubles.txt (tools/shortest_doubles.py: 5,000 doubles as exact bits, beside the
+## text JavaScript's Number toString gives them, checked against Node) is written as JavaScript writes it: the shortest
+## digits that read back, the closest of those. A 16-digit answer is the case num_scientific's 17 digits miss.
+func test_shortest_doubles_as_javascript_writes_them(t) -> void:
+	var lines := FileAccess.get_file_as_string("res://tests/data/shortest-doubles.txt").split("\n", false)
+	var wrong := 0
+	var shown := 0
+	for l in lines:
+		var parts := l.split(" ")
+		var b := parts[0].hex_decode()   # big-endian; the top bit set is a negative double, past hex_to_int
+		b.reverse()
+		var x := b.decode_double(0)
+		var got := OWJson.number(x)
+		if got != parts[1]:
+			wrong += 1
+			if shown < 5:
+				shown += 1
+				print("  %s: want %s, got %s" % [parts[0], parts[1], got])
+	t.eq(lines.size(), 5000, "the fixture's rows")
+	t.eq(wrong, 0, "doubles written otherwise than JavaScript writes them")
+	t.done()
+
 func test_escapes_as_javascript(t) -> void:
 	t.eq(OWJson.quote("a\"b\\c"), "\"a\\\"b\\\\c\"", "quote and backslash")
 	t.eq(OWJson.quote("\b\f\n\r\t"), "\"\\b\\f\\n\\r\\t\"", "the short escapes")

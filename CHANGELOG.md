@@ -14,6 +14,17 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Fixed
+
+- `OWJson.number` writes every double as JavaScript's `Number.prototype.toString` writes it: the shortest digits
+  that read back as the same double, the closest of those. Whether a candidate reads back is now decided exactly
+  (the double's rounding interval, compared as integers) instead of by Godot's own parser, which misreads some long
+  decimals and some short ones far from 1. Before, about 2 in 100 of a set of 5,000 doubles came out in another
+  spelling (`3.5904716697302552` for `3.590471669730255`, `9.32292591400026e-156` for `9.322925914000258e-156`);
+  every value read back the same, only the text differed from what the other SDKs write. A world file holding such a
+  number, read right, is now rewritten as the others write it rather than kept byte for byte. The set
+  (`tests/data/shortest-doubles.txt`, written by `tools/shortest_doubles.py` and checked against Node) is a test.
+
 ## [0.2.0] - 2026-11-25
 
 A world file now leaves out who wrote each element unless asked. A world folder's fixed names (`world.json`,

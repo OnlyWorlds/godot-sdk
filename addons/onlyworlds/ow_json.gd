@@ -139,15 +139,39 @@ static func number(v: float) -> String:
 		return "0"
 	# num_scientific is not always the shortest (measured: 11 of 20,000 six-decimal numbers come out with 17 digits,
 	# 2966.215418 as 2966.2154180000002). Try each shorter rounding of its digits and keep the first that reads back
-	# as the same double; Godot's parser was exact on every candidate of 15 digits or fewer measured.
-	for k in range(1, mini(digits.length(), 16)):   # 15 digits or fewer: one double each, read exactly
+	# as the same double. "Reads back" is decided exactly, never by Godot's parser, which misreads about one long
+	# decimal in ten and, far from 1, short ones too (9.322925914000258e-156 was taken as 9.32292591400026e-156).
+	digits = digits.substr(0, 17)
+	var exact := _Exact.new(absf(v), digits, point)
+	var found := false
+	for k in range(1, mini(digits.length(), 16)):   # 15 digits or fewer: at most one lies in the interval, the rounding
 		var cand := _round_digits(digits, k)
 		var c_digits: String = cand[0]
 		var c_point: int = point + cand[1]
-		var probe := "0." + c_digits + "e" + str(c_point)
-		if probe.to_float() == absf(v):
+		if exact.distance(c_digits.to_int(), c_point - c_digits.length()) != null:
 			digits = c_digits.rstrip("0")
 			point = c_point
+			found = true
+			break
+	# 16 and 17 digits: up to two lie in the interval, and the closest wins (ties to even), as ECMAScript and Python
+	# choose; num_scientific's own 17 are not always the closest (249772149785718.88 came out ...718.87).
+	var padded := digits + "0".repeat(17 - digits.length())
+	for n in ([16, 17] if not found and digits.length() >= 16 else []):
+		var head := padded.substr(0, n).to_int()
+		var best = null
+		var best_d := 0
+		for d in [head - 1, head, head + 1]:
+			var dist = exact.distance(d, point - n)
+			if dist == null:
+				continue
+			var c := 0 if best == null else _big_cmp(dist, best)
+			if best == null or c < 0 or (c == 0 and d % 2 == 0):
+				best = dist
+				best_d = d
+		if best != null:
+			var t := str(best_d)
+			point = point - n + t.length()
+			digits = t.rstrip("0")
 			break
 	var k := digits.length()
 	var n := point
@@ -178,6 +202,135 @@ static func _round_digits(digits: String, k: int) -> Array:
 			chars[i] += 1
 			return [chars.get_string_from_ascii(), 0]
 	return ["1" + chars.get_string_from_ascii(), 1]
+
+## Whether a decimal D * 10^P reads back as a double, decided exactly: the double is M * 2^E, and a decimal reads
+## back to it when it lies inside the double's rounding interval, its ends included when M is even (round half to
+## even), the interval below a power of two half as wide. Both sides are scaled to integers and compared as big
+## integers, so no float arithmetic decides; a cheap distance in num_scientific's own 17-digit units skips the
+## candidates that are plainly outside first.
+class _Exact:
+	var m := 0
+	var e := 0
+	var lower_half := false
+	var even := false
+	var s17 := 0        # num_scientific's digits, padded to 17: the value is about s17 * 10^(point - 17)
+	var point := 0
+	var half_units := 0.0   # half the interval's width in those units, about
+
+	func _init(x: float, digits: String, p: int) -> void:
+		var b := PackedByteArray()
+		b.resize(8)
+		b.encode_double(0, x)
+		var bits := b.decode_u64(0)    # x is positive: the sign bit is clear
+		var ef := bits >> 52
+		var frac := bits & 0xFFFFFFFFFFFFF
+		m = frac if ef == 0 else frac | (1 << 52)
+		e = -1074 if ef == 0 else ef - 1075
+		lower_half = frac == 0 and ef > 1
+		even = m % 2 == 0
+		s17 = (digits + "0".repeat(17 - digits.length())).to_int()
+		point = p
+		half_units = pow(2.0, (e - 1) - (point - 17) * 3.321928094887362)
+
+	## |4 * D * 10^P - 4 * x| on a common integer scale when D * 10^P reads back as x, else null.
+	func distance(d: int, p: int):
+		var shift := p - point + 17   # d * 10^p in s17's units is d * 10^shift; the candidates are at most 17 digits
+		if shift >= 0 and str(d).length() + shift <= 18:
+			var scaled := d
+			for i in shift:
+				scaled *= 10
+			if float(absi(scaled - s17)) > 2.0 * half_units + 2.0:   # s17 is within half a unit of x
+				return null
+		var u := OWJson._big_pow10(OWJson._big_pow2(OWJson._big(1), maxi(e, 0)), maxi(-p, 0))
+		var c4 := OWJson._big_pow2(OWJson._big_pow10(OWJson._big(d), maxi(p, 0)), maxi(-e, 0) + 2)
+		var center := OWJson._big_pow2(OWJson._big_mul_int(u, m), 2)
+		var hi := OWJson._big_add(center, OWJson._big_mul(u, 2))
+		var lo := OWJson._big_sub(center, u if lower_half else OWJson._big_mul(u, 2))
+		var c_hi := OWJson._big_cmp(c4, hi)
+		var c_lo := OWJson._big_cmp(c4, lo)
+		if c_hi > 0 or (c_hi == 0 and not even) or c_lo < 0 or (c_lo == 0 and not even):
+			return null
+		return OWJson._big_sub(c4, center) if OWJson._big_cmp(c4, center) >= 0 else OWJson._big_sub(center, c4)
+
+# Big non-negative integers as little-endian limbs of 24 bits (an empty array is zero), only as much as _Exact needs.
+
+static func _big(n: int) -> PackedInt64Array:
+	var a := PackedInt64Array()
+	while n > 0:
+		a.append(n & 0xFFFFFF)
+		n >>= 24
+	return a
+
+static func _big_mul(a: PackedInt64Array, k: int) -> PackedInt64Array:   # k below 2^30
+	var r := PackedInt64Array()
+	if k == 0:
+		return r
+	var carry := 0
+	for x in a:
+		var p := x * k + carry
+		r.append(p & 0xFFFFFF)
+		carry = p >> 24
+	while carry > 0:
+		r.append(carry & 0xFFFFFF)
+		carry >>= 24
+	return r
+
+static func _big_mul_int(a: PackedInt64Array, n: int) -> PackedInt64Array:   # n below 2^54, in limbs of 24 bits
+	var r := PackedInt64Array()
+	var shift := 0
+	while n > 0:
+		r = _big_add(r, _big_pow2(_big_mul(a, n & 0xFFFFFF), shift))
+		n >>= 24
+		shift += 24
+	return r
+
+static func _big_pow2(a: PackedInt64Array, k: int) -> PackedInt64Array:   # a * 2^k
+	if a.is_empty():
+		return a
+	var r := PackedInt64Array()
+	r.resize(k / 24)
+	r.fill(0)
+	r.append_array(a)
+	return _big_mul(r, 1 << (k % 24))
+
+static func _big_pow10(a: PackedInt64Array, k: int) -> PackedInt64Array:   # a * 10^k
+	while k >= 9:
+		a = _big_mul(a, 1000000000)
+		k -= 9
+	var p := 1
+	for i in k:
+		p *= 10
+	return _big_mul(a, p)
+
+static func _big_add(a: PackedInt64Array, b: PackedInt64Array) -> PackedInt64Array:
+	var r := PackedInt64Array()
+	var carry := 0
+	for i in maxi(a.size(), b.size()):
+		var s := (a[i] if i < a.size() else 0) + (b[i] if i < b.size() else 0) + carry
+		r.append(s & 0xFFFFFF)
+		carry = s >> 24
+	if carry > 0:
+		r.append(carry)
+	return r
+
+static func _big_sub(a: PackedInt64Array, b: PackedInt64Array) -> PackedInt64Array:   # a - b, a at least b
+	var r := PackedInt64Array()
+	var borrow := 0
+	for i in a.size():
+		var s := a[i] - (b[i] if i < b.size() else 0) - borrow
+		borrow = 1 if s < 0 else 0
+		r.append(s + (0x1000000 if s < 0 else 0))
+	while not r.is_empty() and r[r.size() - 1] == 0:
+		r.remove_at(r.size() - 1)
+	return r
+
+static func _big_cmp(a: PackedInt64Array, b: PackedInt64Array) -> int:   # both without high zero limbs
+	if a.size() != b.size():
+		return 1 if a.size() > b.size() else -1
+	for i in range(a.size() - 1, -1, -1):
+		if a[i] != b[i]:
+			return 1 if a[i] > b[i] else -1
+	return 0
 
 ## A string as a JSON string literal, escaped as JavaScript escapes it.
 static func quote(s: String) -> String:

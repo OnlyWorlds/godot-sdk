@@ -182,16 +182,15 @@ func _edge(t, text: String, want: String) -> void:
 		t.eq(got.get_string_from_utf8(), want, "written")
 	t.done()
 
-## Godot's parser reads about one long decimal in ten as a neighbouring double, and OWJson.number writes a few
-## doubles with 17 digits where 16 read back (measured on 5,000 of Python's shortest strings: 543 and 2). A file
-## holding either keeps its bytes: a rewrite would write a value the file does not hold, or another spelling than
-## JavaScript's. Each literal is checked against its double's bits from Python's exact reader, so the case holds what
-## it says it holds.
+## Godot's parser reads about one long decimal in ten as a neighbouring double (measured on 5,000 of Python's shortest
+## strings: 543). A file holding one keeps its bytes: a rewrite would write a value the file does not hold. A literal
+## the parser reads right is rewritten in JavaScript's spelling, 16 and 17 digits alike, now that OWJson.number writes
+## every double as JavaScript does (test_json.gd's 5,000). Each literal is checked against its double's bits from
+## Python's exact reader, so the case holds what it says it holds.
 func test_a_number_godot_reads_or_writes_otherwise_keeps_its_bytes(t) -> void:
 	var cases := [
 		# [the literal, its double's bits (little-endian hex, Python's float()), what Godot does with it]
 		["123.80196114964559", "fc98db5453f35e40", "misread"],
-		["3.590471669730255", "cea5f53549b90c40", "written otherwise"],
 	]
 	var json := JSON.new()
 	for c in cases:
@@ -212,6 +211,13 @@ func test_a_number_godot_reads_or_writes_otherwise_keeps_its_bytes(t) -> void:
 	var files := {EDGE: "{\"id\":\"x\",\"n\":323.83276483316234,\"created_by\":\"u\"}".to_utf8_buffer()}
 	t.eq(OWWorldArchive.strip_author_fields(files), PackedStringArray([EDGE]), "a long decimal read right is rewritten")
 	t.eq((files[EDGE] as PackedByteArray).get_string_from_utf8(), "{\n  \"id\": \"x\",\n  \"n\": 323.83276483316234\n}\n", "as written")
+	# And one of 16 digits that num_scientific gives in 17: read right, written as JavaScript writes it, rewritten.
+	json.parse("3.590471669730255")
+	t.eq(PackedFloat64Array([json.data]).to_byte_array().hex_encode(), "cea5f53549b90c40", "16 digits read right")
+	t.eq(OWJson.number(json.data), "3.590471669730255", "16 digits written as JavaScript writes them")
+	files = {EDGE: "{\"id\":\"x\",\"n\":3.590471669730255,\"created_by\":\"u\"}".to_utf8_buffer()}
+	t.eq(OWWorldArchive.strip_author_fields(files), PackedStringArray([EDGE]), "a 16-digit decimal read right is rewritten")
+	t.eq((files[EDGE] as PackedByteArray).get_string_from_utf8(), "{\n  \"id\": \"x\",\n  \"n\": 3.590471669730255\n}\n", "as written")
 	t.done()
 
 func test_a_file_that_is_not_utf8_keeps_its_bytes(t) -> void:
