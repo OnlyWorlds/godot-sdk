@@ -58,7 +58,7 @@ build. The entries below are in the detail a maintainer needs; the history befor
   `--include-author-fields` for `tools/pack.gd`) carries them, for a byte copy of your own folder;
   `Packed.author_fields_left_out` lists the files rewritten, and `OWWorldArchive.strip_author_fields(files)` does the
   same to a file map. `pack_files` is unchanged: it writes what it is handed (OW-9). Parity with the TypeScript SDK
-  4.203.1 (and 4.109.0): `tests/data/author-fields.fixture.json` (7 cases, the same bytes as the TypeScript SDK's and
+  4.203.2 (and 4.109.0): `tests/data/author-fields.fixture.json` (8 cases, the same bytes as the TypeScript SDK's and
   the Python package's) is vendored byte for byte with its sha256 held, and every case passes, packed from a folder on
   disk and from a world read, each entry compared byte for byte, with the count.
 

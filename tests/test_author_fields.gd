@@ -4,14 +4,15 @@ extends RefCounted
 ## Held to the TypeScript SDK's and the Python package's shared fixture (tests/data/author-fields.fixture.json, the
 ## same bytes, held by its sha256): every case's entries byte for byte and its count, packed from a folder on disk
 ## and from a world read. Then the edges the fixture does not hold, each with the TypeScript SDK 4.203.1's verdict
-## (measured on its build) unless the label says this addon keeps the file's bytes: an integer JavaScript would
-## round, a lone surrogate's escape, a number Godot's parser reads as another double. Ported from @onlyworlds/sdk
-## 4.203.1 (6794d27), test/world-file.test.mjs, "author fields".
+## (measured on its build) unless the label says this addon keeps the file's bytes: a lone surrogate's escape, a
+## number Godot's parser reads as another double. Ported from @onlyworlds/sdk
+## 4.203.1 (6794d27), test/world-file.test.mjs, "author fields"; the fixture at 4.203.2 (55aad63), whose case 8
+## holds an integer no double holds.
 
 const P = preload("res://tests/paths.gd")
 
 const FIXTURE := "res://tests/data/author-fields.fixture.json"
-const FIXTURE_SHA256 := "6943ce5a8c2cd7bf69f82facb6f1d545d87d68f5ea0104cc4d711d94e035898a"
+const FIXTURE_SHA256 := "33835ede8b407868da8fef2857699c53e763879ad4bef7909376c75b31c48645"
 const FIELDS := ["created_by", "changed_by", "changed_via", "changed_client", "doors"]
 const WORLD := "{\n  \"id\": \"0192a000-aaaa-7bbb-8ccc-000000000001\",\n  \"name\": \"W\"\n}\n"
 const EDGE := "elements/object/edge.json"
@@ -70,7 +71,7 @@ func test_the_fixture_is_the_shared_file(t) -> void:
 	t.eq(FileAccess.get_sha256(FIXTURE), FIXTURE_SHA256, "the fixture's bytes are the TypeScript SDK's and the Python package's")
 	t.eq(_fixture()["fields"], FIELDS, "the five, in order")
 	t.eq(OWWorldArchive.AUTHOR_FIELDS, FIELDS, "the addon's five")
-	t.eq(_fixture()["cases"].size(), 7, "7 cases")
+	t.eq(_fixture()["cases"].size(), 8, "8 cases")
 	t.done()
 
 func _case(t, c: Dictionary, i: int) -> void:   # bound arguments come after the call's
@@ -120,7 +121,7 @@ static func _edges() -> Array:
 			"{\n  \"id\": \"d\",\n  \"n\": 9007199254740991,\n  \"m\": 0\n}\n"],
 		["an integer past 2^53 that JavaScript writes the same", "{\"id\":\"c\",\"n\":18014398509481984,\"created_by\":\"u\"}",
 			"{\n  \"id\": \"c\",\n  \"n\": 18014398509481984\n}\n"],
-		# The TypeScript SDK rewrites these two as 12345678901234567000 and 9007199254740992: here they keep their bytes.
+		# These two keep their bytes, as in the TypeScript SDK since 4.203.2 (measured on 4.205.0).
 		["an integer JavaScript would round keeps its bytes", "{\"id\":\"a\",\"n\":12345678901234567891,\"created_by\":\"u\"}", ""],
 		["an integer one past 2^53 keeps its bytes", "{\"id\":\"b\",\"n\":9007199254740993,\"created_by\":\"u\"}", ""],
 		["an integer no double holds keeps its bytes", "{\"id\":\"e\",\"n\":" + "9".repeat(400) + ",\"created_by\":\"u\"}", ""],
