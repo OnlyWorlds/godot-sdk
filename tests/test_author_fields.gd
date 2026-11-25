@@ -154,6 +154,11 @@ static func _edges() -> Array:
 		# JSON.stringify puts integer-like keys first ("0", "12", "id", "b"); here every key keeps its place.
 		["integer-like keys keep their order", "{\"id\":\"q\",\"b\":1,\"12\":2,\"0\":3,\"created_by\":\"u\"}",
 			"{\n  \"id\": \"q\",\n  \"b\": 1,\n  \"12\": 2,\n  \"0\": 3\n}\n"],
+		# A plain file (integers only, no \u escape) is written by Godot's own writer: a number's spelling in a string stays.
+		["a string keeps a number's spelling", "{\"id\":\"n\",\"name\":\"5.0 \\\"x\\\": 12.0, y\",\"x_n\":[0,-7,999999999999999],\"created_by\":\"u\"}",
+			"{\n  \"id\": \"n\",\n  \"name\": \"5.0 \\\"x\\\": 12.0, y\",\n  \"x_n\": [\n    0,\n    -7,\n    999999999999999\n  ]\n}\n"],
+		["minus zero in a file of small integers", "{\"id\":\"z\",\"m\":-0,\"n\":5,\"created_by\":\"u\"}",
+			"{\n  \"id\": \"z\",\n  \"m\": 0,\n  \"n\": 5\n}\n"],
 		# Depth: the TypeScript SDK reads to 200 deep, an object at the top being 1.
 		["nested 200 deep", "{\"id\":\"o\",\"x_d\":" + nested.call(200) + ",\"created_by\":\"u\"}", "rewritten"],
 		["nested 201 deep keeps its bytes", "{\"id\":\"p\",\"x_d\":" + nested.call(201) + ",\"created_by\":\"u\"}", ""],

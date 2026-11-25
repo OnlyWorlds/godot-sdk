@@ -112,6 +112,12 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Fixed
 
+- **Leaving the author fields out no longer makes a pack several times slower.** On a world of 20,913 element files
+  the strip took about 12 s, its largest part a JSON check that walked every token in GDScript; it now takes about 2.5 s,
+  and the whole pack about 3 s where carrying the fields takes about 2 s. A file whose text is plain (no `\u` escape,
+  every number an integer of at most 15 digits) is checked by one native match and rewritten by Godot's own JSON
+  writer; any other file takes the old route. The archive is the same, byte for byte: measured on that world, and
+  each plain file's rewrite against the old writer's.
 - **A new element whose type is not one of the 22 type slugs, exactly, is refused, and so can no longer be written
   outside `elements/`.** A new element's file goes to `elements/<its type>/`, and any type was taken:
   `OWTypes.make("Character", …)` or `"widget"` wrote a folder no reader reads, a plain `OWElement` (no type) wrote its

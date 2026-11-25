@@ -414,6 +414,9 @@ const OUTSIDE_JSON_MAX_DEPTH := 200
 # mark (4), by RFC 8259's grammar. A string holds no raw character below U+0020 and only JSON's escapes.
 static var _token_re: RegEx
 static var _end_re: RegEx
+static var _plain_re: RegEx
+static var _high_re: RegEx
+static var _point_zero_re: RegEx
 
 ## Leave the author fields out of [param files] (path inside the world -> bytes), in place: every file under
 ## elements/ or spatial/ that [method without_author_fields] rewrites. Returns their paths, in code point order.
@@ -458,14 +461,24 @@ static func without_author_fields(bytes: PackedByteArray, json: JSON = null) -> 
 				break
 		if not named:
 			return null
-	if not OWUnicode.is_utf8(bytes):
+	# Bytes all below 0x80 are UTF-8 as they stand: get_string_from_ascii maps each byte to one character (a NUL ends
+	# it short), so the same length and no character past 0x7F is exactly that, read natively.
+	if _high_re == null:
+		_high_re = RegEx.create_from_string("[^\\x01-\\x7f]")
+	var plain := ascii.length() == bytes.size() and _high_re.search(ascii) == null
+	if not plain and not OWUnicode.is_utf8(bytes):
 		return null
 	var text := bytes.get_string_from_utf8()
 	if json == null:
 		json = JSON.new()
-	if not _is_one_json_value(text, json):
+	# A plain text (below) is one JSON value whose every number is an integer a double holds, so it skips the token
+	# scan and the range walk, and its rewrite is written natively.
+	var simple := _is_plain_json(text)
+	if not simple and not _is_one_json_value(text, json):
 		return null
-	if json.parse(text) != OK or not (json.data is Dictionary) or OWJson.holds_out_of_range(json.data):
+	if json.parse(text) != OK or not (json.data is Dictionary):
+		return null
+	if not simple and OWJson.holds_out_of_range(json.data):
 		return null
 	var doc: Dictionary = json.data
 	var present := false
@@ -473,12 +486,41 @@ static func without_author_fields(bytes: PackedByteArray, json: JSON = null) -> 
 		if doc.has(field):
 			present = true
 			doc.erase(field)
-	return OWJson.to_bytes(doc) if present else null
+	if not present:
+		return null
+	return _plain_bytes(doc) if simple else OWJson.to_bytes(doc)
+
+## Whether [param text] is one JSON value in a plain shape, matched natively in one pass: no \u escape, every number
+## an integer of at most 15 digits other than -0 (a double holds it, and OWJson.number writes it as written), and too
+## few brackets to nest past [constant OUTSIDE_JSON_MAX_DEPTH]. A plain text is one the token scan accepts; a text that
+## is not plain may still be one, and only the scan says.
+static func _is_plain_json(text: String) -> bool:
+	if text.contains("\\u") or text.count("{") + text.count("[") > OUTSIDE_JSON_MAX_DEPTH:
+		return false
+	if _plain_re == null:
+		var ws := '[ \\t\\n\\r]*+'
+		var s := '"(?:[^"\\\\\\x00-\\x1f]++|\\\\["\\\\/bfnrt])*+"'
+		var member := s + ws + ':' + ws + '(?&v)' + ws
+		var item := '(?&v)' + ws
+		_plain_re = RegEx.create_from_string('\\A' + ws + '(?<v>\\{' + ws + '(?:' + member + '(?:,' + ws + member
+			+ ')*+)?+\\}|\\[' + ws + '(?:' + item + '(?:,' + ws + item + ')*+)?+\\]|' + s
+			+ '|(?:0|-?+[1-9][0-9]{0,14}+)(?![0-9.eE])|true|false|null)' + ws + '\\z')
+	return _plain_re.search(text) != null
+
+## [method OWJson.to_bytes] for a document read from a plain text ([method _is_plain_json]), written by Godot's own
+## JSON.stringify: on that shape the two differ only in that Godot writes each number, a double, with a ".0", which
+## comes off every number outside a string. Measured equal to OWJson.to_bytes on every document of Sikelia's.
+static func _plain_bytes(doc: Dictionary) -> PackedByteArray:
+	if _point_zero_re == null:
+		_point_zero_re = RegEx.create_from_string('("(?:[^"\\\\]++|\\\\.)*+")|(-?[0-9]++)\\.0(?![0-9])')
+	return (_point_zero_re.sub(JSON.stringify(doc, "  ", false), "$1$2", true) + "\n").to_utf8_buffer()
 
 ## Whether [param text] is one JSON value by RFC 8259's grammar, with nothing after it but JSON's white space, nested at
 ## most [constant OUTSIDE_JSON_MAX_DEPTH] deep, every number one [method OWJson.number] writes back with the value its
 ## text holds, and no string holding a lone surrogate's escape. No value is built; [param json] reads each number.
 static func _is_one_json_value(text: String, json: JSON) -> bool:
+	if _is_plain_json(text):    # one native match first; any other text takes the scan below
+		return true
 	if _token_re == null:
 		_token_re = RegEx.create_from_string('\\G[ \\t\\n\\r]*+(?:("(?:[^"\\\\\\x00-\\x1f]++|\\\\["\\\\/bfnrt]|\\\\u[0-9a-fA-F]{4})*+")|(-?(?:0|[1-9][0-9]*+)(?:\\.[0-9]++)?+(?:[eE][+-]?[0-9]++)?+)|(true|false|null)|([{}\\[\\],:]))')
 		_end_re = RegEx.create_from_string('\\G[ \\t\\n\\r]*+\\z')
