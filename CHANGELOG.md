@@ -4,7 +4,7 @@ Notable changes to the OnlyWorlds SDK for Godot. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Where it stands.** 0.1.1 is the latest release. `onlyworlds-godot-0.1.1.zip`, on the repository's Releases page,
+**Where it stands.** 0.2.0 is the latest release. `onlyworlds-godot-0.2.0.zip`, on the repository's Releases page,
 holds the addon folder to copy into a game, and a zip of a commit holds that folder alone; the [README](README.md) has the install and a first run. What a game can
 do with it: read and write an OnlyWorlds world over the onlyworlds.com API and on disk (world folders and `.owworld`
 files), as typed elements of all 22 types; let a player join a world by an invite link; and read a world it holds
@@ -13,6 +13,15 @@ same answers as the other OnlyWorlds SDKs on a shared set of test cases. Built a
 build. The entries below are in the detail a maintainer needs; the history before this file is in the git log.
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-11-25
+
+A world file now leaves out who wrote each element unless asked. A world folder's fixed names (`world.json`,
+`elements/`, `spatial/`) are read as written, and one held only in another case is refused with the name to fix.
+An element's declared type counts only when it is one of the 22 type slugs exactly, and a new element whose type is
+not one is refused, which closes a write outside `elements/`. Three readers follow the other OnlyWorlds SDKs: element
+names found in prose, which of a map's Pins one reader knows, and the most linked elements of each type. Pinned to
+schema-dist serial 146.
 
 ### Changed
 
