@@ -13,7 +13,9 @@ extends RefCounted
 ##     print(pin.name, " at ", pin.x, ",", pin.y)
 ## [/codeblock]
 
-const ELEMENT_FOLDERS := ["elements", "spatial"]   # spatial/: the format's dated layout for the spatial types
+const ELEMENT_FOLDERS := ["elements", "spatial"]   # spatial/: the format's dated layout, map, pin, zone, marker only
+## The four types the dated spatial/ layout holds, the only type folders read under it (folder spec section 4.8).
+const SPATIAL_TYPES := ["map", "pin", "zone", "marker"]
 
 ## The folder read from ("" for a world read from an archive).
 var root := ""
@@ -36,7 +38,7 @@ var errors := PackedStringArray()
 var _by_id: Dictionary = {}
 
 ## Read a world folder: world.json and every [code]elements/<type>/*.json[/code] (and the legacy
-## [code]spatial/<type>/[/code]), the names compared as written, never by the file system's case-blind match: a type
+## [code]spatial/{map,pin,zone,marker}/[/code]), the names compared as written, never by the file system's case-blind match: a type
 ## folder is one of the 22 type words in lower case, an element file ends in [code].json[/code] in lower case. A file
 ## that misses either only by its spelling ([code]X.JSON[/code], [code]elements/Character/[/code], or a folder that is no
 ## type) is skipped with a line in [member errors]. Media and records are not read. [code]null[/code] when there is no
@@ -153,12 +155,16 @@ func _set_world_json(bytes: PackedByteArray) -> void:
 	info.source_path = "world.json"
 	info.source_bytes = bytes
 
-## Why the folder format does not read [param name] in the folder [param type] as an element file, or "" when it does.
-## Each name is read as written (the folder format): the type folder's name is one of the 22 type words in lower
-## case, so [code]Character[/code] or [code]vessel[/code] is no type folder; and the extension is [code].json[/code] in
-## lower case, so [code]X.JSON[/code] is no element file. Only a name ending in [code].json[/code] in some spelling is
-## asked; any other file in a type folder is no element file and is passed over without a line.
-static func _name_refusal(type: String, name: String) -> String:
+## Why the folder format does not read [param name] in the folder [param type] under [param top] (elements or spatial)
+## as an element file, or "" when it does. Each name is read as written (the folder format): the type folder's name is
+## one of the 22 type words in lower case, so [code]Character[/code] or [code]vessel[/code] is no type folder; under
+## spatial/ it is one of the four it held ([constant SPATIAL_TYPES]), so [code]spatial/character/[/code] holds no
+## Character and [code]spatial/Pin/[/code] no Pin (ruled 2026-11-25); and the extension is [code].json[/code] in lower
+## case, so [code]X.JSON[/code] is no element file. Only a name ending in [code].json[/code] in some spelling is asked;
+## any other file in a type folder is no element file and is passed over without a line.
+static func _name_refusal(top: String, type: String, name: String) -> String:
+	if top == "spatial" and not SPATIAL_TYPES.has(type):
+		return "not read: spatial/%s is no type folder (under spatial/ a type folder is map, pin, zone, marker, in lower case)" % type
 	if not OWTypes.SCRIPTS.has(type):
 		return "not read: %s is no type folder (a type folder is named by one of the 22 type words, in lower case)" % type
 	if not name.ends_with(".json"):
@@ -168,7 +174,7 @@ static func _name_refusal(type: String, name: String) -> String:
 ## One file directly in a folder under elements/ or spatial/, its name ending in .json in some spelling: read as an
 ## element, or skipped with its reason and kept as bytes.
 func _add_file(rel: String, type: String, name: String, bytes: PackedByteArray, json: JSON) -> void:
-	var why := _name_refusal(type, name)
+	var why := _name_refusal(rel.get_slice("/", 0), type, name)
 	if why != "":
 		errors.append("%s: %s" % [rel, why])
 		other_files[rel] = bytes

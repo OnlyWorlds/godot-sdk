@@ -31,6 +31,14 @@ build. The entries below are in the detail a maintainer needs; the history befor
   and `folder_fault(path)` answer the question for a caller's own listing. The tests' conformance set may be pointed at
   a draft copy with the environment variable `OW_OWWORLD_FIXTURES` (a folder holding `verdicts.json`), as the Unity
   SDK's runner takes it; unset, the vendored copy is read.
+- **Under the legacy `spatial/` only `map`, `pin`, `zone` and `marker` are read** (folder spec 4.8, ruled
+  2026-11-25). Before, a folder under `spatial/` named by any of the 22 type words was read, so
+  `spatial/character/c.json` was served as a Character. Now such a folder is no type folder there: its files are
+  skipped with a line in `OWWorld.errors` (naming the four) and kept as their bytes in `OWWorld.other_files`, so a
+  write or a pack still carries them, at every door (a folder, `OWWorld.from_files`, an `.owworld`). `spatial/Pin/`
+  was already no type folder; its line now names the four too. The pack still leaves the author fields out of such a
+  file, as the ruling asks of every file under `spatial/`. The fixture set's `pass-OW-24-spatial-untyped` and
+  `-type-case` serve nothing from `spatial/` (`tests/test_spatial_four.gd`, which reads them where the set holds them).
 - **A pack leaves out who wrote each element.** `OWWorldArchive.pack`, `pack_folder` and `OWWorld.pack` now remove
   the five author fields (`created_by`, `changed_by`, `changed_via`, `changed_client`, `doors`: which member and which
   tool wrote an element, a membership id and a door, nothing to someone the world is handed to) from every file under
