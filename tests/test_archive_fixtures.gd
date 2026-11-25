@@ -1,6 +1,7 @@
 extends RefCounted
 ## OWWorldArchive.read on every .owworld in the conformance set (schema-dist fixtures/owworld/, the pinned copy): the
-## reader verdict, the reason where the set gives one, OW-10's strip, and OW-9's round trip (read, pack, read again).
+## reader verdict, the reason where the set gives one, the files a reader leaves out by reason (OW-25), OW-10's strip,
+## and OW-9's round trip (read, pack, read again).
 
 const P = preload("res://tests/paths.gd")
 
@@ -32,6 +33,17 @@ func _case(t, v: Dictionary) -> void:   # bound arguments come after the call's
 		var key: String = v["strips"]
 		t.ok(not r.world.has(key), "%s stripped from the world" % key)
 		t.ok(not (JSON.parse_string(r.files["world.json"].get_string_from_utf8()) as Dictionary).has(key), "%s not in the returned world.json" % key)
+	if r.ok and v.has("left_out") and not v.has("side"):
+		# A reader's left_out (OW-25): by reason, the files the world's reader skipped with that word, by path.
+		var w: OWWorld = r.to_world()
+		for reason: String in v["left_out"]:
+			var skipped := []
+			for e: String in w.errors:
+				var at := e.find(": " + reason)
+				if at > 0:
+					skipped.append(e.substr(0, at))
+			skipped.sort()
+			t.eq(skipped, v["left_out"][reason], "left out as %s" % reason)
 	if r.ok and v.get("roundtrip", false):
 		var top := r.prefix.trim_suffix("/")
 		var packed := OWWorldArchive.pack_files(r.files, top)
