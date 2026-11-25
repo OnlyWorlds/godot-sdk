@@ -65,13 +65,13 @@ func test_the_fixture_nests_where_it_says(t) -> void:
 	t.eq(_deepest_in_text(_nest(201).replace("[", "").replace("]", "")), 100, "half the nest is arrays")
 	t.done()
 
-func test_the_walk_draws_the_line_at_200(t) -> void:
+func test_the_count_draws_the_line_at_200(t) -> void:
 	for arrays_only in [false, true]:
-		var json := JSON.new()
-		t.eq(json.parse(_character("b", "Bo", ",\"x\":" + _nest(200, arrays_only)).get_string_from_utf8()), OK, "200 parses")
-		t.ok(not OWJson.nested_past(json.data), "200 is not past (arrays only: %s)" % arrays_only)
-		t.eq(json.parse(_character("b", "Bo", ",\"x\":" + _nest(201, arrays_only)).get_string_from_utf8()), OK, "201 parses")
-		t.ok(OWJson.nested_past(json.data), "201 is past (arrays only: %s)" % arrays_only)
+		t.ok(not OWJson.opens_past(_character("b", "Bo", ",\"x\":" + _nest(200, arrays_only)).get_string_from_utf8()), "200 is not past (arrays only: %s)" % arrays_only)
+		t.ok(OWJson.opens_past(_character("b", "Bo", ",\"x\":" + _nest(201, arrays_only)).get_string_from_utf8()), "201 is past (arrays only: %s)" % arrays_only)
+	t.ok(not OWJson.opens_past("{\"s\": \"" + "[".repeat(300) + "\"}"), "brackets inside a string do not count")
+	t.ok(not OWJson.opens_past("{\"s\": \"\\\"" + "[".repeat(300) + "\"}"), "nor after an escaped quote")
+	t.ok(OWJson.opens_past("{\"x\": " + _nest(201) + ", \"x\": 1}"), "a key given twice: the deep value counts though a parser keeps the plain one")
 	t.done()
 
 func test_a_file_at_200_is_read_whole(t) -> void:

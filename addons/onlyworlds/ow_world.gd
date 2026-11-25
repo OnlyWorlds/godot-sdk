@@ -221,11 +221,12 @@ static func declared_type(body: Dictionary, folder_type: String) -> String:
 
 func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) -> void:
 	var text := bytes.get_string_from_utf8()   # a byte order mark is read past (measured)
+	if OWJson.opens_past(text):   # OW-25: counted in the text before any parse, skipped by its name
+		errors.append("%s: %s" % [rel, OWJson.TOO_DEEP_WHY])
+		other_files[rel] = bytes
+		return
 	if json.parse(text) != OK:
-		if OWJson.failed_on_depth(json):
-			errors.append("%s: %s" % [rel, OWJson.TOO_DEEP_WHY])
-		else:
-			errors.append("%s: not JSON (%s, line %d)" % [rel, json.get_error_message(), json.get_error_line()])
+		errors.append("%s: not JSON (%s, line %d)" % [rel, json.get_error_message(), json.get_error_line()])
 		other_files[rel] = bytes
 		return
 	if not (json.data is Dictionary):
@@ -234,10 +235,6 @@ func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) 
 		return
 	if OWJson.holds_out_of_range(json.data):
 		errors.append("%s: %s" % [rel, OWJson.OUT_OF_RANGE_WHY])
-		other_files[rel] = bytes
-		return
-	if OWJson.nested_past(json.data):   # OW-25: skipped by its name, as the TypeScript and Python packages skip it
-		errors.append("%s: %s" % [rel, OWJson.TOO_DEEP_WHY])
 		other_files[rel] = bytes
 		return
 	var e := OWTypes.make(declared_type(json.data, type), json.data)

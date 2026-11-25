@@ -17,11 +17,13 @@ build. The entries below are in the detail a maintainer needs; the history befor
 ### Added
 
 - **A file nested past 200 is refused by name, `too_deep`** (the folder format's OW-25): the depth of its deepest object
-  or array, the file's top value at 1, objects and arrays both counted. Godot's parser reads deeper than that, so the
-  reader draws the line itself (`OWJson.nested_past`, `OWJson.MAX_DEPTH`, `OWJson.TOO_DEEP`). An element file past it is
+  or array, the file's top value at 1, objects and arrays both counted. The count is made in the file's text as each
+  object or array opens, before any parse (`OWJson.opens_past`, `OWJson.MAX_DEPTH`, `OWJson.TOO_DEEP`), so every value
+  of a key given twice counts, where Godot's parser keeps the last and reads past 200. An element file past it is
   skipped into `OWWorld.errors` as `<path>: too_deep: ...`, its bytes kept in `other_files`, as the TypeScript SDK's
-  folder reader skips it; a file past Godot's own line is named the same, never "not JSON". A share leaves it out as
-  unread, and a world.json nested that deep is no world. Tests: `tests/test_too_deep.gd`.
+  folder reader skips it. A share leaves it out as unread. A `.owworld` whose world.json is that deep is refused with
+  its own cause, `too_deep` (now in `OWWorldArchive.REASONS`), and a folder whose world.json is that deep does not
+  pack. Tests: `tests/test_too_deep.gd`.
 
 ## [0.3.0] - 2026-11-25
 
