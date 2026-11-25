@@ -28,6 +28,14 @@ build. The entries below are in the detail a maintainer needs; the history befor
   that holds no calendar the reader reads gives null, never another in its place; with none named, the world's only
   calendar speaks, and with several, none. The calendar fixture's world cases are checked in `tests/test_calendar.gd`.
 
+### Changed
+
+- Schema pin to `v0.34.1-dist.147` (`9d7fb97`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 147). The
+  generated files moved in their stamp only. The calendar fixture gains twelve cases naming which calendar speaks
+  (91 cases, 48 calendars, 256 steps), answered by `speaking_calendar`; the address fixture gains eleven (230: 109
+  parse, 83 prose), each answered with no change; the calendar's parity vectors are made again from the TypeScript
+  SDK 4.206.0 against it, and every row agrees. The `.owworld` set gains its two fold cases (111), each answered.
+
 ### Fixed
 
 - `OWWorld.to_files` leaves out a new element whose type is not one of the 22 type slugs, as it already left out one
