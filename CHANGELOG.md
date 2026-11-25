@@ -16,6 +16,11 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ### Fixed
 
+- `OWWorld.to_files` leaves out a new element whose type is not one of the 22 type slugs, as it already left out one
+  whose two file names are both held. Since 0.2.0 `write_folder` and `pack` refuse such an element, but `to_files`
+  still mapped it to a path built from its type (`elements/../escape/…` for the type `../escape`), so a caller that
+  wrote the map itself, or handed it to `OWWorldArchive.pack_files`, could write outside `elements/`. Nor does such an
+  element take a name from a typed sibling.
 - `OWJson.number` writes every double as JavaScript's `Number.prototype.toString` writes it: the shortest digits
   that read back as the same double, the closest of those. Whether a candidate reads back is now decided exactly
   (the double's rounding interval, compared as integers) instead of by Godot's own parser, which misreads some long

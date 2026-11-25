@@ -347,7 +347,9 @@ static func element_bytes(e: OWElementCore) -> PackedByteArray:
 ## Every file of the world by its path inside it: world.json, each element, and [member other_files].
 ## [param only_edited] gives just the files an edit changed. A read element keeps the path it was read from; a new one
 ## takes its short name, or its full id in place of the tail when a file of this world (one it could not read among
-## them) or another new element holds that path, so no file is written over by another.
+## them) or another new element holds that path, so no file is written over by another. A new element left with no
+## path is left out of the map: one whose two names are both held, and one whose type is not one of the 22 (it has no
+## folder a reader reads, and a path from it could leave elements/). [method write_refusal] names either.
 func to_files(only_edited := false) -> Dictionary:
 	var out := {}
 	if not only_edited:
@@ -435,6 +437,9 @@ func _new_paths() -> Dictionary:
 	var out := {}
 	for e in fresh:
 		var pick := ""
+		if _type_refusal(e) != "":       # no type folder a reader reads: no path, and no name taken from a sibling
+			out[e] = pick
+			continue
 		for rel in [_name_of(e, false), _name_of(e, true)]:
 			if not held.has(rel.to_lower()):
 				pick = rel

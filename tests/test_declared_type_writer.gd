@@ -71,6 +71,17 @@ func test_writer_an_element_with_no_type_is_refused(t) -> void:
 	_refused(t, "", "has no type")
 	t.done()
 
+## to_files, which pack_files and a caller's own writer take, leaves a refused element out, as it leaves out one whose
+## two file names are both held: no path outside elements/ ever reaches a map. A typed sibling keeps its short name.
+func test_to_files_leaves_out_an_element_the_writer_refuses_by_its_type(t) -> void:
+	for type: String in NO_TYPES + PATH_TYPES + [""]:
+		var w := _world_with(type)
+		w.add_element(OWTypes.make("character", {"id": "0695db83-0000-7000-8000-00000000ab01", "name": "N"}))
+		var keys := w.to_files().keys()
+		keys.sort()
+		t.eq(keys, ["elements/character/n--0000ab01.json", "world.json"], "%s: only the world and the typed sibling" % type)
+	t.done()
+
 func test_writer_each_of_the_22_is_written_into_its_own_folder(t) -> void:
 	var w := OWWorld.from_files({"world.json": WORLD.to_utf8_buffer()})
 	for slug: String in OWTypes.slugs():
