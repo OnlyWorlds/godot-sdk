@@ -52,6 +52,9 @@ func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
 			t.eq(_seen(OWCalendar.breakdown_step(cal, step)), _want(s["breakdown"]), "breakdown_step(%d)" % step)
 	if c.has("elements"):
 		t.eq(OWCalendar.world_calendars(c["elements"]).map(func(f): return f["id"]), c["found"], "world_calendars: by the field")
+	if c.has("world"):
+		var spoken: Variant = OWCalendar.speaking_calendar(c["world"], c["elements"])
+		t.eq(spoken["id"] if spoken != null else null, c["speaks"], "speaking_calendar: which calendar speaks")
 	t.done()
 
 func test_the_fixture_is_the_pinned_one(t) -> void:

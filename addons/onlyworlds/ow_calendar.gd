@@ -1215,6 +1215,29 @@ static func resolve_calendar(elements: Array, active_id: Variant = NOT_CHOSEN, o
 			return c
 	return null
 
+## The World's key that names its calendar: the id of the element that carries it.
+const WORLD_KEY := "x_calendar"
+
+## Which calendar speaks for a world (the calendar profile's "Which calendar speaks"). [param world] is the World's own
+## keys (world.json, or the body GET /world returns). Its [constant WORLD_KEY] names the element whose calendar speaks,
+## by an id matched as written: when an element of [param elements] with that id carries a calendar that reads, the
+## first such one speaks, as [method world_calendars]'s [code]{"id", "name", "calendar"}[/code]; anything else named (an
+## id no element has, the id in another letter case, an element with no calendar or one that does not read, a value
+## that is no String) gives null, never another calendar in its place. Named none (the key absent or null): the world's
+## only calendar, or null when it holds several. A tool may keep its person's own pick over this
+## ([method resolve_calendar]).
+static func speaking_calendar(world: Variant, elements: Array) -> Variant:
+	var named: Variant = world.get(WORLD_KEY) if world is Dictionary else null
+	if named == null:
+		var all := world_calendars(elements)
+		return all[0] if all.size() == 1 else null
+	if not (named is String):
+		return null
+	for c in world_calendars(elements):
+		if c["id"] is String and c["id"] == named:
+			return c
+	return null
+
 # -- JavaScript's values ----------------------------------------------------------------------------------------------
 
 ## A key that is not there, apart from null (JavaScript's undefined), for [method validate_config]'s reading: a
