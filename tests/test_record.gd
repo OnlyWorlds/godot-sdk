@@ -31,7 +31,7 @@ func _elements(c: Dictionary) -> Array:
 	return _fixture()["worlds"][c["world"]]["elements"]
 
 func _mark(t, c: Dictionary) -> void:
-	var found := _elements(c).filter(func(e): return e["id"] == c["element"])
+	var found := _elements(c).filter(func(e): return e["id"] is String and e["id"] == c["element"])
 	t.eq(found.size(), 1, "the case's element is in its world")
 	if found.size() == 1:
 		t.eq(OWRecord.record_mark_of(found[0]), c["want"], "the mark")
@@ -311,7 +311,7 @@ func test_a_reading_never_moves_the_world(t) -> void:
 	if not got.is_empty():
 		got[0]["event"]["name"] = "planted"
 		got[0]["stories"].append({"id": "x", "name": "x", "as": "both"})
-	var mark: Variant = OWRecord.record_mark_of(els.filter(func(e): return e["id"] == "019a8000-0000-7000-8000-000000000201")[0])
+	var mark: Variant = OWRecord.record_mark_of(els.filter(func(e): return e["id"] is String and e["id"] == "019a8000-0000-7000-8000-000000000201")[0])
 	t.ok(mark is Dictionary, "a mark")
 	if mark is Dictionary:
 		mark["seats"]["planted"] = "planted"
