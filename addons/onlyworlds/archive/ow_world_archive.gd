@@ -223,6 +223,8 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 		return _refuse(r, "not_a_world", "world.json is not an object")
 	if OWJson.holds_out_of_range(world):
 		return _refuse(r, "not_a_world", "world.json: " + OWJson.OUT_OF_RANGE_WHY)
+	if OWJson.nested_past(world):
+		return _refuse(r, "not_a_world", "world.json: " + OWJson.TOO_DEEP_WHY)
 	var wid = world.get("id")
 	if not (wid is String) or OWUnicode.strip_ws(wid) == "":
 		return _refuse(r, "not_a_world", "world.json has no id that is a non-empty string")
@@ -371,6 +373,9 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 	var world = OWJson.parse_bytes(world_bytes)
 	if OWJson.holds_out_of_range(world):
 		out.message = "world.json in %s: %s" % [folder, OWJson.OUT_OF_RANGE_WHY]
+		return out
+	if OWJson.nested_past(world):
+		out.message = "world.json in %s: %s" % [folder, OWJson.TOO_DEEP_WHY]
 		return out
 	if not (world is Dictionary) or not (world.get("id") is String) or OWUnicode.strip_ws(world["id"]) == "":
 		out.message = "world.json in %s is not an object with an id (a non-empty string)" % folder

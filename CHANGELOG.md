@@ -14,6 +14,15 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **A file nested past 200 is refused by name, `too_deep`** (the folder format's OW-25): the depth of its deepest object
+  or array, the file's top value at 1, objects and arrays both counted. Godot's parser reads deeper than that, so the
+  reader draws the line itself (`OWJson.nested_past`, `OWJson.MAX_DEPTH`, `OWJson.TOO_DEEP`). An element file past it is
+  skipped into `OWWorld.errors` as `<path>: too_deep: ...`, its bytes kept in `other_files`, as the TypeScript SDK's
+  folder reader skips it; a file past Godot's own line is named the same, never "not JSON". A share leaves it out as
+  unread, and a world.json nested that deep is no world. Tests: `tests/test_too_deep.gd`.
+
 ## [0.3.0] - 2026-11-25
 
 A world can be packed as a share, which leaves out what a reader should not get: elements marked hidden and files

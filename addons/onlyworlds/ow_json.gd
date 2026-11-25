@@ -16,6 +16,14 @@ const NUMBER_OUT_OF_RANGE := "number_out_of_range"
 ## What a refusal says after the file's name: [constant NUMBER_OUT_OF_RANGE] and why.
 const OUT_OF_RANGE_WHY := NUMBER_OUT_OF_RANGE + ": holds a number too large for a double"
 
+## The deepest an object or array may sit in a JSON text a reader reads, the text's top value at 1, objects and arrays
+## both counted (the folder format's OW-25; the TypeScript package's OUTSIDE_JSON_MAX_DEPTH).
+const MAX_DEPTH := 200
+## The word for a file nested past [constant MAX_DEPTH] (the TypeScript and Python packages' word).
+const TOO_DEEP := "too_deep"
+## What a refusal says after the file's name: [constant TOO_DEEP] and why.
+const TOO_DEEP_WHY := TOO_DEEP + ": nested more than 200 deep"
+
 static var _needs_escape: RegEx
 
 ## True when a parsed value holds a number Godot's parser read as an infinity: one past the largest double, by its
@@ -35,6 +43,32 @@ static func holds_out_of_range(value: Variant) -> bool:
 			TYPE_ARRAY:
 				stack.append_array(v)
 	return false
+
+## True when a parsed value holds an object or array deeper than [constant MAX_DEPTH], the value itself at 1 when it
+## is one. Godot's parser reads deeper than that (to its own recursion line), so the standard's line is drawn here, by a
+## walk with its own stack, never recursion.
+static func nested_past(value: Variant, limit: int = MAX_DEPTH) -> bool:
+	var stack: Array = [[value, 1]]
+	while not stack.is_empty():
+		var pair: Array = stack.pop_back()
+		var v = pair[0]
+		var d: int = pair[1]
+		match typeof(v):
+			TYPE_DICTIONARY:
+				if d > limit:
+					return true
+				for x in v.values():
+					stack.append([x, d + 1])
+			TYPE_ARRAY:
+				if d > limit:
+					return true
+				for x in v:
+					stack.append([x, d + 1])
+	return false
+
+## Whether a failed parse failed on depth, past Godot's own recursion line: by the parser's own words.
+static func failed_on_depth(json: JSON) -> bool:
+	return json.get_error_message().to_lower().contains("too deep")
 
 ## [param value] in the spec's form: 2-space indent, key order kept, a trailing newline.
 static func stringify(value: Variant) -> String:
