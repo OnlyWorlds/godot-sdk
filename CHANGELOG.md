@@ -4,7 +4,7 @@ Notable changes to the OnlyWorlds SDK for Godot. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Where it stands.** 0.3.0 is the latest release. `onlyworlds-godot-0.3.0.zip`, on the repository's Releases page,
+**Where it stands.** 0.4.0 is the latest release. `onlyworlds-godot-0.4.0.zip`, on the repository's Releases page,
 holds the addon folder to copy into a game, and a zip of a commit holds that folder alone; the [README](README.md) has the install and a first run. What a game can
 do with it: read and write an OnlyWorlds world over the onlyworlds.com API and on disk (world folders and `.owworld`
 files), as typed elements of all 22 types; let a player join a world by an invite link; and read a world it holds
@@ -13,6 +13,13 @@ same answers as the other OnlyWorlds SDKs on a shared set of test cases. Built a
 build. The entries below are in the detail a maintainer needs; the history before this file is in the git log.
 
 ## [Unreleased]
+
+## [0.4.0] - 2026-11-26
+
+A file nested more than 200 levels deep is left out of the world by name, `too_deep`, counted in its text as each
+object or array opens, as every OnlyWorlds reader now counts it. The name finder passes over web addresses in any
+text, and over Markdown's code, HTML and reference definitions when told the text is Markdown. Pinned to
+schema-dist serial 148 (the folder format 0.3.25).
 
 ### Added
 
