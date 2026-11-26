@@ -31,6 +31,12 @@ build. The entries below are in the detail a maintainer needs; the history befor
   `not_a_world`, as any world.json it cannot read, its message naming `too_deep`; a folder whose world.json is that
   deep does not pack. Tests: `tests/test_too_deep.gd`.
 
+### Changed
+
+- Schema pin to `v0.34.1-dist.148` (`93e7232`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 148). The
+  generated files moved in their stamp only. The `.owworld` set gains its nine depth cases (OW-25, 120), each
+  answered, its reader-side `left_out` compared by reason. The folder format is 0.3.25.
+
 ## [0.3.0] - 2026-11-25
 
 A world can be packed as a share, which leaves out what a reader should not get: elements marked hidden and files
