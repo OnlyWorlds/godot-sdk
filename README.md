@@ -31,8 +31,12 @@ web and mobile among them).
 Then open the project in the editor once (or run `godot --headless --path . --import`), so Godot registers the `OW…`
 classes. Enabling the plugin under **Project Settings → Plugins** is optional: the classes work without it.
 
-**Versions.** 0.1.0 is the first numbered release. Before 1.0, a minor version may change a call's name, and the
-[CHANGELOG](CHANGELOG.md) says so when it does.
+**Versions.** A patch release fixes and a minor release adds; neither removes nor renames a public name, and the
+addon keeps to this while it is 0.x. A name that will go is marked deprecated first, saying since which release,
+what to use instead and the release it leaves in; it stays at least six months after that release and goes only in
+1.0. It is the promise the TypeScript SDK and the Python package make on the docs'
+[Stability page](https://onlyworlds.github.io/docs/development/api/stability#the-standard-the-packages-and-this-site), and a check in CI
+holds the public names to it on every change. The [CHANGELOG](CHANGELOG.md) lists what each version changed.
 
 ## First run
 
@@ -163,6 +167,8 @@ python codegen/generate_layout.py --check                        # the layout ta
 python codegen/generate_layout_3d.py --check
 python codegen/generate_frame_bits.py --check
 python codegen/test_generate_views.py                            # generate.py refuses a views.json that breaks a rule
+python tools/verify_promise.py --godot godot                     # the written promise: no public name gone, each one listed
+python tools/mutants_promise.py --godot godot                    # the promise check, watched failing once per rule
 godot --path . res://demo/world_map.tscn -- --world=<folder | file.owworld>   # the map demo on another world
 ```
 
@@ -174,9 +180,16 @@ parse drops out of the total rather than counting as failed: import again and re
 
 `tools/` holds `pack.gd` and `extract.gd` (shell tools for `.owworld` files), `check_writer.py` (an `.owworld` file
 judged by the fixture set's reference checker, which is not part of this repository: `--run-py DIR`),
-`release_zip.py` and `prove_zip.py` (the release zip made from a tag or a commit into `dist/`, then unpacked into an
+`verify_promise.py` and `mutants_promise.py` (below), `release_zip.py` and `prove_zip.py` (the release zip made from a tag or a commit into `dist/`, then unpacked into an
 empty project that reads a world through it: `python tools/release_zip.py v0.6.0`, then
 `python tools/prove_zip.py dist/onlyworlds-godot-0.6.0.zip --godot <binary>`), and two probes.
+
+**Deprecating a name.** Write `## @deprecated: Since X.Y.Z, leaves in 1.0, use Y.` in its doc comment, with X.Y.Z the
+release that first carries the mark; a deprecated function also calls `push_warning()` with the same words, since
+GDScript does not warn at a call by itself. `tools/verify_promise.py` reads the addon's public names through Godot's
+doctool and holds them, kept in `tools/public-names.json`, and their marks to the promise on every push and pull
+request. A change that adds a public name or a mark runs `python tools/verify_promise.py --godot <binary> --write`
+and commits the file.
 
 ## OnlyWorlds
 
