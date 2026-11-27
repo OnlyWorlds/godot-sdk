@@ -14,6 +14,19 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **A person's invite link can name the Character its person will play.** `OWJoin.Preview.character_name` is that
+  Character's name, or null when the link names none, when that Character has since been deleted, hidden or taken, and
+  on an agent's or a player's link (where keel sends no such key). Parity with the TypeScript SDK 4.211.0, its preview
+  read with and without the key.
+- **A world file refused for a `world.json` it cannot read says what is wrong with it**:
+  `OWWorldArchive.Result.world_fault` is `too_deep` (nested past 200 levels) or `not_json`, the folder read report's
+  words, beside the reason `not_a_world`; a tool reads the field, never the message. It is `""` on every other refusal:
+  no `world.json`, one that is JSON but no object (`null` included, whose message now says so), one with no id. A
+  `world.json` holding a number too large for a double, which this reader refuses where the TypeScript reader does not,
+  says `number_out_of_range`. Parity with the TypeScript SDK 4.212.0, its test vector ported.
+
 ## [0.5.0] - 2026-11-27
 
 A calendar has size bounds, and a date past the exact range of whole numbers is shown as a plain number, as the
