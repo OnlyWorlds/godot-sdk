@@ -112,7 +112,11 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   that became a proposal is kind `api` with `status` 202 and `error.proposal` the row (`is_proposed()`), as the Unity
   SDK's `OWProposedError` is: the element did not change. A read whose `fields` list names fields its type does not
   have is refused whole in one 422 on `fields`; `error.fields_refusal()` reads every unknown name, the types that have
-  each, and the names the type takes.
+  each, and the names the type takes. A write refused for a size limit is a 422 `invalid_request` whose
+  `error.limit()` names the limit (`element_bytes`, `element_link_ids`, `extensions_bytes`, or a later name; a key of
+  the API document's `info.x-ow-limits`), read by `is_element_too_large()`, `is_element_too_many_links()` and
+  `is_extensions_too_large()`, on a bulk slot's `error` too; until keel sends the key, `limit()` is null. A write body
+  that holds itself, or that is nested more than 200 deep, is refused, nothing sent.
 - **Proposed changes**: a proposal waits beside an element for a keeper (the owner or a co-builder); the element does
   not change until one accepts it. `propose(type, id, fields, evidence, {"expires": ..., "idempotency_key": ...})`
   makes one with any member key that reads the element, a read key included; `list_proposals(type, id, options)` and
