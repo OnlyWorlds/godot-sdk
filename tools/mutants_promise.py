@@ -26,8 +26,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 CHECK = HERE / "verify_promise.py"
-MARKED = "OWPresentation.family_of"
-GOOD = "Since 0.6.0. Leaves in 1.0. Use [method OWPresentation.icon_of]."
+MARKED = "OWPresentation.icon_of"  # a name the addon does not mark, so each plant's mark is the only change
+GOOD = "Since 0.6.0. Leaves in 1.0. Use [method OWPresentation.group_of]."
+MARKS_TODAY = sum(1 for r in json.loads((HERE / "public-names.json").read_text(encoding="utf-8"))["names"].values() if r)
 
 
 def godot_docs(godot: str, project: Path, out: Path) -> None:
@@ -60,9 +61,9 @@ def once(text: str, old: str, new: str) -> str:
 
 
 def mark(words: str):
-    """family_of marked deprecated with `words`, as the doctool writes a `## @deprecated: words` tag."""
+    """icon_of marked deprecated with `words`, as the doctool writes a `## @deprecated: words` tag."""
     return lambda d: edit(d / "docs" / "OWPresentation.xml", lambda t: once(
-        t, '<method name="family_of" qualifiers="static">', f'<method name="family_of" qualifiers="static" deprecated="{words}">'))
+        t, '<method name="icon_of" qualifiers="static">', f'<method name="icon_of" qualifiers="static" deprecated="{words}">'))
 
 
 def names(fn):
@@ -76,10 +77,18 @@ def ghost(since: str | None):
     return names(put)
 
 
+MARKED_DECL = re.compile(r'\s*<(method|member|constant|signal) [^>]*\bdeprecated="[^"]*"[^>]*(?:/>|>.*?</\1>)', re.S)
+
+
 def major1(date: str):
+    """1.0.0 released on `date`. The addon's own marks are taken out of the copy (from the reference and the names
+    file alike), so the plant's ghost is the only name the major judges, whatever the real marks' dates."""
     def plant(d: Path) -> None:
         edit(d / "addons" / "onlyworlds" / "plugin.cfg", lambda t: re.sub(r'^version="[^"]+"', 'version="1.0.0"', t, count=1, flags=re.M))
         edit(d / "CHANGELOG.md", lambda t: once(t, "## [Unreleased]", f"## [Unreleased]\n\n## [1.0.0] - {date}"))
+        for x in (d / "docs").glob("*.xml"):
+            edit(x, lambda t: MARKED_DECL.sub("", t))
+        names(lambda f: {**f, "names": {n: r for n, r in f["names"].items() if not r}})(d)
     return plant
 
 
@@ -105,19 +114,19 @@ def inherited(f):
 PLANTS = [
     ("a listed name gone within the major", ghost(None), 1, r"\(2\) GhostName: listed at"),
     ("a public name the file does not list", names(unlist), 1, r"\(2\) OWClient: public in .* not in public-names\.json"),
-    ("a mark the file does not record", mark(GOOD), 1, r"\(2\) OWPresentation\.family_of: the source marks it"),
-    ("a mark without its since", mark("Leaves in 1.0, use [method OWPresentation.icon_of]."), 1,
-     r'\(1\) OWPresentation\.family_of: its message says no "Since X\.Y\.Z"'),
-    ("a mark that leaves in a minor", mark("Since 0.6.0, leaves in 0.9, use [method OWPresentation.icon_of]."), 1,
-     r"\(1\) OWPresentation\.family_of: it leaves in 0\.9, not in a major above 0"),
+    ("a mark the file does not record", mark(GOOD), 1, r"\(2\) OWPresentation\.icon_of: the source marks it"),
+    ("a mark without its since", mark("Leaves in 1.0, use [method OWPresentation.group_of]."), 1,
+     r'\(1\) OWPresentation\.icon_of: its message says no "Since X\.Y\.Z"'),
+    ("a mark that leaves in a minor", mark("Since 0.6.0, leaves in 0.9, use [method OWPresentation.group_of]."), 1,
+     r"\(1\) OWPresentation\.icon_of: it leaves in 0\.9, not in a major above 0"),
     ("a mark since a release after the next one", mark("Since 9.9.9, leaves in 1.0."), 1,
-     r"\(1\) OWPresentation\.family_of: marked since 9\.9\.9, after this release"),
-    ("a mark with no words", mark(""), 1, r'\(1\) OWPresentation\.family_of: its message says no "Since X\.Y\.Z"'),
+     r"\(1\) OWPresentation\.icon_of: marked since 9\.9\.9, after this release"),
+    ("a mark with no words", mark(""), 1, r'\(1\) OWPresentation\.icon_of: its message says no "Since X\.Y\.Z"'),
     ("a major that drops an unmarked name", both(major1("2027-12-01"), ghost(None)), 1, r"\(3\) GhostName: gone in major 1 without a mark first"),
     ("a major that drops a name under six months after its mark", both(major1("2027-05-22"), ghost("0.1.0")), 1,
      r"\(3\) GhostName: marked since 0\.1\.0 \(2026-11-23\), gone 2027-05-22, before 2027-05-23"),
     ("control: a major that drops a name six months after its mark", both(major1("2027-05-23"), ghost("0.1.0")), 0, r"^PASS"),
-    ("control: a well-formed mark the file records", both(mark(GOOD), names(recorded)), 0, r"^PASS: \d+ public names in [\d.]+, 1 marked"),
+    ("control: a well-formed mark the file records", both(mark(GOOD), names(recorded)), 0, r"^PASS: \d+ public names in [\d.]+, %d marked" % (MARKS_TODAY + 1)),
     ("control: a listed member reached through its base class", names(inherited), 0, r"^PASS"),
     ("control: the copy unchanged", lambda d: None, 0, r"^PASS"),
 ]
@@ -130,7 +139,7 @@ def through_godot(godot: str) -> tuple[bool, str]:
         shutil.copytree(ROOT / "addons", d / "addons")
         (d / "project.godot").write_text('config_version=5\n\n[application]\n\nconfig/name="promise plant"\n', encoding="utf-8")
         script = d / "addons" / "onlyworlds" / "ow_presentation.gd"
-        edit(script, lambda t: once(t, "static func family_of(", "## @deprecated: Leaves in 1.0, use [method icon_of].\nstatic func family_of("))
+        edit(script, lambda t: once(t, "static func icon_of(", "## @deprecated: Leaves in 1.0, use [method group_of].\nstatic func icon_of("))
         subprocess.run([godot, "--headless", "--path", str(d), "--import"], capture_output=True, timeout=600)
         (d / "tools").mkdir()
         shutil.copy2(HERE / "public-names.json", d / "tools" / "public-names.json")
@@ -138,7 +147,7 @@ def through_godot(godot: str) -> tuple[bool, str]:
         env = {**os.environ, "OW_PROMISE_ROOT": str(d), "OW_PROMISE_NAMES": str(d / "tools" / "public-names.json")}
         r = subprocess.run([sys.executable, str(CHECK), "--godot", godot], env=env, capture_output=True, text=True, timeout=600)
         out = r.stdout + r.stderr
-        ok = r.returncode == 1 and re.search(r'\(1\) OWPresentation\.family_of: its message says no "Since', out) is not None
+        ok = r.returncode == 1 and re.search(r'\(1\) OWPresentation\.icon_of: its message says no "Since', out) is not None
         return ok, out
     finally:
         shutil.rmtree(d, ignore_errors=True)

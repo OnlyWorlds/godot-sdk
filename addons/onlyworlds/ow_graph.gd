@@ -178,7 +178,7 @@ static func world_graph(world: Variant, reader: Variant, options: Variant = null
 		var name: Variant = el.get("name")
 		var node := {"id": id, "type": el["type"],
 			"name": name.duplicate(true) if name is Array or name is Dictionary else name,
-			"family": OWPresentation.family_of(type), "icon": OWPresentation.icon_of(type)}
+			"family": OWPresentation.group_of(type), "icon": OWPresentation.icon_of(type)}
 		var marks := []
 		for k in kinds.call(id):
 			if k != "map_space":

@@ -255,6 +255,11 @@ def emit_pin(pin: dict, version: dict) -> str:
     ])
 
 
+# The deprecation mark's words (README, "Deprecating a name"): in the doc comment, and plain in the warning.
+FAMILY_OF_DEPRECATED = "Since 0.7.0. Leaves in 1.0. Use [method group_of]."
+FAMILY_OF_DEPRECATED_PLAIN = "Since 0.7.0. Leaves in 1.0. Use OWPresentation.group_of."
+
+
 def emit_presentation(presentation: dict, head: str) -> str:
     # serial 87 (lens.md nodes, presentation.json _meta.groups): a word not in colors.order fails loudly, naming the
     # word; a sidecar that brings one is refused here, before anything is written.
@@ -280,10 +285,21 @@ def emit_presentation(presentation: dict, head: str) -> str:
         "}",
         "",
         "static var _table: Dictionary = TYPES",
+        "static var _family_of_warned := false",
         "",
-        "## The family of [param type] (the lens profile's graph node key).",
-        "static func family_of(type: String) -> String:",
+        "## The colour group of [param type], one of [constant ORDER] (the TypeScript SDK's [code]groupOf[/code]; the lens",
+        "## profile's graph node key [code]family[/code] holds it).",
+        "static func group_of(type: String) -> String:",
         '\treturn _table[type]["family"]',
+        "",
+        "## The colour group of [param type], as [method group_of] answers it, under its name before npm 5.0. It warns",
+        "## once per run, with the words below.",
+        "## @deprecated: " + FAMILY_OF_DEPRECATED,
+        "static func family_of(type: String) -> String:",
+        "\tif not _family_of_warned:",
+        "\t\t_family_of_warned = true",
+        f'\t\tpush_warning("OnlyWorlds: OWPresentation.family_of is deprecated. {FAMILY_OF_DEPRECATED_PLAIN}")',
+        "\treturn group_of(type)",
         "",
         "## The icon of [param type] (a Material Symbols name).",
         "static func icon_of(type: String) -> String:",
