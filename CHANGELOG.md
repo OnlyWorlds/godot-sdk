@@ -14,6 +14,15 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Changed
+
+- **Parity with the TypeScript SDK 4.212.0: the validator names the size bounds.** `OWCalendar.validate_config` now
+  says which of the calendar profile's size bounds a value is past, in the TypeScript SDK's words: "A calendar holds at
+  most 256 eras", "A calendar holds at most 64 months", "A week holds at most 64 steps and 64 names", "A calendar holds
+  at most 16 festival days", "An except list holds at most 8 numbers" (version 2), "A name or template holds at most
+  256 characters" and "A year holds at most 2^53 - 1 steps". One message at most, the first bound in that order, after
+  the era checks and before the overlaps. The reader already refused such a value; now the validator says why.
+
 ## [0.6.0] - 2026-11-27
 
 A join preview names the Character a person's invite link offers, and a world file refused for its `world.json`
