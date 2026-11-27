@@ -23,7 +23,7 @@ web and mobile among them).
   editor's **AssetLib** tab by searching for OnlyWorlds. Download it and install with the installer's defaults ("Ignore
   Asset Root" stays ticked), and it lands at `addons/onlyworlds/`. The Library carries a release, so it can be a step
   behind this repository.
-- **The release zip**: `onlyworlds-godot-0.6.0.zip`, from this repository's
+- **The release zip**: `onlyworlds-godot-0.7.0.zip`, from this repository's
   [Releases](https://github.com/OnlyWorlds/godot-sdk/releases) page. Unpack it into your project folder: it holds
   `addons/onlyworlds/`, which joins your project's `addons/` folder.
 - **A clone** of this repository: copy its `addons/onlyworlds/` folder into your project's `addons/` folder.
@@ -181,8 +181,8 @@ parse drops out of the total rather than counting as failed: import again and re
 `tools/` holds `pack.gd` and `extract.gd` (shell tools for `.owworld` files), `check_writer.py` (an `.owworld` file
 judged by the fixture set's reference checker, which is not part of this repository: `--run-py DIR`),
 `verify_promise.py` and `mutants_promise.py` (below), `release_zip.py` and `prove_zip.py` (the release zip made from a tag or a commit into `dist/`, then unpacked into an
-empty project that reads a world through it: `python tools/release_zip.py v0.6.0`, then
-`python tools/prove_zip.py dist/onlyworlds-godot-0.6.0.zip --godot <binary>`), and two probes.
+empty project that reads a world through it: `python tools/release_zip.py v0.7.0`, then
+`python tools/prove_zip.py dist/onlyworlds-godot-0.7.0.zip --godot <binary>`), and two probes.
 
 **Deprecating a name.** Write `## @deprecated: Since X.Y.Z. Leaves in 1.0. Use Y.` in its doc comment, with X.Y.Z the
 release that first carries the mark; a deprecated function also calls `push_warning()` with the same words, since
