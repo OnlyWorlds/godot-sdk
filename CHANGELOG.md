@@ -14,18 +14,16 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- **`OWWorldArchive.pack` and `pack_folder` refuse to write a world file their own reader would refuse for a name**,
-  as the folder format's writer rules ask (section 4.7: OW-16, OW-18, OW-19, OW-22) and as the TypeScript SDK's
-  `writeWorldFile` refuses it. Before anything is packed, every entry name goes through the reader's checks: a name
-  some disk cannot hold (a Windows device name such as `media/aux.png`, a name ending in a dot or a space, a reserved
-  or control character) is refused `name`; two names that are one after case folding, `collision`; a path that would
-  be a file and a folder, `unsafe_path`, and so is a world folder named `mimetype` (the marker's name), while one
-  named `MimeType` is refused `collision`. The message names the cause and ends "nothing was written". Before, such a
-  folder was packed into a file that `OWWorldArchive.read` then refused. The checks are one function,
-  `OWWorldArchive.entry_names_fault`, which a tool can call on its own list of names. `pack_files` still packs exactly
-  the files it is given.
+- **The addon's written promise, held on every change.** A patch release fixes and a minor release adds; neither removes
+  nor renames a public name, and the addon keeps to this while it is 0.x. A name that will go is marked first, saying
+  since which release, what to use instead and the release it leaves in, and goes no sooner than six months later, in
+  1.0. The README's Versions line says so and links the docs' Stability page. The mark is `## @deprecated: Since X.Y.Z,
+  leaves in 1.0, use Y.` in the doc comment, and a deprecated function also warns with `push_warning()` when it is
+  called. `tools/verify_promise.py` holds the addon's public names, listed in `tools/public-names.json` and read by
+  Godot's own doctool, and their marks to the promise in CI beside the suite; `tools/mutants_promise.py` watches it fail
+  once for each rule. No name is deprecated today, and no release so far has removed or renamed a public name.
 
 ### Changed
 
@@ -51,6 +49,19 @@ build. The entries below are in the detail a maintainer needs; the history befor
 - `pack_folder` already refused a folder holding `Spatial/` (or `spatial/` with a long s) beside `elements/`, as a copy
   and as a share, naming `name_case` and packing nothing; the TypeScript SDK 4.212.3's writer now refuses it too, and a
   test holds the shape.
+
+### Fixed
+
+- **`OWWorldArchive.pack` and `pack_folder` refuse to write a world file their own reader would refuse for a name**,
+  as the folder format's writer rules ask (section 4.7: OW-16, OW-18, OW-19, OW-22) and as the TypeScript SDK's
+  `writeWorldFile` refuses it. Before anything is packed, every entry name goes through the reader's checks: a name
+  some disk cannot hold (a Windows device name such as `media/aux.png`, a name ending in a dot or a space, a reserved
+  or control character) is refused `name`; two names that are one after case folding, `collision`; a path that would
+  be a file and a folder, `unsafe_path`, and so is a world folder named `mimetype` (the marker's name), while one
+  named `MimeType` is refused `collision`. The message names the cause and ends "nothing was written". Before, such a
+  folder was packed into a file that `OWWorldArchive.read` then refused. The checks are one function,
+  `OWWorldArchive.entry_names_fault`, which a tool can call on its own list of names. `pack_files` still packs exactly
+  the files it is given.
 
 ## [0.6.0] - 2026-11-27
 

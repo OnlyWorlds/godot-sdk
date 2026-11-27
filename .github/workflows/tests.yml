@@ -1,5 +1,5 @@
-# The headless suite, the generators' drift checks and the release zip's install on a Linux runner, on every push and
-# pull request.
+# The headless suite, the generators' drift checks, the written promise's check and the release zip's install on a
+# Linux runner, on every push and pull request.
 # Godot needs no licence and the tests no key or network (the client's tests use a fake transport), so this
 # workflow holds no secret. Tests that need a world outside this repository (OW_SIKELIA, OW_MOPPETOPIA) skip here.
 name: tests
@@ -47,6 +47,15 @@ jobs:
         run: |
           ./godot --headless --path . --import
           ./godot --headless --path . --script res://tests/run.gd
+
+      # The written promise (the docs' Stability page): no public name gone within a major, every public name listed
+      # in tools/public-names.json, every @deprecated saying since which release and the release it leaves in. Godot's
+      # own doctool reads the names. A change that adds public names runs `--write` and commits the file. The second
+      # line watches the first fail once for each rule.
+      - name: The written promise
+        run: |
+          python3 tools/verify_promise.py --godot ./godot
+          python3 tools/mutants_promise.py --godot ./godot
 
       # The zip a release carries, made from this commit and unpacked into an empty project, which reads a world on
       # disk through it: a file the addon needs and the zip leaves out fails here.
