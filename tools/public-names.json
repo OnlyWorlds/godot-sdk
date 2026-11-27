@@ -1311,6 +1311,7 @@
   "OWWorldArchive.Result.world_fault": {},
   "OWWorldArchive.Result.world_id": {},
   "OWWorldArchive.WORLD": {},
+  "OWWorldArchive.entry_names_fault": {},
   "OWWorldArchive.leave_out_for_share": {},
   "OWWorldArchive.name_fault": {},
   "OWWorldArchive.pack": {},
