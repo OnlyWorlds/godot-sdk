@@ -35,6 +35,12 @@ class Result:
 	var ok := false
 	var reason := ""
 	var message := ""
+	## For a [code]not_a_world[/code] whose world.json is there but cannot be read, what is wrong with it, in the
+	## folder read report's words: [code]too_deep[/code] (nested past 200), [code]not_json[/code], or
+	## [code]number_out_of_range[/code] (a number past a double). [code]""[/code] on every other refusal (no
+	## world.json, one that is JSON but no object, one with no id) and on a world read. A tool reads this, never
+	## [member message]. The TypeScript SDK's [code]OwWorldFileError.worldFault[/code].
+	var world_fault := ""
 	var world_id := ""
 	## "" when world.json sits at the archive's root, else the top folder with its slash ("abbey/").
 	var prefix := ""
@@ -219,13 +225,17 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 	# OW-25: the world's own file counted as an element file is, in its text before any parse: a world.json the reader
 	# cannot read, so no world (OW-3), its message naming the word.
 	if OWJson.opens_past(r.held_world_json.get_string_from_utf8()):
+		r.world_fault = "too_deep"
 		return _refuse(r, "not_a_world", "world.json: " + OWJson.TOO_DEEP_WHY)
-	var world = _parse_strict(r.held_world_json)
-	if world == null:
+	var parsed := {}
+	var world = _parse_strict(r.held_world_json, parsed)
+	if not parsed.get("ok", false):
+		r.world_fault = "not_json"
 		return _refuse(r, "not_a_world", "world.json does not parse")
 	if not (world is Dictionary):
 		return _refuse(r, "not_a_world", "world.json is not an object")
 	if OWJson.holds_out_of_range(world):
+		r.world_fault = "number_out_of_range"
 		return _refuse(r, "not_a_world", "world.json: " + OWJson.OUT_OF_RANGE_WHY)
 	var wid = world.get("id")
 	if not (wid is String) or OWUnicode.strip_ws(wid) == "":
@@ -297,8 +307,9 @@ static func _is_junk(name: String) -> bool:
 	return false
 
 ## JSON as Python's strict json.loads reads it, for world.json: UTF-8 (a leading byte order mark read past), and no
-## raw control character inside a string (Godot's parser accepts one; the reference checker refuses it).
-static func _parse_strict(bytes: PackedByteArray) -> Variant:
+## raw control character inside a string (Godot's parser accepts one; the reference checker refuses it). [param out]
+## gets [code]ok[/code] true when the text is JSON, so a world.json of [code]null[/code] is told from one that is none.
+static func _parse_strict(bytes: PackedByteArray, out := {}) -> Variant:
 	if bytes.size() >= 3 and bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF:
 		bytes = bytes.slice(3)
 	var text = OWUnicode.decode_utf8(bytes)
@@ -321,6 +332,7 @@ static func _parse_strict(bytes: PackedByteArray) -> Variant:
 	var json := JSON.new()
 	if json.parse(text) != OK:
 		return null
+	out["ok"] = true
 	return json.data
 
 # -- pack -------------------------------------------------------------------------------------------------------------
