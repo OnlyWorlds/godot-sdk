@@ -1182,6 +1182,9 @@ static func validate_config(value: Variant) -> PackedStringArray:
 			errors.append("Era \"%s\": end must be after start" % name)
 		if _direction_is(direction, "down") and not _nullish(end) and _js_le(start, end):
 			errors.append("Era \"%s\": a counting-down era must end below its start" % name)
+	var bound := _bounds_problem(value)
+	if bound != "":
+		errors.append(bound)
 	var domains := _raw_era_domains(era_items)
 	for i in domains.size():
 		for j in range(i + 1, domains.size()):
@@ -1190,6 +1193,60 @@ static func validate_config(value: Variant) -> PackedStringArray:
 			if _js_less(a[1], b[2]) is bool and _js_less(a[1], b[2]) and _js_less(b[1], a[2]) is bool and _js_less(b[1], a[2]):
 				errors.append("Eras \"%s\" and \"%s\" overlap" % [_js_str(_js_get(a[0], "name")), _js_str(_js_get(b[0], "name"))])
 	return errors
+
+## npm's boundsProblem on a raw value: the first of the profile's size bounds it is past, in npm's order and words, or
+## "". Only lists count as lists here (a string in place of one holds nothing), only strings as names, only numbers as
+## lengths; [code]except[/code] counts on version 2 alone, and the longest year (the months' lengths plus every entry in
+## [code]intercalary[/code]) is summed as JavaScript sums it, in doubles.
+static func _bounds_problem(value: Variant) -> String:
+	var bundles: Variant = _js_get(value, "bundles")
+	var months: Variant = _js_get(bundles, "months")
+	var week: Variant = _js_get(bundles, "week")
+	var eras: Array = _list_of(_js_get(value, "eras"))
+	var inter: Array = _list_of(_js_get(value, "intercalary"))
+	var month_names: Array = _list_of(_js_get(months, "names"))
+	var day_names: Array = _list_of(_js_get(week, "names"))
+	if eras.size() > _MAX_ERAS:
+		return "A calendar holds at most %d eras" % _MAX_ERAS
+	if month_names.size() > _MAX_MONTHS:
+		return "A calendar holds at most %d months" % _MAX_MONTHS
+	var week_length: Variant = _js_get(week, "length")
+	if (_is_number(week_length) and week_length > _MAX_WEEK) or day_names.size() > _MAX_WEEK:
+		return "A week holds at most %d steps and %d names" % [_MAX_WEEK, _MAX_WEEK]
+	if inter.size() > _MAX_INTERCALARY:
+		return "A calendar holds at most %d festival days" % _MAX_INTERCALARY
+	var version: Variant = _js_get(value, "version")
+	if _is_number(version) and version == 2:
+		for ic in inter:
+			var ex: Variant = _js_get(ic, "except")
+			if ex is Array and ex.size() > _MAX_EXCEPT:
+				return "An except list holds at most %d numbers" % _MAX_EXCEPT
+	var text_bound := "A name or template holds at most %d characters" % _MAX_TEXT
+	for key in ["grain", "step_name", "format", "format_intercalary"]:
+		if _too_long(_js_get(value, key)):
+			return text_bound
+	for e in eras:
+		if _too_long(_js_get(e, "name")) or _too_long(_js_get(e, "abbrev")):
+			return text_bound
+	for n in month_names + day_names:
+		if _too_long(n):
+			return text_bound
+	for ic in inter:
+		if _too_long(_js_get(ic, "name")):
+			return text_bound
+	var lengths: Variant = _js_get(months, "lengths")
+	if _jt(months) and lengths is Array:
+		var longest := float(inter.size())
+		for l in lengths:
+			if _is_number(l):
+				longest += float(l)
+		if longest > float(_MAX_SAFE):
+			return "A year holds at most 2^53 - 1 steps"
+	return ""
+
+## A list, or an empty one in place of anything else (npm's [code]Array.isArray(v) ? v : [][/code]).
+static func _list_of(v: Variant) -> Array:
+	return v if v is Array else []
 
 ## npm's leapRuleProblem on a raw entry: why its version-2 keys cannot be read, or "".
 static func _leap_rule_problem(ic: Variant) -> String:

@@ -283,3 +283,25 @@ func test_validate_reads_a_calendar_read_config_takes(t) -> void:
 	t.eq(OWCalendar.validate_config(raw), PackedStringArray(["Give the week as many day names as its length", "Eras \"Old\" and \"New\" overlap"]), "two problems")
 	t.eq(OWCalendar.validate_config(OWCalendar.read_config(raw).raw), OWCalendar.validate_config(raw), "the read calendar's raw value")
 	t.done()
+
+func test_validate_names_the_size_bound_past_its_line_and_not_at_it(t) -> void:
+	# As npm 4.212.0's validateCalendarConfig: 256 eras and a year of 2^53 - 1 steps are inside the profile's bounds
+	# (serial 149), 257 eras and a year one step longer are past them.
+	var eras_of := func(n: int) -> Dictionary:
+		var eras := []
+		for i in n:
+			eras.append({"name": "E%d" % i, "start": i * 10, "end": i * 10 + 5})
+		return {"version": 1, "grain": "year", "eras": eras}
+	var year_of := func(lengths: Array) -> Dictionary:
+		var names := []
+		for i in lengths.size():
+			names.append("M%d" % i)
+		return {"version": 1, "grain": "day", "bundles": {"months": {"names": names, "lengths": lengths}}}
+	var safe := 9007199254740991
+	t.eq(OWCalendar.validate_config(eras_of.call(256)), PackedStringArray(), "256 eras: at the line")
+	t.eq(OWCalendar.validate_config(eras_of.call(257)), PackedStringArray(["A calendar holds at most 256 eras"]), "257 eras: past it")
+	t.eq(OWCalendar.validate_config(year_of.call([safe])), PackedStringArray(), "a year of 2^53 - 1 steps: at the line")
+	t.eq(OWCalendar.validate_config(year_of.call([safe, 1])), PackedStringArray(["A year holds at most 2^53 - 1 steps"]), "a year one step longer: past it")
+	var parsed: Variant = JSON.parse_string(JSON.stringify(year_of.call([safe, 1])))
+	t.eq(OWCalendar.validate_config(parsed), PackedStringArray(["A year holds at most 2^53 - 1 steps"]), "the same, read from JSON")
+	t.done()
