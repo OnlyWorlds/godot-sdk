@@ -1,6 +1,6 @@
 extends RefCounted
 ## OWCalendar on the calendar profile's conformance fixture (schema-dist profiles/calendar.fixture.json, the pinned copy
-## at dist.131, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
+## at dist.149, its sha256 checked against the manifest): every case replayed by name, a refused value refused and a
 ## calendar's every step read to the fixture's words and breakdown; then what the fixture leaves open, as the profile's
 ## text and the npm and Python packages answer it, and where Godot's one number type could change an answer.
 
@@ -75,11 +75,12 @@ func test_the_fixture_is_the_pinned_one(t) -> void:
 				t.eq(s["breakdown"].keys(), KEYS.keys(), "%s: the breakdown's keys, every one compared" % c["name"])
 		else:
 			t.ok(not c.has("steps"), "%s: a refused value reads no step" % c["name"])
-	t.eq(doc["cases"].size(), 91, "91 cases")
-	t.eq(valid, 48, "48 calendars")
-	t.eq(doc["cases"].size() - valid, 43, "43 refusals")
-	t.eq(steps, 256, "256 steps")
-	t.eq(names.size(), 91, "every case's name is its own")
+	t.eq(doc["cases"].size(), 191, "191 cases (100 for serial 149: the size bounds, dates past the exact range)")
+	t.eq(valid, 95, "95 calendars")
+	t.eq(doc["cases"].size() - valid, 96, "96 refusals")
+	t.eq(steps, 402, "402 steps")
+	t.eq(names.size(), 191, "every case's name is its own")
+	t.eq(doc["cases"].filter(func(c): return c.has("elements")).size(), 13, "13 cases with a world's elements")
 	t.eq(doc["cases"].filter(func(c): return c.has("world")).size(), 12, "12 cases with the World's keys (dist.147)")
 	t.done()
 
