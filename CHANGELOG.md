@@ -25,6 +25,26 @@ build. The entries below are in the detail a maintainer needs; the history befor
   `Dictionary` carries no mark. `OWLens.is_proposed` is unchanged: it stays the wider reader of a reader that hands a
   world on, which counts a doubt with the marks so one never reaches an AI as canon. Use `carries_proposed_mark` to
   show a person that an element waits for a keeper, and `is_proposed` to decide what to hand on.
+- **`OWApiError.limit()` names the size limit a write passed, and three predicates read it**: `is_element_too_large()`
+  (`element_bytes`), `is_element_too_many_links()` (`element_link_ids`) and `is_extensions_too_large()`
+  (`extensions_bytes`), on a thrown error and on a failed bulk slot's `error`. The OnlyWorlds API will add `limit` to
+  its three 422 `invalid_request` refusals for size (an element's size, its links, its extension fields), as a key of
+  the API document's `info.x-ow-limits`, where the number and its unit are; the code, `param` and the message stay as
+  they are. `limit()` answers any String, so a value this release does not know is read and no predicate claims it.
+  Until the API sends the key, `limit()` is null and the predicates are false: read the message as before. Parity with
+  the TypeScript SDK 4.219.0, its test vector ported.
+
+### Fixed
+
+- **A write body that holds itself, or that is nested more than 200 deep, is refused with nothing sent, never sent
+  cut.** The body was copied with `Dictionary.duplicate(true)`, which stops at the engine's recursion line (about 100
+  deep) with an engine error and leaves the rest out, and the cut copy was sent: a body inside itself went as 100
+  levels of itself, and an ordinary body past about 101 levels lost its deepest part. Every element write (`create`,
+  `upsert`, `patch`, `bulk`, `propose`) now copies its body whole to 200 levels, the depth every reader in the addon
+  holds to (`OWJson.MAX_DEPTH`), and refuses, kind `refused`, a body that holds itself (named by its key path,
+  `x_tool.self`) or one nested deeper. A value held in two places is no cycle and is written in each. Parity with the
+  TypeScript SDK 4.219.1, its test vector ported (a body JSON cannot hold is the caller's error, nothing sent); the
+  depth line is this addon's own.
 
 ## [0.9.0] - 2026-11-27
 

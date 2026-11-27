@@ -176,6 +176,36 @@ func resync_reason() -> Variant:
 	var reason = inner.get("reason") if inner is Dictionary else null
 	return reason if reason is String and (reason == "role" or reason == "view") else null
 
+## Which size limit a write passed, from the envelope's [code]limit[/code]: a key of the API document's
+## [code]info.x-ow-limits[/code], where its number and unit are. Set on a 422 [code]invalid_request[/code] only, and
+## only for the limits keel names this way (an element's size, its links, its extension fields); a full world, a file
+## too large or a request body too large keep their own codes. An open String: more values may come. Null for any
+## other error, when keel sends none, or when it is not a String. A bulk slot's [member OWClient.BulkSlot.error] reads
+## it too. Mirrors the TypeScript SDK's [code]limit[/code].
+func limit() -> Variant:
+	if status != 422 or raw_body == "":
+		return null
+	var json := JSON.new()
+	var body = json.data if json.parse(raw_body) == OK else null
+	var inner = body.get("error") if body is Dictionary else null
+	var value = inner.get("limit") if inner is Dictionary else null
+	return value if value is String else null
+
+## A write would make the element larger than an element may be (422, [method limit] [code]element_bytes[/code]).
+## Nothing is saved. Mirrors the TypeScript SDK's [code]isElementTooLarge[/code].
+func is_element_too_large() -> bool:
+	return limit() == "element_bytes"
+
+## A write would give the element more link ids, across all its link fields, than it may hold (422, [method limit]
+## [code]element_link_ids[/code]). Nothing is saved. Mirrors the TypeScript SDK's [code]isElementTooManyLinks[/code].
+func is_element_too_many_links() -> bool:
+	return limit() == "element_link_ids"
+
+## A write would put an element's or the World's extension fields past their cap (422, [method limit]
+## [code]extensions_bytes[/code]). Nothing is saved. Mirrors the TypeScript SDK's [code]isExtensionsTooLarge[/code].
+func is_extensions_too_large() -> bool:
+	return limit() == "extensions_bytes"
+
 ## What [method fields_refusal] answers: a read's [code]fields[/code] list refused whole, once, with every name in it
 ## that its type does not have, so a caller corrects the list in one try. Mirrors the TypeScript SDK's
 ## [code]OwFieldsRefusal[/code].

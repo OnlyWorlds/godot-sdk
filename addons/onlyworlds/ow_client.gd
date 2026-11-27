@@ -971,7 +971,10 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 		return ("%s: this body is a known-of stub (known_of: true), not the element: its empty fields are not its "
 			+ "values, and writing it would blank them. Write from a whole copy, or send only the fields you mean to "
 			+ "change. Nothing was sent.") % where
-	var body := data.duplicate(true)
+	var why := []
+	var body: Dictionary = _copy_body(data, [], "", why)
+	if not why.is_empty():
+		return "%s: %s. Nothing was sent." % [where, why[0]]
 	for f in READ_ONLY_FIELDS:
 		body.erase(f)
 	var script = OWTypes.SCRIPTS.get(type)
@@ -983,6 +986,38 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 		if kind == "scalar_str":
 			body[k] = ""   # string-empty-is-unset: "" is the wire's unset, and keel has no null to store
 	return body
+
+## A deep copy of a write's body, every object and array copied whole to [constant OWJson.MAX_DEPTH] (the body itself
+## at 1), so the caller's own is never changed. A body that holds itself (an object or array inside itself, which JSON
+## cannot write) or one nested past the line is not copied: [param why] gets the reason, named by its key path, and
+## the write is refused with nothing sent, never sent cut ([method Dictionary.duplicate] stops at the engine's own
+## recursion line, about 100 deep). A value held in two places is no cycle and is copied in each. The TypeScript SDK
+## throws its own TypeError, before sending, for a body JSON cannot hold.
+static func _copy_body(v: Variant, ancestors: Array, at: String, why: Array) -> Variant:
+	var t := typeof(v)
+	if t != TYPE_DICTIONARY and t != TYPE_ARRAY:
+		return v   # a scalar, or a packed array, which is copied by value
+	for a in ancestors:
+		if is_same(a, v):
+			why.append("the body holds itself at %s (an object or array inside itself), which JSON cannot write" % at)
+			return null
+	if ancestors.size() >= OWJson.MAX_DEPTH:
+		why.append("the body is %s (at %s)" % [OWJson.TOO_DEEP_WORDS, at])
+		return null
+	ancestors.push_back(v)
+	var out = v.duplicate()   # shallow: keeps a typed Array's or Dictionary's type
+	if t == TYPE_DICTIONARY:
+		for k in v:
+			out[k] = _copy_body(v[k], ancestors, str(k) if at == "" else "%s.%s" % [at, k], why)
+			if not why.is_empty():
+				break
+	else:
+		for i in v.size():
+			out[i] = _copy_body(v[i], ancestors, "%s[%d]" % [at, i], why)
+			if not why.is_empty():
+				break
+	ancestors.pop_back()
+	return out
 
 ## True when a body carries no id to keep: absent, null or "".
 static func _no_id(body: Dictionary) -> bool:
