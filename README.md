@@ -133,11 +133,27 @@ var client := OWClient.new({"api_key": joined.value.key})
 
 `OWJoin.preview(code)` says who invites, to which world, without spending the code.
 
+**A world kept current.** `OWWorldCache` holds a world in the game, and `OWSync` keeps it current from the world's
+change feed: the first call reads every element, each later one only what changed. The cache keeps itself between
+launches in one file.
+
+```gdscript
+var client := OWClient.new({"api_key": "ow_r_..."})
+var world := OWWorldCache.read_file("user://world.owcache")   # empty the first time
+var r := await OWSync.incremental(client, world)             # the first call walks the whole world, later ones the changes
+if r.ok: world.write_file("user://world.owcache")
+for c: OWCharacter in world.of_type("character"): print(c.name)
+```
+
+`await OWSync.has_changes(client, world)` asks with one cheap request whether a sync would do anything, so a game can
+poll it on a timer.
+
 ## What's in it
 
 | Part | Classes | What it does |
 |---|---|---|
 | **Client** | `OWClient`, `OWJoin` | The API: read a world, list and page through its elements, the change feed, writes (create, upsert, patch, delete, link edits, bulk), joining by invite link. |
+| **Held world** | `OWWorldCache`, `OWSync` | A world held in the game and kept current from the API's change feed: a first walk, then only what changed, with the server's resets, rewinds and deletes applied; kept between launches in one file. |
 | **Models** | `OWCharacter`, `OWLocation`, … (all 22), `OWElement` | One class per element type, generated from the schema; `OWTypes.make(type, body)` builds the right one. |
 | **On disk** | `OWWorld`, `OWWorldArchive`, `OWJson` | World folders and `.owworld` files, read and written in the folder format's own bytes. |
 | **Readers** | `OWLens`, `OWGraph`, `OWLanding`, `OWMapSpace`, `OWCharter`, `OWStrand`, `OWRecord`, `OWReport`, `OWMessage`, `OWNames`, `OWViews`, `OWNameFinder` | Answers worked out from elements you already hold, with no request of their own: what one reader may see of a world, the world as nodes and edges, its most-linked Characters and the most linked of each type, its maps as points and outlines and which of their Pins one reader knows, the rules and the story a world shows first, a Character's record of game runs, in-world messages and reports, how an element is shown, which element names a text mentions. |

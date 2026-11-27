@@ -14,6 +14,21 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **Parity with the Unity SDK's `OWSync` and `OWWorldCache`: a game holds a world and keeps it current from keel's
+  change feed.** `OWWorldCache` holds a world's elements in their typed models, reads as `OWWorld` reads
+  (`get_element`, `of_type`, plus `has`, `resolve`, `is_known_of`), records where the last sync stopped (`cursor`,
+  `cursor_token`, `epoch`, `synced_at`), carries `read_only` for a frozen snapshot, and keeps itself between launches
+  in one file (`write_file`, `read_file`). `OWSync.baseline` fills it, walking the list routes after a tip read, as the
+  Unity SDK's does; `OWSync.incremental` applies the feed from the server's own cursor, walks again on a cursor ahead
+  of the server's head and on a 409 `resync_required` (keeping what the new walk does not name on `role` or no reason,
+  dropping it on `view`), puts the cache back when such a walk fails, and claims the seq only when the feed said there
+  is no more; `OWSync.has_changes` reads the tip alone. Each answers an `OWClient.Reply`. The feed's rules are keel's
+  [changes page](https://onlyworlds.github.io/docs/development/api/changes). The Unity SDK's 24 sync tests and 16
+  cache tests are ported one by one, with one more: an upsert with no body whose read fails answers that error and
+  leaves the cursor where it was.
+
 ## [0.7.0] - 2026-11-27
 
 The addon makes a written promise about what a release may change, checked on every push, and takes the
