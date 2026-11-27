@@ -268,3 +268,51 @@ func test_zip64_from_65535_entries(t) -> void:
 	t.ok(r.ok, "reads (%s)" % r.message)
 	t.eq(r.files.size(), 65535, "every file back")
 	t.done()
+
+# -- The writer refuses a name its reader refuses (folder spec section 4.7's writer rules) -----------------------------
+
+func test_entry_names_fault_refuses_what_the_reader_refuses_by_the_writers_cause(t) -> void:
+	# The TypeScript SDK's writeWorldFile vectors as the names a pack would write (the marker, then each file under its
+	# top folder), with its causes: the fixture marks every such file writer: refuse.
+	var cases := [
+		["a .. segment", "unsafe_path", ["w/world.json", "w/../x"]],
+		["a top of ..", "unsafe_path", ["../w/world.json"]],
+		["a backslash", "unsafe_path", ["w/world.json", "w/media\\a.png"]],
+		["listed twice", "unsafe_path", ["w/world.json", "w/world.json"]],
+		["a Windows device name", "name", ["w/world.json", "w/media/aux.png"]],
+		["a top ending in a dot", "name", ["w./world.json"]],
+		["a reserved character", "name", ["w/world.json", "w/media/a?.png"]],
+		["two names one by the fold", "collision", ["w/world.json", "w/media/A.png", "w/media/a.png"]],
+		["a file and a folder", "unsafe_path", ["w/world.json", "w/media/a", "w/media/a/b.png"]],
+		["a top named mimetype", "unsafe_path", ["mimetype/world.json"]],
+		["a top named MimeType", "collision", ["MimeType/world.json"]],
+	]
+	for c in cases:
+		var names := PackedStringArray([OWWorldArchive.MARKER])
+		names.append_array(PackedStringArray(c[2]))
+		var fault := OWWorldArchive.entry_names_fault(names)
+		t.eq(fault.get("reason", ""), c[1], "%s: the cause (%s)" % [c[0], fault.get("message", "")])
+		t.ok(str(fault.get("message", "")) != "", "%s: in words" % c[0])
+	var fine := OWWorldArchive.entry_names_fault(PackedStringArray(
+		[OWWorldArchive.MARKER, "w/elements/character/a.json", "w/media/a.png", "w/world.json"]))
+	t.eq(fine, {}, "a world as written passes")
+	t.done()
+
+func test_pack_of_a_folder_named_mimetype_or_MimeType_is_refused_nothing_written(t) -> void:
+	# The door calls the check: a top folder named as the marker is a file and a folder beside it, and one in another
+	# case is one name with it, as writeWorldFile refuses both (npm's vectors for topDir), as a copy and as a share.
+	var world := '{\n  "id": "0192a000-aaaa-7bbb-8ccc-000000000001",\n  "name": "W"\n}\n'.to_utf8_buffer()
+	for pair in [["mimetype", "unsafe_path", "lower"], ["MimeType", "collision", "upper"]]:
+		for hidden in [true, false]:
+			var root := _tmp("names-%s-%s/%s" % [pair[2], "copy" if hidden else "share", pair[0]])
+			_write_tree(root, {"world.json": world})
+			var p := OWWorldArchive.pack_folder(root, false, false, false, hidden)
+			t.ok(not p.ok and p.bytes.is_empty(), "%s: refused, nothing packed" % pair[0])
+			t.ok(p.message.contains(", %s: " % pair[1]) and p.message.ends_with("nothing was written"),
+				"%s: the cause in the words (%s)" % [pair[0], p.message])
+	var control := _tmp("names-control/w")
+	_write_tree(control, {"world.json": world, "media/a.png": "PNG".to_utf8_buffer()})
+	var c := OWWorldArchive.pack_folder(control)
+	t.eq(c.names, PackedStringArray(["mimetype", "w/media/a.png", "w/world.json"]), "the control packs")
+	P.remove_tree(ProjectSettings.globalize_path(P.TMP))
+	t.done()
