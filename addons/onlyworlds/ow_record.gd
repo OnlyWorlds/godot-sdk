@@ -157,7 +157,7 @@ static func _seats_ok(v: Variant) -> bool:
 ## Dictionary with a key. Absent, null, an empty mark ([code]{}[/code], [code]""[/code] or White_Space only,
 ## [code][][/code]) and a value that is not a Dictionary are settled.
 static func _proposed(el: Dictionary) -> bool:
-	return OWLens.is_proposed(el) and el[OWLens.PROPOSED_MARK] is Dictionary
+	return OWLens.carries_proposed_mark(el)
 
 ## A multi-link's ids: the list itself, or nothing when the value is not a list.
 static func _list(v: Variant) -> Array:

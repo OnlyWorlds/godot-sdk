@@ -15,6 +15,17 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **`OWLens.carries_proposed_mark(element)` and `element.carries_proposed_mark()`: whether an element was written as
+  proposed.** True only when `x_review_proposed` is an object with a key in it, the review profile's mark, as the Unity
+  SDK's `OWPayload.IsProposed` and `OWElement.IsProposed` read it (its 31 cases, ported). A string, a number, a
+  boolean or a list in that field is a doubt, not a mark, and an empty mark (`{}`, `[]`, `""` or White_Space only) is
+  settled. It takes a raw body (a `Dictionary`) or, as a method, any typed element; anything that is not a
+  `Dictionary` carries no mark. `OWLens.is_proposed` is unchanged: it stays the wider reader of a reader that hands a
+  world on, which counts a doubt with the marks so one never reaches an AI as canon. Use `carries_proposed_mark` to
+  show a person that an element waits for a keeper, and `is_proposed` to decide what to hand on.
+
 ## [0.9.0] - 2026-11-27
 
 Proposals in a game: a player proposes a change to an element without making it, and the world's owner lists the

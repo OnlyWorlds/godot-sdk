@@ -37,6 +37,18 @@ func mark_edited() -> void:
 func get_value(key: String, default: Variant = null) -> Variant:
 	return _data.get(key, default)
 
+## True when this element was written as proposed: its [code]x_review_proposed[/code] is an object with a key in it,
+## not yet settled by a keeper ([method OWLens.carries_proposed_mark], the rule of the review queue and of a reader that
+## shows a world). A doubt (a string, a number, a list) is not a mark, and an empty mark is settled; the wider reader
+## that hands a world on to an AI is [code]OWLens.is_proposed(to_dict())[/code]. The mark stays in the element's data,
+## written back as it came.
+func carries_proposed_mark() -> bool:
+	# Read here, not through OWLens: OWLens reaches every model, so a model's base calling it is a cycle, and Godot then
+	# reads a model's base class wrong (the doctool wrote RefCounted for 22 of them). An object holding a key is the
+	# whole of the rule; the tests hold it to OWLens.carries_proposed_mark's.
+	var mark: Variant = _data.get("x_review_proposed")
+	return mark is Dictionary and not mark.is_empty()
+
 ## Set any key, a schema field or an extension ([code]x_*[/code]); it is appended when new.
 func set_value(key: String, value: Variant) -> void:
 	_data[key] = value
