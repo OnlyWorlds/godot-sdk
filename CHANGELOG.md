@@ -14,6 +14,13 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **A person's invite link can name the Character its person will play.** `OWJoin.Preview.character_name` is that
+  Character's name, or null when the link names none, when that Character has since been deleted, hidden or taken, and
+  on an agent's or a player's link (where keel sends no such key). Parity with the TypeScript SDK 4.211.0, its preview
+  read with and without the key.
+
 ## [0.5.0] - 2026-11-27
 
 A calendar has size bounds, and a date past the exact range of whole numbers is shown as a plain number, as the

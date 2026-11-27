@@ -274,6 +274,27 @@ func test_a_person_links_preview_reads_the_note_as_written_line_break_kept(t) ->
 		t.eq(p.owner_character, null, "no owner's Character set")
 	t.done()
 
+func test_a_person_links_preview_reads_the_character_it_names_null_or_absent_read_none(t) -> void:
+	# The TypeScript SDK's OwJoinPreview.character_name (4.211.0): a person's link that names the Character its person will
+	# play answers that Character's name; null when it names none or the Character was since deleted, hidden or taken;
+	# absent on an agent's or a player's link. Kills: the key left unread, read under another key (the owner's
+	# Character), or absent read as anything but null.
+	var named := PERSON_PREVIEW.duplicate(true)
+	named["owner_character"] = "The Mapmaker"
+	named["character_name"] = "Ada"
+	var p: OWJoin.Preview = (await _preview(_answering(200, named))).value
+	t.ok(p != null, "answered")
+	if p != null:
+		t.eq(p.character_name, "Ada", "the Character the link names")
+		t.eq(p.owner_character, "The Mapmaker", "the Character the link names is not the owner's")
+	var none := PERSON_PREVIEW.duplicate(true)
+	none["character_name"] = null
+	for c in [[none, "null: the link names none, or its Character was deleted, hidden or taken"],
+			[PERSON_PREVIEW, "absent reads as none"], [PREVIEW, "a player's link has no such key"]]:
+		var q: OWJoin.Preview = (await _preview(_answering(200, c[0]))).value
+		t.ok(q != null and q.character_name == null, c[1])
+	t.done()
+
 func test_a_preview_reads_the_glimpse_a_group_or_null(t) -> void:
 	# The TypeScript SDK's previewJoin glimpse vector (4.189.0): the group comes back as it was sent, and null reads null.
 	# Written back out, the group is the JSON that came in, key for key and in order, so a thing read with an id, a link

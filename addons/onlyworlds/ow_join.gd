@@ -176,7 +176,7 @@ class Glimpse:
 ## [code]preview_join[/code]; the TypeScript SDK's [code]OwJoinPreview[/code]).
 class Preview:
 	const KEYS := ["reader", "world", "invited_by", "owner_character", "role", "with_character", "expires_at", "note",
-		"glimpse", "max_uses", "uses_left", "name_required", "characters"]
+		"character_name", "glimpse", "max_uses", "uses_left", "name_required", "characters"]
 	## Who the code is for: [code]player[/code] (a friend with no account; [method OWJoin.redeem] gives a read key),
 	## [code]agent[/code] (an AI agent; the same call gives a seat's write key and secret), or [code]person[/code] (a
 	## signed-in account accepts it with [method OWClient.accept_join], not here).
@@ -196,6 +196,12 @@ class Preview:
 	## The note the inviter wrote on a person link, plain text with its line breaks: show it as text, never as markup.
 	## Null when there is none, and always on an agent's or a player's link.
 	var note: Variant = null
+	## A person's link only: the name of the Character the person would play once they join, when the link names one
+	## (its maker's [code]character[/code]) and joining now would set it. Null when the link names none, or when that
+	## Character has since been deleted, hidden or taken by someone else: joining then goes on as if the link named
+	## none. Read it again at every preview; show it as text, never as markup. Absent on an agent's or a player's link,
+	## read as null.
+	var character_name: Variant = null
 	## A glimpse of the world ([OWJoin.Glimpse]), for a link whose role reads it ([code]contributor[/code] or
 	## [code]co_builder[/code]): up to five things by name and type and the links among them. Null for a guest's link,
 	## and so for every player's, and when no two things a visitor could see are linked.
@@ -221,6 +227,7 @@ class Preview:
 		p.with_character = v.get("with_character") == true
 		p.expires_at = OWJoin._string(v, "expires_at")
 		p.note = OWJoin._maybe(v, "note")
+		p.character_name = OWJoin._maybe(v, "character_name")
 		p.glimpse = Glimpse.of(v.get("glimpse"))
 		p.max_uses = OWJoin._whole(v.get("max_uses"))
 		p.uses_left = OWJoin._whole(v.get("uses_left"))
