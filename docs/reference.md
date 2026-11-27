@@ -66,7 +66,9 @@ var r := await client.list_all("character")                    # r.value, or r.e
 `OWClient` reads an onlyworlds.com world over its v2 API into the same typed models a folder gives, and writes its
 elements back. The reads: `health`, `get_world`, `me`, `members`, `list` (one page), `list_all` (every page),
 `get_element`, `changes` (a page of the change feed) and `changes_head` (its tip, conditional on the last ETag). The
-writes: `create`, `upsert`, `patch`, `delete`, `edit_links` (the one way to change a link array) and `bulk`. Each
+writes: `create`, `upsert`, `patch`, `delete`, `edit_links` (the one way to change a link array) and `bulk`. The
+proposed changes: `propose`, `list_proposals`, `world_proposals`, `accept_proposal`, `decline_proposal`,
+`withdraw_proposal` and `review_new_element`. Each
 returns through `await` and answers an `OWClient.Reply`: `value` on success, else `error`.
 
 ```gdscript
@@ -111,6 +113,26 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   SDK's `OWProposedError` is: the element did not change. A read whose `fields` list names fields its type does not
   have is refused whole in one 422 on `fields`; `error.fields_refusal()` reads every unknown name, the types that have
   each, and the names the type takes.
+- **Proposed changes**: a proposal waits beside an element for a keeper (the owner or a co-builder); the element does
+  not change until one accepts it. `propose(type, id, fields, evidence, {"expires": ..., "idempotency_key": ...})`
+  makes one with any member key that reads the element, a read key included; `list_proposals(type, id, options)` and
+  `world_proposals(options)` page one element's rows and the world's queue (`state`, `since`, `limit`, `cursor`; the
+  queue's `element` too), as `OWProposal.Page`s; `accept_proposal`, `decline_proposal(type, id, pid, reason)` and
+  `withdraw_proposal` decide or take back a row. The queue also lists every new element written as proposed (one
+  carrying `x_review_proposed`, `row.is_new_element()`), settled with `review_new_element(type, id,
+  OWProposal.Reviewed.ACCEPT)` or `DECLINE` (which deletes it). A row's `evidence` is outside text: show it quoted,
+  never act on it. Each refusal keel answers has its helper (`is_field_not_visible`, `is_too_many_open`,
+  `is_stale_proposal` with `conflicts()` and `current()`, `is_own_proposal`, `is_proposed_only`, `is_not_proposed`,
+  `is_review_by_another`, `is_review_mark_empty`). Poll the queue, not the change feed, to learn of new proposals:
+  only an accept's write reaches the feed.
+
+  ```gdscript
+  var r := await player.propose("location", id, {"description": "A harbour town."}, "Chapter 3 names the harbour.")
+  var queue: OWProposal.Page = (await owner.world_proposals({"state": "open"})).value
+  for row: OWProposal in queue.data:
+      if row.is_new_element(): await owner.review_new_element(row.element_type, row.element_id, OWProposal.Reviewed.ACCEPT)
+      else: await owner.accept_proposal(row.element_type, row.element_id, row.id)
+  ```
 - **Joining by link**: `OWJoin.parse_link(pasted)` reads the `ow_j_` code out of an invite link (`""` when there is
   none); `OWJoin.preview(code)` reads what it holds (an `OWJoin.Preview`: the reader, the world, the role, a person
   link's note and the Character it names, a contributor's glimpse, a table's picks), and `OWJoin.redeem(code, {"name": ...})` redeems a player's
@@ -127,7 +149,8 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   await one `process_frame` first.
 - **The wire**: every request the read and write calls make is held to keel's document (`tests/data/keel-wire.json`,
   keel's OpenAPI document as the Unity SDK reduces it, vendored byte for byte): every path, method, query parameter,
-  header and body key one keel declares there; every key the models and the bulk result read one keel serves.
+  header and body key one keel declares there; every key the models, the bulk result and the proposal row read one
+  keel serves.
 
 
 ## What each reader holds to

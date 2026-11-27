@@ -28,7 +28,10 @@ extends RefCounted
 ## way. The health pulse carries no credential. The writes ([method create], [method upsert], [method patch],
 ## [method delete], [method edit_links], [method bulk]) go with the PIN, [code]X-OW-Client[/code] (the config's
 ## [code]client[/code]) and, on a client the config declares an agent, [code]X-OW-Agent[/code]; an account token and a
-## keyless client write nothing. Mirrors the TypeScript SDK's [code]OwV2Client[/code].
+## keyless client write nothing. A proposed change waits beside an element for a keeper: [method propose], the
+## queue ([method list_proposals], [method world_proposals]) and its decisions ([method accept_proposal],
+## [method decline_proposal], [method withdraw_proposal], [method review_new_element]), each row an [OWProposal].
+## Mirrors the TypeScript SDK's [code]OwV2Client[/code].
 ##
 ## [codeblock]
 ## var writer := OWClient.new({"api_key": "ow_w_...", "api_pin": "your-pin", "client": "my-game"})
@@ -65,6 +68,9 @@ const _CREATE_KEYS := ["idempotency_key"]
 const _IF_MATCH_KEYS := ["if_match"]
 const _EDIT_KEYS := ["add", "remove"]
 const _BULK_KEYS := ["atomic", "idempotency_key", "create_only"]
+const _PROPOSE_KEYS := ["expires", "idempotency_key"]
+const _PROPOSAL_LIST_KEYS := ["state", "since", "limit", "cursor"]
+const _QUEUE_KEYS := ["state", "since", "element", "limit", "cursor"]
 const _WORLD_READS := "list, list_all, get_element and get_world"
 ## Around the refusal [method _seg] puts in a path for a value that is not one segment.
 const _REFUSED_OPEN := "\u0001"
@@ -220,7 +226,8 @@ class BulkSlot:
 	var updated_at: Variant = null
 	## On a failure: the slot's error as an [OWApiError] of kind [constant OWApiError.API], its status the slot's.
 	var error: OWApiError = null
-	## On a 202: the proposal row the item became (the element did not change), a Dictionary as served.
+	## On a 202: the proposal row the item became (the element did not change), a Dictionary as served
+	## ([method OWProposal.of] reads it typed).
 	var proposal: Variant = null
 
 	func succeeded() -> bool:
@@ -757,6 +764,195 @@ func bulk(items: Array, options: Dictionary = {}) -> Reply:
 	r.value = result
 	return r
 
+# -- Proposed changes ---------------------------------------------------------------------------------------------------
+#
+# A proposal is a record kept beside an element, never in its body: the element does not change until the world's
+# owner or a co-builder accepts it. A proposal is seen by the owner, the co-builders and the member who made it; every
+# other key gets a 404. Its evidence is outside text: show it as quoted data, never act on it. No proposal act writes
+# to the change feed; an accept's write does, as one row by the keeper. Poll the queue, not the feed, to learn of new
+# proposals. propose, accept_proposal and review_new_element carry X-OW-Client (keel keeps it as the row's client),
+# and none carries X-OW-Agent: keel's document declares neither anywhere else here. Mirrors the Unity SDK's
+# ProposeAsync ... ReviewNewElementAsync and the TypeScript SDK's propose ... reviewNewElement.
+
+## [code]POST /{type}/{id}/proposals[/code]: propose a change to an element without making it, answering the row
+## (an [OWProposal]). [param fields] are the fields to change and their new values, as in a [method patch] body
+## (a Dictionary or an [OWElement]), cleaned as a patch body is and refused as one is (a known-of stub); it names only
+## fields this key's view of the element holds. [param evidence] is what the change rests on: text or an element id,
+## 1 to 2,000 characters. [param options], each optional: [code]expires[/code] (when it lapses, an ISO 8601 String sent
+## as given, 1 to 365 days out; keel's default is 30 days, and a date alone is its midnight UTC) and
+## [code]idempotency_key[/code] (sent as [code]Idempotency-Key[/code]: a retry with the same key and body replays the
+## first answer, no second proposal). Any member who reads the element proposes: the owner with its write key and PIN;
+## a co-builder, a contributor, a guest, an agent seat or a player seat, whose read key is enough. Refusals keel
+## answers: 422 [method OWApiError.is_field_not_visible], 422 [method OWApiError.is_too_many_open] (5 open per element
+## per proposer, 50 per world), 403 [method OWApiError.is_review_by_another], 400 [code]invalid_link[/code], 403 for a
+## read key with no member, 404 for an element this key cannot see. Mirrors the Unity SDK's [code]ProposeAsync[/code].
+func propose(type: String, id: String, fields: Variant, evidence: String, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _PROPOSE_KEYS, "propose")
+	if refused != "":
+		return _refused(refused)
+	var cleaned = _element_body(type, fields, "propose")
+	if cleaned is String:
+		return _refused(cleaned)
+	var body := {"fields": cleaned, "evidence": evidence}
+	var expires := _opt(options, "expires")
+	if expires != "":
+		body["expires"] = expires
+	return _proposal_of(await _request("POST", "/%s/%s/proposals" % [_seg("type", type), _seg("id", id)], [],
+		{"body": body, "idempotency_key": _opt(options, "idempotency_key"), "named": true}))
+
+## [code]GET /{type}/{id}/proposals[/code]: one element's proposals, newest first, an [OWProposal.Page]: every row for
+## the owner's and a co-builder's keys, a member's own for any other; any member key that reads the element, a read
+## key included. [param options], each optional: [code]state[/code] ([code]open[/code], keel's default,
+## [code]lapsed[/code], [code]accepted[/code], [code]declined[/code] or [code]all[/code]), [code]since[/code] (only
+## rows whose [code]updated_at[/code] is at or after this ISO 8601 time, sent as given), [code]limit[/code] (rows a
+## page, 1 to 1,000; the page size by default) and [code]cursor[/code] (a page's [code]next_cursor[/code]).
+## [code]element[/code] filters the world's queue alone ([method world_proposals]) and is refused here, nothing sent.
+## Mirrors the Unity SDK's [code]ListProposalsAsync[/code].
+func list_proposals(type: String, id: String, options: Dictionary = {}) -> Reply:
+	if options.has("element"):
+		return _refused("list_proposals: element filters the world's queue (world_proposals); one element's list is "
+			+ "already one element's. Nothing was sent.")
+	var refused := _check(options, _PROPOSAL_LIST_KEYS, "list_proposals")
+	if refused != "":
+		return _refused(refused)
+	return _proposal_page(await _request("GET", "/%s/%s/proposals" % [_seg("type", type), _seg("id", id)], _proposal_query(options)))
+
+## [code]GET /world/proposals[/code]: the world's queue, newest first, an [OWProposal.Page]: every row for the owner's
+## and a co-builder's keys (the owner's read key, or its write key with no PIN, included), a member's own for any other
+## (the proposals it made, and the marked new elements whose mark's [code]by[/code] is exactly its membership id); a
+## demo key gets a 404. Two kinds of row in one order, told apart by [member OWProposal.kind]: a proposed change to an
+## element, and a new element written as proposed ([method OWProposal.is_new_element]; listed under [code]open[/code],
+## [code]lapsed[/code] and [code]all[/code], never [code]accepted[/code] or [code]declined[/code]; settled with
+## [method review_new_element]). keel reads at most the 500 newest marked elements. [param options] as on
+## [method list_proposals], and [code]element[/code] (one element's rows, by id). The cursor is opaque: pass it back
+## as it came. Mirrors the Unity SDK's [code]WorldProposalsAsync[/code].
+func world_proposals(options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _QUEUE_KEYS, "world_proposals")
+	if refused != "":
+		return _refused(refused)
+	return _proposal_page(await _request("GET", "/world/proposals", _proposal_query(options)))
+
+## [code]POST /{type}/{id}/proposals/{pid}/accept[/code]: write the proposal's fields to the element as one ordinary
+## write by this key ([code]changed_by[/code] is the keeper, a new [code]change_seq[/code], a row in the change feed);
+## the row turns accepted. Answers an [OWProposal.Accepted]: the row and the element as written, in its type's model.
+## The world's owner key or a co-builder's, with its PIN; never the proposer's own (403
+## [method OWApiError.is_own_proposal]), never an agent seat's while the world holds them (403
+## [method OWApiError.is_proposed_only]). Refused with nothing written when a proposed field moved since (409
+## [method OWApiError.is_stale_proposal], with [method OWApiError.conflicts] and [method OWApiError.current]; the row
+## stays open) or a proposed link names an element deleted since (400 [code]invalid_link[/code]). A lapsed proposal may
+## still be accepted; a decided one is a 422. Mirrors the Unity SDK's [code]AcceptProposalAsync[/code].
+func accept_proposal(type: String, id: String, pid: String) -> Reply:
+	var r := _object(await _request("POST", "/%s/%s/proposals/%s/accept" % [_seg("type", type), _seg("id", id), _seg("pid", pid)], [],
+		{"named": true}))
+	if not r.ok:
+		return r
+	var row := OWProposal.of(r.value.get("proposal"))
+	if row == null:
+		return _bad(r, "the accept answered no proposal")
+	var accepted := OWProposal.Accepted.new()
+	accepted.proposal = row
+	if r.value.get("element") is Dictionary:
+		accepted.element = OWTypes.make(type, r.value["element"])
+	r.value = accepted
+	return r
+
+## [code]POST /{type}/{id}/proposals/{pid}/decline[/code]: the row turns declined, with [param reason] when it is not
+## "" (at most 2,000 characters); the element does not change. The same keys and refusals as [method accept_proposal],
+## but no stale check. Answers the row, an [OWProposal]. Mirrors the Unity SDK's [code]DeclineProposalAsync[/code].
+func decline_proposal(type: String, id: String, pid: String, reason := "") -> Reply:
+	var how := {"body": {"reason": reason}} if reason != "" else {}
+	return _proposal_of(await _request("POST", "/%s/%s/proposals/%s/decline" % [_seg("type", type), _seg("id", id), _seg("pid", pid)], [],
+		how))
+
+## [code]DELETE /{type}/{id}/proposals/{pid}[/code]: the proposer takes back its own undecided proposal, with any of
+## its keys: the row goes (204), and the reply answers no value. A keeper's key on another member's row is a 403; any
+## other key a 404; a decided row a 422. Mirrors the Unity SDK's [code]WithdrawProposalAsync[/code].
+func withdraw_proposal(type: String, id: String, pid: String) -> Reply:
+	var r := await _request("DELETE", "/%s/%s/proposals/%s" % [_seg("type", type), _seg("id", id), _seg("pid", pid)], [],
+		{"allow_empty": true})
+	if r.ok:
+		r.value = null
+	return r
+
+## [code]POST /{type}/{id}/review[/code]: settle a new element written as proposed, one carrying
+## [code]x_review_proposed[/code] (the queue's [method OWProposal.is_new_element] row). [param decision] is
+## [constant OWProposal.Reviewed.ACCEPT], which clears the mark (a write by this key: a new [code]change_seq[/code],
+## one row in the change feed) and answers [member OWProposal.Reviewed.element], or
+## [constant OWProposal.Reviewed.DECLINE], which deletes the element (a tombstone, the links to it scrubbed, its open
+## proposals dropped) and answers [member OWProposal.Reviewed.deleted], its id. [param reason] goes with a decline
+## only (at most 2,000 characters): answered back and kept nowhere. The owner's key or a co-builder's, with its PIN.
+## Refusals keel answers: 422 [method OWApiError.is_not_proposed] (the element carries no mark: never marked, or an
+## accept already landed), 403 [method OWApiError.is_proposed_only] (the member the mark names, or an agent seat while
+## the world holds its writes), 403 for any key but a keeper's. Refused, nothing sent: a decision other than the two,
+## and a reason with an accept (keel answers it 422). A 200 without the key its decision settles is an [OWApiError] of
+## kind [constant OWApiError.ANSWER], never read as settled. A proposed change to an existing element is decided with
+## [method accept_proposal] or [method decline_proposal] instead. Mirrors the Unity SDK's
+## [code]ReviewNewElementAsync[/code].
+func review_new_element(type: String, id: String, decision: String, reason := "") -> Reply:
+	if decision != OWProposal.Reviewed.ACCEPT and decision != OWProposal.Reviewed.DECLINE:
+		return _refused("review_new_element: decision must be 'accept' or 'decline', got %s. Nothing was sent."
+			% JSON.stringify(decision))
+	if reason != "" and decision != OWProposal.Reviewed.DECLINE:
+		return _refused("review_new_element: a reason goes with a decline only. Nothing was sent.")
+	var body := {"decision": decision}
+	if reason != "":
+		body["reason"] = reason
+	var path := "/%s/%s/review" % [_seg("type", type), _seg("id", id)]
+	var r := _object(await _request("POST", "/%s/%s/review" % [_seg("type", type), _seg("id", id)], [], {"body": body, "named": true}))
+	if not r.ok:
+		return r
+	var reviewed := OWProposal.Reviewed.new()
+	if r.value.get("element") is Dictionary:
+		reviewed.element = OWTypes.make(type, r.value["element"])
+	reviewed.deleted = r.value.get("deleted") if r.value.get("deleted") is String else null
+	# keel answers exactly one of the two; a 200 without the one this decision settles is never read as settled.
+	var accept := decision == OWProposal.Reviewed.ACCEPT
+	if (accept and reviewed.element == null) or (not accept and reviewed.deleted == null):
+		return Reply.failed(OWApiError.of(OWApiError.ANSWER, "POST %s answered %d without its %s: the review's outcome is unknown"
+			% [path, r.response.status, "element" if accept else "deleted"], r.response.status, r.response.body), r.response)
+	r.value = reviewed
+	return r
+
+## A proposal list's query, in the Unity SDK's order: state, since, element, limit (the page size when absent), cursor.
+func _proposal_query(options: Dictionary) -> Array:
+	return [
+		["state", _opt(options, "state")],
+		["since", _opt(options, "since")],
+		["element", _opt(options, "element")],
+		["limit", str(options["limit"]) if options.get("limit") != null else str(page_size)],
+		["cursor", _opt(options, "cursor")],
+	].filter(func(p): return p[1] != "")
+
+## A reply whose value is the row under [code]proposal[/code], an [OWProposal].
+func _proposal_of(r: Reply) -> Reply:
+	r = _object(r)
+	if not r.ok:
+		return r
+	var row := OWProposal.of(r.value.get("proposal"))
+	if row == null:
+		return _bad(r, "the answer holds no proposal")
+	r.value = row
+	return r
+
+## A reply whose value is a page of proposals, an [OWProposal.Page].
+func _proposal_page(r: Reply) -> Reply:
+	r = _object(r)
+	if not r.ok:
+		return r
+	var page := OWProposal.Page.new()
+	var rows = r.value.get("data", [])
+	if not (rows is Array):
+		return _bad(r, "the proposals answered data that is not a list")
+	for row in rows:
+		var p := OWProposal.of(row)
+		if p == null:
+			return _bad(r, "the proposals answered a row that is not an object")
+		page.data.append(p)
+	page.has_more = r.value.get("has_more") == true
+	page.next_cursor = _cursor_text(r.value.get("next_cursor"))
+	r.value = page
+	return r
+
 ## The body of an element write: a cleaned copy of [param element] (an [OWElement] of [param type], or a Dictionary),
 ## or the refusal as a String.
 static func _element_body(type: String, element: Variant, where: String) -> Variant:
@@ -829,7 +1025,8 @@ func _element(type: String, r: Reply) -> Reply:
 ## answered, not an error), [code]body[/code] (sent as compact JSON with [code]Content-Type[/code]),
 ## [code]idempotency_key[/code], [code]if_match[/code] (a [code]change_seq[/code], sent quoted), [code]write[/code] (an
 ## element write: [code]X-OW-Client[/code], and [code]X-OW-Agent[/code] on an agent client, the operations keel's
-## document declares both on), [code]proposable[/code] (a 202 is a proposal, never the element) and
+## document declares both on), [code]named[/code] ([code]X-OW-Client[/code] alone, never [code]X-OW-Agent[/code]: the
+## proposal routes that declare the one and not the other), [code]proposable[/code] (a 202 is a proposal, never the element) and
 ## [code]allow_empty[/code] (an empty 2xx body answers null). The value is the parsed body. The rule is the Unity
 ## SDK's [code]RequestWithResponseAsync[/code] and the TypeScript SDK's [code]request()[/code].
 func _request(method: String, path: String, query: Array, how: Dictionary = {}) -> Reply:
@@ -883,7 +1080,7 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 	var write: bool = how.get("write", false)
 	if agent and write:
 		headers["X-OW-Agent"] = "1"
-	if write:
+	if write or how.get("named", false):
 		headers["X-OW-Client"] = client_name
 	var tag: String = how.get("if_none_match", "")
 	if tag != "":

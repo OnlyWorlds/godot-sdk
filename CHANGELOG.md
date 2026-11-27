@@ -15,6 +15,28 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **Proposed changes, in parity with the Unity SDK: a player proposes, the world's owner decides in the game.**
+  `OWClient.propose(type, id, fields, evidence, options)` proposes a change to an element without making it
+  (`expires` and `idempotency_key` as options), answering the row; `list_proposals(type, id, options)` lists one
+  element's proposals and `world_proposals(options)` the world's queue (`state`, `since`, `limit`, `cursor`, and on the
+  queue `element`), each an `OWProposal.Page`; `accept_proposal`, `decline_proposal` (with an optional reason) and
+  `withdraw_proposal` decide a row, and `review_new_element(type, id, decision, reason)` settles a new element written
+  as proposed (`OWProposal.Reviewed.ACCEPT` keeps it, `DECLINE` deletes it). The queue holds both kinds of row in one
+  order, told apart by `OWProposal.kind` (`is_new_element()`). `OWProposal` reads keel's row whole: its `house` (the
+  part of the world's house rules a row would change), and on a new element's row the mark's `evidence` and `expires`
+  as stored, any JSON value (`evidence_text()` and `expires_text()` give them as text); `OWProposal.of` reads the row
+  a 202 or a bulk slot carries. propose, accept and review send `X-OW-Client` and never `X-OW-Agent`, as keel's
+  document declares them. Refused before sending: a known-of stub as the fields, `element` on one element's list, a
+  review decision other than `accept` or `decline`, and a reason with an accept.
+- **`OWApiError` reads the eight codes these routes answer**: `is_field_not_visible`, `is_too_many_open`,
+  `is_stale_proposal`, `is_proposed_only`, `is_own_proposal`, `is_not_proposed`, `is_review_by_another` and
+  `is_review_mark_empty`, each true for its own status and code only. On a 409 `stale_proposal`, `conflicts()` names
+  each moved field (an `OWProposal.Conflict`, its value then and now) and `current()` is the element now, as on a 412.
+  Godot reads every JSON number as a 64-bit float, so a mark's `evidence` or `expires` holding an integer past 2^53 is
+  read, and written back, as the nearest double.
+
 ## [0.8.0] - 2026-11-27
 
 A game can hold a world and keep it current: `OWWorldCache` holds it and saves it to a file, and `OWSync` fills it

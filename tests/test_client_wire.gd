@@ -21,6 +21,9 @@ const BASE := "https://example.test/api/v2"
 ## Never a declared parameter in OpenAPI: a body's media type.
 const UNDECLARABLE := ["Content-Type"]
 
+## Writes whose body keel's document declares but its page makes optional (a path's end): a decline's reason.
+const OPTIONAL_BODY := ["/decline"]
+
 ## Keys a model reads that keel does not serve on that answer, on purpose, each with why. Each must stay absent from
 ## the document: when keel starts serving one, drop it here.
 const NOT_SERVED := {
@@ -57,6 +60,19 @@ static func _writes(c: OWClient) -> void:
 		{"type": "location", "element": {"name": "Port", "parent_location": null}}],
 		{"atomic": true, "idempotency_key": "k2", "create_only": true})
 
+## Every proposal call, every option given: nine requests on a world key.
+static func _proposals(c: OWClient) -> void:
+	await c.propose("character", "c1", {"name": "Bo", "change_seq": 4.0, "x_tool": 1}, "chapter 3",
+		{"expires": "2026-12-01T00:00:00Z", "idempotency_key": "k3"})
+	await c.list_proposals("character", "c1", {"state": "all", "since": "2026-10-22T00:00:00Z", "limit": 5, "cursor": "c"})
+	await c.world_proposals({"state": "open", "since": "2026-10-22T00:00:00Z", "element": "c1", "limit": 5, "cursor": "c"})
+	await c.accept_proposal("character", "c1", "p1")
+	await c.decline_proposal("character", "c1", "p1", "not canon")
+	await c.decline_proposal("character", "c1", "p1")
+	await c.withdraw_proposal("character", "c1", "p1")
+	await c.review_new_element("character", "c1", "accept")
+	await c.review_new_element("character", "c1", "decline", "not canon")
+
 ## Every read call and every write, every option given, on each credential: keel's requests, which the checks below
 ## judge. An agent client reads too, so a declaration sent on a read would be seen.
 func _record() -> Array:
@@ -92,6 +108,8 @@ func _record() -> Array:
 		await c.changes_head()
 		await c.changes_head()   # sends If-None-Match
 		fake.headers = {}
+		fake.body = "{}"
+		await _proposals(c)
 	# The world reads an account token, or no key, sends with a world: world= beside each read's own query.
 	for c: OWClient in [
 		OWClient.new({"api_key": "ow_a_test", "api_pin": "0000", "world": "w1", "base_url": BASE, "transport": fake}),
@@ -108,6 +126,7 @@ func _record() -> Array:
 		await c.list("location", {"filter": {"parent_location": "p1"}})
 		fake.body = "{}"
 		await _writes(c)   # refused, nothing sent: neither writes
+		await _proposals(c)   # refused, nothing sent: neither proposes nor reads the queue
 	# Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every option. A
 	# person's join goes on an account token.
 	fake.body = "{}"
@@ -186,7 +205,12 @@ func test_every_header_is_one_keel_declares(t) -> void:
 func test_no_read_sends_a_body_and_every_write_body_is_a_json_object(t) -> void:
 	for call in await _record():
 		var label := "%s %s" % [call.method, call.url]
-		if call.method == "GET" or call.method == "DELETE":
+		var op = _find(call)[0]
+		# A write keel declares no body on (an accept) sends none; one whose body is optional (a decline's reason, by
+		# keel's proposals page) may send none.
+		var bodiless: bool = op != null and (not op.has("body") or (OPTIONAL_BODY.any(func(p): return _keel_path(call.url).ends_with(p))
+			and call.body == null))
+		if call.method == "GET" or call.method == "DELETE" or bodiless:
 			t.eq(call.body, null, label)
 			t.ok(not call.headers.has("Content-Type"), "%s: no body, no media type" % label)
 			continue
@@ -225,15 +249,15 @@ func test_every_body_key_is_one_keel_declares(t) -> void:
 			t.eq(_undeclared(item["element"], _declared_body(create)), [],
 				"%s: a %s item's element, every key one POST /%s/ declares" % [label, item["type"], item["type"]])
 			checked += 1
-	t.eq(checked, 4 * (6 + 2) + 3, "six bodies and two bulk items on each world key, and the three joins")
+	t.eq(checked, 4 * (6 + 2 + 4) + 3, "six bodies, two bulk items and four proposal bodies on each world key, and the three joins")
 	t.done()
 
 func test_the_recording_covers_every_read_and_write(t) -> void:
 	# An empty recording would pass the checks above with nothing checked.
 	var calls := await _record()
-	t.eq(calls.size(), 4 * (12 + 7) + 6 + 5 + 3,
-		"12 reads and 7 writes on each world key (list_all one page), 6 reads on an account token, 5 on no key (its "
-		+ "roster refused); neither writes; the keyless preview and redeem, and a person's join on an account token")
+	t.eq(calls.size(), 4 * (12 + 7 + 9) + 6 + 5 + 3,
+		"12 reads, 7 writes and 9 proposal calls on each world key (list_all one page), 6 reads on an account token, 5 on no key (its "
+		+ "roster refused); neither writes nor proposes; the keyless preview and redeem, and a person's join on an account token")
 	var paths := {}
 	for c in calls:
 		paths[c.method + " " + _keel_path(c.url)] = true
@@ -241,7 +265,10 @@ func test_the_recording_covers_every_read_and_write(t) -> void:
 			"GET /api/v2/location", "GET /api/v2/character/c1", "GET /api/v2/changes", "POST /api/v2/character",
 			"PUT /api/v2/character/c1", "PATCH /api/v2/character/c1", "DELETE /api/v2/character/c1",
 			"POST /api/v2/character/c1/links/friends", "POST /api/v2/bulk", "POST /api/v2/join/preview",
-			"POST /api/v2/join", "POST /api/v2/account/join"]:
+			"POST /api/v2/join", "POST /api/v2/account/join", "POST /api/v2/character/c1/proposals",
+			"GET /api/v2/character/c1/proposals", "GET /api/v2/world/proposals", "POST /api/v2/character/c1/proposals/p1/accept",
+			"POST /api/v2/character/c1/proposals/p1/decline", "DELETE /api/v2/character/c1/proposals/p1",
+			"POST /api/v2/character/c1/review"]:
 		t.ok(paths.has(p), "%s is recorded" % p)
 	t.eq(calls.filter(func(c): return c.url.contains("world=")).size(), 9, "the world reads of an account token and of no key")
 	t.ok(calls.any(func(c): return c.headers.has("If-None-Match")), "a tip read with a tag is recorded")
@@ -307,6 +334,33 @@ func test_the_bulk_result_reads_what_keel_serves_and_every_key_of_a_slot(t) -> v
 	slots.sort()
 	read.sort()
 	t.eq(read, slots, "OWClient.BulkSlot reads every key of a slot, and only those")
+	t.done()
+
+func test_a_proposal_row_reads_every_key_keel_serves_on_one_and_only_those(t) -> void:
+	# The queue, an element's list, and the {proposal} answers of propose, accept and decline serve one row, the
+	# Proposal component: OWProposal reads it whole, both ways, on all 22 types.
+	var paths: Dictionary = _doc()["paths"]
+	var read: Array = OWProposal.KEYS.duplicate()
+	read.sort()
+	var answers := [["/api/v2/world/proposals", "GET", "data[]."]]
+	for type in OWTypes.slugs():
+		var base := "/api/v2/%s/{id}/proposals" % type
+		answers.append_array([[base, "GET", "data[]."], [base, "POST", "proposal."],
+			[base + "/{pid}/accept", "POST", "proposal."], [base + "/{pid}/decline", "POST", "proposal."]])
+	for a in answers:
+		var served := _below(paths[a[0]][a[1]]["response"], a[2])
+		served.sort()
+		t.eq(read, served, "%s %s: OWProposal reads every key of its row, and only those" % [a[1], a[0]])
+	for a in [["/api/v2/world/proposals", "GET"], ["/api/v2/character/{id}/proposals", "GET"]]:
+		var top := _top(paths[a[0]][a[1]]["response"])
+		t.eq(OWProposal.Page.KEYS.filter(func(k): return not top.has(k)), [], "OWProposal.Page reads only what %s serves" % a[0])
+	for c in [[OWProposal.Accepted.KEYS, "/api/v2/character/{id}/proposals/{pid}/accept"],
+			[OWProposal.Reviewed.KEYS, "/api/v2/character/{id}/review"]]:
+		var keys: Array = c[0].duplicate()
+		var top := _top(paths[c[1]]["POST"]["response"])
+		keys.sort()
+		top.sort()
+		t.eq(keys, top, "%s: every key of the answer, and only those" % c[1])
 	t.done()
 
 func test_every_write_answers_the_element_a_model_reads(t) -> void:
