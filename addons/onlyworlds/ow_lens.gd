@@ -46,7 +46,8 @@ const TALK_FIELDS := [["objects", "object"], ["constructs", "construct"]]
 const READING_AID_PAIRS := ["law/charter", "construct/guide", "construct/domain"]
 ## The reading aid's mark: the id of the world the aid belongs to.
 const READING_AID_MARK := "x_charter_of"
-## The review profile's mark: an element that carries it ([method is_proposed]) is in no reader's view.
+## The review profile's mark: an element that carries it ([method is_proposed]) is in no reader's view; one whose mark
+## is an object was written as proposed ([method carries_proposed_mark]).
 const PROPOSED_MARK := "x_review_proposed"
 
 ## Why an element was left out: the profile's one closed list, in its order.
@@ -583,6 +584,16 @@ static func is_hidden(element: Variant) -> bool:
 ## compared. keel's [code]doubt_or_mark[/code], the npm SDK's [code]handsOnAsProposed[/code].
 static func is_proposed(element: Variant) -> bool:
 	return element is Dictionary and _has_mark(element, PROPOSED_MARK)
+
+## True when [param element] was written as proposed: its [code]x_review_proposed[/code] is a Dictionary with a key
+## in it, a mark (schema-dist [code]profiles/review.md[/code] rules 1, 4 and 5). Absent, null, an empty mark
+## ([code]{}[/code], [code][][/code], [code]""[/code] or White_Space only) and a value that is not a Dictionary (a
+## doubt: a string, a number, a boolean, a list with something in it) are not. The rule of a reader that shows a world
+## to its people, of the review queue and of the review route, as the Unity SDK's [code]OWPayload.IsProposed[/code]
+## and keel's [code]has_mark[/code]: use it to say an element is waiting for a keeper. A reader that hands a world on
+## to an AI reads the wider [method is_proposed], which counts a doubt too, so a doubt never reaches it as canon.
+static func carries_proposed_mark(element: Variant) -> bool:
+	return is_proposed(element) and element[PROPOSED_MARK] is Dictionary
 
 ## True when [param element] is a reading aid (schema-dist [code]profiles/room.md[/code], [code]profiles/lens.md[/code]
 ## rule 4): the world's charter ([code]law[/code], supertype [code]Charter[/code]), its guide ([code]construct[/code],

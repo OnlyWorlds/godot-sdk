@@ -368,4 +368,4 @@ static func _hidden(el: Dictionary) -> bool:
 
 ## Proposed as a reader that shows a world reads it: the review mark present and not empty, and an object.
 static func _proposed(el: Dictionary) -> bool:
-	return OWLens.is_proposed(el) and el[OWLens.PROPOSED_MARK] is Dictionary
+	return OWLens.carries_proposed_mark(el)

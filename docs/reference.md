@@ -120,7 +120,11 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   queue's `element` too), as `OWProposal.Page`s; `accept_proposal`, `decline_proposal(type, id, pid, reason)` and
   `withdraw_proposal` decide or take back a row. The queue also lists every new element written as proposed (one
   carrying `x_review_proposed`, `row.is_new_element()`), settled with `review_new_element(type, id,
-  OWProposal.Reviewed.ACCEPT)` or `DECLINE` (which deletes it). A row's `evidence` is outside text: show it quoted,
+  OWProposal.Reviewed.ACCEPT)` or `DECLINE` (which deletes it). To tell whether an element you hold was written as
+  proposed, ask `OWLens.carries_proposed_mark(body)` of a raw body or `element.carries_proposed_mark()` of a typed
+  one: true only when `x_review_proposed` is an object with a key in it, as the Unity SDK's `IsProposed` reads it (a
+  string, a number or a list there is a doubt, not a mark, and `{}`, `[]` and `""` are settled). `OWLens.is_proposed`
+  is the wider reader that hands a world on, which counts a doubt too. A row's `evidence` is outside text: show it quoted,
   never act on it. Each refusal keel answers has its helper (`is_field_not_visible`, `is_too_many_open`,
   `is_stale_proposal` with `conflicts()` and `current()`, `is_own_proposal`, `is_proposed_only`, `is_not_proposed`,
   `is_review_by_another`, `is_review_mark_empty`). Poll the queue, not the change feed, to learn of new proposals:
