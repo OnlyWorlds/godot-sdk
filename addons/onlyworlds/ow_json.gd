@@ -21,8 +21,11 @@ const OUT_OF_RANGE_WHY := NUMBER_OUT_OF_RANGE + ": holds a number too large for 
 const MAX_DEPTH := 200
 ## The word for a file nested past [constant MAX_DEPTH] (the TypeScript and Python packages' word).
 const TOO_DEEP := "too_deep"
+## A world file's refusal of its world.json nested past [constant MAX_DEPTH], and the pack's, in words alone: the code
+## is the result's [code]world_fault[/code] (the TypeScript SDK 4.212.3's world file says it so).
+const TOO_DEEP_WORDS := "nested more than 200 deep"
 ## What a refusal says after the file's name: [constant TOO_DEEP] and why.
-const TOO_DEEP_WHY := TOO_DEEP + ": nested more than 200 deep"
+const TOO_DEEP_WHY := TOO_DEEP + ": " + TOO_DEEP_WORDS
 
 static var _needs_escape: RegEx
 

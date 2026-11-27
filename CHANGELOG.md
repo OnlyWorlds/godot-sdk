@@ -29,6 +29,15 @@ build. The entries below are in the detail a maintainer needs; the history befor
   whole count past 2^53 / 100 rounded through `n * 100`, so 9007199254740990 steps read 9007199254740989 days; a
   whole count is now shown as it is. A `step_name` that is not a string already read as absent here; the TypeScript
   SDK now reads it the same way, so the two agree.
+- **Parity with the TypeScript SDK 4.212.3: a world file refused for a `world.json` nested past 200 levels says it in
+  words alone.** `OWWorldArchive.read`'s message is now "world.json is nested more than 200 deep", with no `too_deep:`
+  mark; the code is `world_fault`, which a tool reads. The folder reader's errors and a skipped element's keep
+  `too_deep` in their text, as the TypeScript SDK's folder route and skip reasons do.
+- **`OWWorldArchive.pack` and `pack_folder` refuse such a `world.json` in the TypeScript SDK's words**, "world.json in
+  … is nested more than 200 deep", as its `writeWorldFile` refuses it. A pack's result has no field for the code.
+- `pack_folder` already refused a folder holding `Spatial/` (or `spatial/` with a long s) beside `elements/`, as a copy
+  and as a share, naming `name_case` and packing nothing; the TypeScript SDK 4.212.3's writer now refuses it too, and a
+  test holds the shape.
 
 ## [0.6.0] - 2026-11-27
 
