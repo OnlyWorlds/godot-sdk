@@ -377,7 +377,7 @@ func test_a_patch_sends_a_link_array_as_given(t) -> void:
 ## A proposal is kind API with status 202 and the row, as the Unity SDK's OWProposedError (an OWApiError of status 202)
 ## and the TypeScript SDK's OwProposedError are: no kind of its own, so a caller's switch over the kinds stays four.
 func test_a_202_is_a_proposal_not_an_element(t) -> void:
-	const PROPOSED := "{\"proposal\":{\"id\":\"pr1\",\"status\":\"open\",\"fields\":{\"name\":\"Bo\"}}}"
+	const PROPOSED := "{\"proposal\":{\"id\":\"pr1\",\"state\":\"open\",\"fields\":{\"name\":\"Bo\"}}}"
 	var kinds: Dictionary = (load("res://addons/onlyworlds/ow_api_error.gd") as Script).get_script_constant_map()
 	t.ok(not kinds.has("PROPOSED"), "no kind PROPOSED")
 	t.eq([OWApiError.API, OWApiError.TRANSPORT, OWApiError.REFUSED, OWApiError.ANSWER], ["api", "transport", "refused", "answer"],
@@ -395,7 +395,7 @@ func test_a_202_is_a_proposal_not_an_element(t) -> void:
 		t.ok(e != null and e.kind == OWApiError.API and e.is_proposed(), "%s: a proposal, kind api (%s)" % [call[0], e])
 		if e == null:
 			continue
-		t.eq([e.status, e.proposal], [202, {"id": "pr1", "status": "open", "fields": {"name": "Bo"}}], "%s: the row" % call[0])
+		t.eq([e.status, e.proposal], [202, {"id": "pr1", "state": "open", "fields": {"name": "Bo"}}], "%s: the row" % call[0])
 		t.ok(e.message.contains("became a proposal"), e.message)
 		t.ok(str(e).begins_with("OnlyWorlds API 202: "), "%s: printed as keel's answer (%s)" % [call[0], e])
 		t.ok(not e.is_retryable() and not e.is_validation_error(), "%s: not a failure to retry" % call[0])

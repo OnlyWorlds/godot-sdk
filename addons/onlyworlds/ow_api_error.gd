@@ -43,7 +43,7 @@ var raw_body := ""
 ## clock); null when it was absent or unreadable.
 var retry_after: Variant = null
 ## On a write that became a proposal ([method is_proposed]): the proposal row keel answered (a Dictionary, as
-## served); null otherwise.
+## served; [method OWProposal.of] reads it typed); null otherwise.
 var proposal: Variant = null
 
 ## keel's answer as an error: the envelope read defensively (a gateway's HTML page is a message, never a parse
@@ -242,16 +242,83 @@ func is_proposed() -> bool:
 func is_precondition_failed() -> bool:
 	return status == 412 and code == "precondition_failed"
 
-## On a 412: the [code]current[/code] object keel sends beside the envelope, the element as it is now (a
-## Dictionary, as served); null on any other answer, when keel sent none, or when the body is not JSON. Mirrors the
-## Unity SDK's [code]Current[/code].
+## On a 412, or a 409 [code]stale_proposal[/code] ([method is_stale_proposal]): the [code]current[/code] object keel
+## sends beside the envelope, the element as it is now (a Dictionary, as served); null on any other answer, when keel
+## sent none, or when the body is not JSON. Mirrors the Unity SDK's [code]Current[/code].
 func current() -> Variant:
-	if status != 412 or raw_body == "":
+	if not (status == 412 or is_stale_proposal()) or raw_body == "":
 		return null
 	var json := JSON.new()
 	var body = json.data if json.parse(raw_body) == OK else null
 	var now = body.get("current") if body is Dictionary else null
 	return now if now is Dictionary else null
+
+## On a 409 [code]stale_proposal[/code] ([method is_stale_proposal]): each proposed field that moved since the
+## proposal was made, an [OWProposal.Conflict] with its value then ([member OWProposal.Conflict.base]) and now
+## ([member OWProposal.Conflict.current]), in keel's order. Empty on any other error, when keel sent none, or when the
+## body is not JSON; an item without a field name is left out. A change to a field the proposal does not name does not
+## count. Mirrors the Unity SDK's [code]Conflicts[/code].
+func conflicts() -> Array:
+	var out := []
+	if not is_stale_proposal() or raw_body == "":
+		return out
+	var json := JSON.new()
+	var body = json.data if json.parse(raw_body) == OK else null
+	var items = body.get("conflicts") if body is Dictionary else null
+	if not (items is Array):
+		return out
+	for item in items:
+		if item is Dictionary and item.get("field") is String:
+			var c := OWProposal.Conflict.new()
+			c.field = item["field"]
+			c.base = item.get("base")
+			c.current = item.get("current")
+			out.append(c)
+	return out
+
+## [method OWClient.propose] named a field this key's view of the element does not hold (422
+## [code]field_not_visible[/code]: one a known-of stub withholds). Mirrors the Unity SDK's [code]IsFieldNotVisible[/code].
+func is_field_not_visible() -> bool:
+	return status == 422 and code == "field_not_visible"
+
+## [method OWClient.propose]: the proposer holds five open proposals on this element, or fifty in the world (422
+## [code]too_many_open[/code]); lapsed rows do not count. Mirrors the Unity SDK's [code]IsTooManyOpen[/code].
+func is_too_many_open() -> bool:
+	return status == 422 and code == "too_many_open"
+
+## [method OWClient.accept_proposal]: a proposed field moved since the proposal was made (409
+## [code]stale_proposal[/code]), and nothing was written; the row stays open. [method conflicts] names each moved
+## field, [method current] is the element now. Mirrors the Unity SDK's [code]IsStaleProposal[/code].
+func is_stale_proposal() -> bool:
+	return status == 409 and code == "stale_proposal"
+
+## An agent seat, while the world takes its writes as proposals, tried to decide one, to delete what it did not
+## create, or to review the mark it is named in (403 [code]proposed_only[/code]). Mirrors the Unity SDK's
+## [code]IsProposedOnly[/code].
+func is_proposed_only() -> bool:
+	return status == 403 and code == "proposed_only"
+
+## A keeper tried to accept or decline its own proposal (403 [code]own_proposal[/code]): another keeper decides it.
+## Mirrors the Unity SDK's [code]IsOwnProposal[/code].
+func is_own_proposal() -> bool:
+	return status == 403 and code == "own_proposal"
+
+## [method OWClient.review_new_element] on an element that carries no mark (422 [code]not_proposed[/code]): never
+## marked, or an accept already landed. Mirrors the Unity SDK's [code]IsNotProposed[/code].
+func is_not_proposed() -> bool:
+	return status == 422 and code == "not_proposed"
+
+## A review mark ([code]x_review_proposed[/code] or [code]x_review_checked[/code]) whose [code]by[/code] is not the
+## writer's own membership id, from a key below co-builder, on a write or a proposal's fields (403
+## [code]review_by_another[/code]). Mirrors the Unity SDK's [code]IsReviewByAnother[/code].
+func is_review_by_another() -> bool:
+	return status == 403 and code == "review_by_another"
+
+## A write carried an empty review mark (422 [code]review_mark_empty[/code]: [code]""[/code], white space alone,
+## [code][][/code] or [code]{}[/code]); an empty mark reads as none, so keel refuses to store one. Mirrors the Unity
+## SDK's [code]IsReviewMarkEmpty[/code].
+func is_review_mark_empty() -> bool:
+	return status == 422 and code == "review_mark_empty"
 
 ## The id is taken (409 [code]id_conflict[/code]): a create whose element carried its id and already landed, so the
 ## element is there. Mirrors the TypeScript SDK's [code]isIdConflict[/code].

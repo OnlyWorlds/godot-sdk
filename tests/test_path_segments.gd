@@ -1,5 +1,5 @@
 extends RefCounted
-## A caller's string never changes which route is asked: every type, id and link field in a request path is checked as
+## A caller's string never changes which route is asked: every type, id, link field and proposal id in a request path is checked as
 ## one segment (refused before sending when it is not one) and sent escaped. keel decodes an escaped slash before it
 ## routes (measured on production 2026-10-31: /character/abc%2Fhidden/ answers 405 as /character/abc/hidden/ does), so
 ## the escape alone cannot hold a slash. keel's document declares each element id a UUID, so the check and the escape
@@ -142,8 +142,8 @@ static func _judge(literal: String, values: PackedStringArray, where: String) ->
 		problems.append("a path format other than %s: " + where)
 	if slots != values.size():
 		problems.append("a path with %d slots and %d values: %s" % [slots, values.size(), where])
-	# _seg("id", id): the checking helper, named for the value it checks (type, id or field).
-	var checked := RegEx.create_from_string('^_seg\\("(type|id|field)", \\1\\)$')
+	# _seg("id", id): the checking helper, named for the value it checks (type, id, field or a proposal's pid).
+	var checked := RegEx.create_from_string('^_seg\\("(type|id|field|pid)", \\1\\)$')
 	for v in values:
 		if checked.search(v) == null:
 			problems.append("a value not checked by _seg (%s) in a request path: %s" % [v, where])
@@ -156,8 +156,8 @@ func test_source_every_value_in_a_request_path_goes_through_seg(t) -> void:
 	var problems := scan(src, stats)
 	for p in problems:
 		t.fail(p)
-	# The shape guard: a scan that found few paths lost its shape. The client builds 14 call sites and one helper.
-	t.ok(stats["paths"] >= 12, "the scan found %d request paths; it lost its shape" % stats["paths"])
+	# The shape guard: a scan that found few paths lost its shape. The client builds 21 call sites and one helper.
+	t.ok(stats["paths"] >= 19, "the scan found %d request paths; it lost its shape" % stats["paths"])
 	t.eq(stats["helpers"], ["_element_path"], "the path helpers the scan reads")
 	t.done()
 
@@ -193,6 +193,7 @@ func test_the_scan_refuses_what_it_should(t) -> void:
 		"a raw type": 'await _request("GET", "/%s/" % type, q)',
 		"a raw id in a list": 'await _request("GET", "/%s/%s/" % [_seg("type", type), id], q)',
 		"a raw field": 'await _request("POST", "/%s/%s/links/%s" % [_seg("type", type), _seg("id", id), field], q)',
+		"a raw pid": 'await _request("POST", "/%s/%s/proposals/%s/accept" % [_seg("type", type), _seg("id", id), pid], q)',
 		"an escape without the check on the type": 'await _request("GET", "/%s/" % type.uri_encode(), q)',
 		"an escape without the check on the id": 'await _request("GET", "/%s/%s/" % [_seg("type", type), id.uri_encode()], q)',
 		"a check named for another value": 'await _request("GET", "/%s/%s/" % [_seg("type", type), _seg("type", id)], q)',
