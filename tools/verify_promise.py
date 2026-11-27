@@ -2,7 +2,7 @@
 """Hold the addon to its written promise (the docs' Stability page, "The standard, the packages and this site").
 
 A patch release fixes and a minor release adds; neither removes nor renames a public name. A name that will go is
-marked first, as `## @deprecated: Since X.Y.Z, leaves in 1.0, use Y.` in its doc comment (and a function also calls
+marked first, as `## @deprecated: Since X.Y.Z. Leaves in 1.0. Use Y.` in its doc comment (and a function also calls
 push_warning with those words); the mark says since which release and the release it leaves in; the name stays at
 least six months after that release and goes only in a major (1.0 for this 0.x addon). Three rules, against the names
 file `tools/public-names.json`:
@@ -59,7 +59,7 @@ ABOUT = (
     "Every public name of the OnlyWorlds SDK for Godot and its deprecation: written by tools/verify_promise.py --write, "
     "read by it in CI. A name leaves this file only in a major."
 )
-MARK_WORDS = "## @deprecated: Since X.Y.Z, leaves in 1.0, use ..."
+MARK_WORDS = "## @deprecated: Since X.Y.Z. Leaves in 1.0. Use ..."
 OPTIONS = argparse.Namespace(godot=None, docs=None)
 
 

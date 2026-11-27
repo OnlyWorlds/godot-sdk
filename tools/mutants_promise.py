@@ -27,7 +27,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 CHECK = HERE / "verify_promise.py"
 MARKED = "OWPresentation.family_of"
-GOOD = "Since 0.6.0, leaves in 1.0, use [method OWPresentation.icon_of]."
+GOOD = "Since 0.6.0. Leaves in 1.0. Use [method OWPresentation.icon_of]."
 
 
 def godot_docs(godot: str, project: Path, out: Path) -> None:

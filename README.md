@@ -34,9 +34,9 @@ classes. Enabling the plugin under **Project Settings → Plugins** is optional:
 **Versions.** A patch release fixes and a minor release adds; neither removes nor renames a public name, and the
 addon keeps to this while it is 0.x. A name that will go is marked deprecated first, saying since which release,
 what to use instead and the release it leaves in; it stays at least six months after that release and goes only in
-1.0. It is the promise the TypeScript SDK and the Python package make on the docs'
+1.0. It is the same promise as on the docs'
 [Stability page](https://onlyworlds.github.io/docs/development/api/stability#the-standard-the-packages-and-this-site), and a check in CI
-holds the public names to it on every change. The [CHANGELOG](CHANGELOG.md) lists what each version changed.
+holds the public names to it on every change; it reads names, not a call's parameters or what it does. The [CHANGELOG](CHANGELOG.md) lists what each version changed.
 
 ## First run
 
@@ -184,12 +184,12 @@ judged by the fixture set's reference checker, which is not part of this reposit
 empty project that reads a world through it: `python tools/release_zip.py v0.6.0`, then
 `python tools/prove_zip.py dist/onlyworlds-godot-0.6.0.zip --godot <binary>`), and two probes.
 
-**Deprecating a name.** Write `## @deprecated: Since X.Y.Z, leaves in 1.0, use Y.` in its doc comment, with X.Y.Z the
+**Deprecating a name.** Write `## @deprecated: Since X.Y.Z. Leaves in 1.0. Use Y.` in its doc comment, with X.Y.Z the
 release that first carries the mark; a deprecated function also calls `push_warning()` with the same words, since
-GDScript does not warn at a call by itself. `tools/verify_promise.py` reads the addon's public names through Godot's
-doctool and holds them, kept in `tools/public-names.json`, and their marks to the promise on every push and pull
-request. A change that adds a public name or a mark runs `python tools/verify_promise.py --godot <binary> --write`
-and commits the file.
+GDScript does not warn at a call by itself. Then run `python tools/verify_promise.py --godot <binary> --write` and
+commit `tools/public-names.json`, which lists every public name and its mark as Godot's doctool reads them. CI runs
+`verify_promise.py` on every push and pull request, and `python tools/mutants_promise.py --godot <binary>` watches the
+check fail once for each rule.
 
 ## OnlyWorlds
 

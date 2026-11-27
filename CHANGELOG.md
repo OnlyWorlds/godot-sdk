@@ -19,8 +19,8 @@ build. The entries below are in the detail a maintainer needs; the history befor
 - **The addon's written promise, held on every change.** A patch release fixes and a minor release adds; neither removes
   nor renames a public name, and the addon keeps to this while it is 0.x. A name that will go is marked first, saying
   since which release, what to use instead and the release it leaves in, and goes no sooner than six months later, in
-  1.0. The README's Versions line says so and links the docs' Stability page. The mark is `## @deprecated: Since X.Y.Z,
-  leaves in 1.0, use Y.` in the doc comment, and a deprecated function also warns with `push_warning()` when it is
+  1.0. The README's Versions line says so and links the docs' Stability page. The mark is `## @deprecated: Since X.Y.Z.
+  Leaves in 1.0. Use Y.` in the doc comment, and a deprecated function also warns with `push_warning()` when it is
   called. `tools/verify_promise.py` holds the addon's public names, listed in `tools/public-names.json` and read by
   Godot's own doctool, and their marks to the promise in CI beside the suite; `tools/mutants_promise.py` watches it fail
   once for each rule. No name is deprecated today, and no release so far has removed or renamed a public name.
