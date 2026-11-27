@@ -57,8 +57,11 @@ func test_the_cases_file_is_the_pinned_bytes(t) -> void:
 	t.done()
 
 func _case(t, c: Dictionary) -> void:   # bound arguments come after the call's
-	var cal := OWCalendar.read_config(_expand(c["cfg"]))
-	t.ok(cal != null, "the case is a calendar the reader accepts")
+	# Past the size bounds since serial 149 (five of the eight cases hold a template or a name of thousands of
+	# characters): the formatter is measured on the value as read without them, since a Calendar made in code never
+	# meets them.
+	var cal := OWCalendar._read_config_past_the_bounds(_expand(c["cfg"]))
+	t.ok(cal != null, "the case is a calendar the reader accepts, the size bounds aside")
 	if cal == null:
 		t.done()
 		return
@@ -164,8 +167,10 @@ func test_every_made_template_formats_as_the_regular_expressions_did(t) -> void:
 ## expression of its own, quadratic on a long run of white space inside the text. A step word with 20,000 spaces in it.
 func test_a_step_word_with_a_long_run_of_white_space_inside_is_trimmed_inside_the_line(t) -> void:
 	var word := " day" + " ".repeat(20000) + "s "
-	var cal := OWCalendar.read_config({"version": 1, "grain": "day", "step_name": word})
-	t.ok(cal != null, "a calendar the reader accepts")
+	var value := {"version": 1, "grain": "day", "step_name": word}
+	t.eq(OWCalendar.read_config(value), null, "a step_name past 256 code points is not a calendar (serial 149)")
+	var cal := OWCalendar._read_config_past_the_bounds(value)
+	t.ok(cal != null, "a calendar the reader accepts, the size bounds aside")
 	var t0 := Time.get_ticks_usec()
 	var got := OWCalendar.format_duration(cal, 2)
 	var ms := (Time.get_ticks_usec() - t0) / 1000.0

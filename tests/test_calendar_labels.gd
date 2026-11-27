@@ -1,13 +1,16 @@
 extends RefCounted
 ## OWCalendar's labels, durations, month starts, parse_date, validate_config and resolve_calendar against the npm SDK's
 ## own answers: tests/data/calendar_parity.json, made by codegen/generate_calendar_parity.mjs from the package's built
-## code (the file names the version and commit). Every calendar the pinned profile fixture reads as one, by name, and
+## code (the file names the version and commit). Every calendar dist.148's profile fixture reads as one, by name, and
 ## the calendars the generator writes for the traps (each says what it is for). Where npm throws, Godot answers instead:
 ## those answers are here, by name. Then what vectors cannot carry: a caller's mistake, the answers' shapes, a null
 ## calendar, numbers past JavaScript's, and the lowercasing Godot does not reproduce.
 
 const PARITY := "res://tests/data/calendar_parity.json"
 const CALENDAR := "res://codegen/schema-dist/profiles/calendar.fixture.json"
+## The profile fixture the vectors were made from: dist.148's (and dist.147's) calendar.fixture.json, whose 91 cases the
+## vendored fixture holds unchanged, by name; the vectors are remade when the TypeScript SDK reads serial 149.
+const DIST_148_FIXTURE_SHA256 := "1ae922bc7af243453cac62053a31b2d10180e0ebb4843639dde9479f16e87206"
 
 ## Godot's answer where npm's validateCalendarConfig throws (a TypeError: a list it loops over is not iterable, or a
 ## key read on null).
@@ -148,8 +151,10 @@ func test_the_vectors_name_their_source(t) -> void:
 	var doc := _parity()
 	t.eq(doc["npm"]["package"], "@onlyworlds/sdk", "the package")
 	t.ok(doc["npm"]["commit"] is String and doc["npm"]["commit"].length() == 7, "the commit")
-	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://codegen/schema-dist/MANIFEST.json"))["files"]
-	t.eq(doc["fixture_sha256"], manifest["profiles/calendar.fixture.json"], "made from the pinned fixture")
+	# Made from dist.148's fixture, not the vendored dist.149 one: serial 149's hundred new cases are bounds and dates
+	# past the exact range, which the TypeScript SDK does not read yet, so its answers there would be the old reading.
+	# The vectors move when it takes serial 149; the 91 cases they were made from are unchanged in dist.149.
+	t.eq(doc["fixture_sha256"], DIST_148_FIXTURE_SHA256, "made from dist.148's fixture")
 	var named := 0
 	for c in doc["calendars"]:
 		if c.has("case"):
@@ -201,6 +206,29 @@ func test_numbers_past_javascripts(t) -> void:
 	t.eq(OWCalendar.parse_date(cal, "9223372036854775808"), {"error": "unrecognized: \"9223372036854775808\""}, "past a 64-bit int")
 	t.eq(OWCalendar.parse_date(cal, "-000000000000000000000012"), {"step": -12}, "leading zeros are no size")
 	t.eq(OWCalendar.parse_date(cal, "Frost 99999999999999999999"), {"error": "unrecognized: \"99999999999999999999\""}, "beside a word")
+	t.done()
+
+## The profile (serial 149): a date whose step, year index plus a leap rule's offset, or shown year is past the safe
+## integers is a plain number. The fixture reads format_step and breakdown_step; the two labels follow it here.
+func test_a_date_past_the_exact_range_is_a_plain_number_in_every_label(t) -> void:
+	# An era starting at -(2^53 - 1): step 0 shows year 2^53 there (the fixture's era-starting-at-the-line case).
+	var long := OWCalendar.read_value({"version": 1, "grain": "year", "eras": [{"name": "Long", "abbrev": "L", "start": -9007199254740991}]})
+	t.ok(OWCalendar.is_past_exact_range(long, 0), "step 0 is past the range")
+	t.eq(OWCalendar.format_year_label(long, 0), "0", "the year label is the plain step, never a rounded year")
+	t.eq(OWCalendar.format_mid_label(long, 0), "0", "the mid label too")
+	t.ok(not OWCalendar.is_past_exact_range(long, -9007199254740991), "the era's first year is inside the range")
+	t.eq(OWCalendar.format_year_label(long, -9007199254740991), "1 L", "and is worded")
+	# A leap rule's offset at the line: year 0 plus it is inside, year 1 plus it past; the mid label's day and its
+	# intercalary day are worded in year 0, and a date of year 1 is the plain step.
+	var leap := OWCalendar.read_value({"version": 2, "grain": "day", "bundles": {"months": {"names": ["A"], "lengths": [1]}},
+		"intercalary": [{"name": "Leap", "after_month": 1, "every_years": 1, "offset": 9007199254740991}]})
+	t.eq(OWCalendar.format_mid_label(leap, 0), "1 A 0", "a day of year 0")
+	t.eq(OWCalendar.format_mid_label(leap, 1), "Leap 0", "the leap day of year 0")
+	t.eq(OWCalendar.format_mid_label(leap, 2), "2", "a day of year 1: the plain step")
+	t.eq(OWCalendar.format_year_label(leap, 3), "3", "its leap day's year label too")
+	var b := OWCalendar.breakdown_step(leap, 2)
+	t.eq([b.step, b.abs_year, b.year, b.era, b.month, b.day, b.intercalary, b.weekday], [2, null, null, null, null, null, null, null],
+		"its breakdown: the step, every other field null")
 	t.done()
 
 func test_an_abbrev_not_a_string(t) -> void:

@@ -14,6 +14,27 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **A calendar has size bounds, and a date past the exact range is a plain number** (the calendar profile at
+  schema-dist serial 149). A value with more than 256 eras, 64 months, a week longer than 64 steps or with more than 64
+  names, more than 16 entries in `intercalary`, an `except` longer than 8, or a template or a name longer than 256 code
+  points (counted as decoded, untrimmed, not normalised) is not a calendar, and neither is one whose longest year (the
+  months plus every entry in `intercalary`) is longer than 2^53 - 1: `OWCalendar.read_config` and `read_value` return
+  null and its dates read as plain numbers. A date whose step, year index plus any leap rule's `offset`, or shown year
+  lies outside -(2^53 - 1) to 2^53 - 1 is shown as the plain step by `format_step`, `format_year_label` and
+  `format_mid_label`, and `OWCalendar.is_past_exact_range` names it. The profile's fixture (191 cases, 100 new) is
+  read whole. Tests: `tests/test_calendar.gd`, `tests/test_calendar_labels.gd`.
+
+### Changed
+
+- **`OWCalendar.Breakdown.abs_year` and `year` are an int or null**, typed `Variant` as `month` and `day` already were:
+  null, with every other field but `step`, for a date past the exact range. Code that reads them where an `int` is
+  typed checks for null first.
+- Schema pin to `v0.34.1-dist.149` (`6792960`); canonical 00.34.01 unchanged (`OWSchemaPin.SERIAL` 149). Only the
+  calendar profile and its fixture moved; the generated models and the views table moved in their stamp only. The
+  calendar's parity vectors stay those made from dist.148's fixture until the TypeScript SDK reads serial 149.
+
 ## [0.4.0] - 2026-11-26
 
 A file nested more than 200 levels deep is left out of the world by name, `too_deep`, counted in its text as each

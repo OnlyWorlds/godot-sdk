@@ -30,6 +30,15 @@ const KNOWN_TOKENS := ["day", "month", "weekday", "year", "era", "step", "interc
 
 const _MAX_SAFE := 9007199254740991            # 2^53 - 1: Number.MAX_SAFE_INTEGER
 const _MAX_YEAR_CORRECTION := 10000            # npm's cap on the year seed's correction laps, per direction
+## The profile's size bounds (serial 149): past one of them a value is not a calendar. A text's length is counted in
+## Unicode code points, which is what a Godot String's length() counts (its characters are 32-bit; Godot's JSON joins
+## a surrogate pair into one and refuses a document holding a lone surrogate).
+const _MAX_ERAS := 256
+const _MAX_MONTHS := 64
+const _MAX_WEEK := 64                          # a week's length, and its count of names
+const _MAX_INTERCALARY := 16
+const _MAX_EXCEPT := 8
+const _MAX_TEXT := 256                         # a template or a name
 ## JavaScript's white space (\s and String.prototype.trim): WhiteSpace and LineTerminator.
 const _JS_WS := "\\t\\n\\x{0B}\\f\\r \\x{A0}\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}"
 ## A known token with no value, so the close-up pass finds it (npm's U+E000, a private-use code point).
@@ -98,13 +107,16 @@ class Calendar:
 	var format: Variant = null
 	var format_intercalary: Variant = null
 
-## A step taken apart (npm StepBreakdown). Null where the structure does not exist.
+## A step taken apart (npm StepBreakdown). Null where the structure does not exist, and every field but
+## [member step] null for a date past the exact range ([method OWCalendar.is_past_exact_range]), which is shown as a
+## plain number.
 class Breakdown:
 	var step := 0
-	## The year index, from 0 at step 0.
-	var abs_year := 0
-	## The era's year (restart arithmetic applied), or [member abs_year] with no era or a label era.
-	var year := 0
+	## The year index, from 0 at step 0: an int, or null for a date past the exact range.
+	var abs_year: Variant = null
+	## The era's year (restart arithmetic applied), or [member abs_year] with no era or a label era: an int, or null
+	## for a date past the exact range.
+	var year: Variant = null
 	var era: Era = null
 	## 1-based, or null (an intercalary day, no months).
 	var month: Variant = null
@@ -140,8 +152,18 @@ static func read_value(raw: Variant) -> Calendar:
 
 ## [param value] as a calendar when it is an object the profile accepts, else null: every rule of the profile's "Not a
 ## calendar" list, as npm [code]readCalendarConfig[/code] reads it, the fixture's refusals among them (an
-## [code]offset[/code] or [code]except[/code] with no [code]every_years[/code] too, which the list does not name).
+## [code]offset[/code] or [code]except[/code] with no [code]every_years[/code] too), the size bounds and the longest
+## year among them (serial 149).
 static func read_config(value: Variant) -> Calendar:
+	return _read_config(value, true)
+
+## [method read_config] without the size bounds and the longest year: for the cost tests, whose shared cases hold
+## templates and names far past 256 code points. A [Calendar] made in code never meets the bounds, so what a label
+## costs is still the formatter's to keep linear. Not part of the addon's API.
+static func _read_config_past_the_bounds(value: Variant) -> Calendar:
+	return _read_config(value, false)
+
+static func _read_config(value: Variant, bounded: bool) -> Calendar:
 	if not (value is Dictionary):
 		return null
 	var cfg: Dictionary = value
@@ -215,7 +237,48 @@ static func read_config(value: Variant) -> Calendar:
 	cal.format = fmt if fmt is String else null
 	var fmt_i: Variant = cfg.get("format_intercalary")
 	cal.format_intercalary = fmt_i if fmt_i is String else null
-	return cal
+	return cal if not bounded or _within_bounds(cal) else null
+
+## The size bounds and the longest year, the profile's last two refusals (serial 149): at most 256 eras, 64 months, a
+## week of 64 steps and 64 names, 16 entries in [code]intercalary[/code], an [code]except[/code] of 8 (read only on
+## version 2), and templates and names of 256 code points, counted on the string as decoded, untrimmed and not
+## normalised; and the longest year (the months' lengths plus every entry in [code]intercalary[/code], whether or not
+## one year earns them all) at most 2^53 - 1. A template, a [code]step_name[/code] or an abbrev that is not a string
+## is no text, and no length is counted on it.
+static func _within_bounds(cal: Calendar) -> bool:
+	if cal.eras.size() > _MAX_ERAS or cal.intercalary.size() > _MAX_INTERCALARY:
+		return false
+	if _too_long(cal.grain) or _too_long(cal.raw.get("step_name")) or _too_long(cal.format) or _too_long(cal.format_intercalary):
+		return false
+	for era in cal.eras:
+		if _too_long(era.name) or _too_long(era.abbrev):
+			return false
+	if cal.has_months:
+		if cal.month_names.size() > _MAX_MONTHS:
+			return false
+		for n in cal.month_names:
+			if _too_long(n):
+				return false
+		# At most 64 lengths of at most 2^53 - 1 each, and 16 days: the sum stays inside a 64-bit int.
+		var longest := cal.intercalary.size()
+		for l in cal.month_lengths:
+			longest += l
+		if longest > _MAX_SAFE:
+			return false
+	if cal.has_week:
+		if cal.week_length > _MAX_WEEK or cal.week_names.size() > _MAX_WEEK:
+			return false
+		for n in cal.week_names:
+			if _too_long(n):
+				return false
+	for ic in cal.intercalary:
+		if _too_long(ic.name) or ic.except_years.size() > _MAX_EXCEPT:
+			return false
+	return true
+
+## A string longer than 256 code points; anything that is not a string is no text and never too long.
+static func _too_long(s: Variant) -> bool:
+	return (s is String or s is StringName) and String(s).length() > _MAX_TEXT
 
 static func _read_era(e: Variant, i: int) -> Era:
 	if not (e is Dictionary) or not (e.get("name") is String) or not _is_safe_int(e.get("start")):
@@ -494,31 +557,62 @@ static func _weekday(cal: Calendar, step: int, y: int, slot: Array) -> Variant:
 static func breakdown_step(cal: Calendar, step: int) -> Breakdown:
 	var b := Breakdown.new()
 	b.step = step
-	b.abs_year = absolute_year(cal, step)
+	if _step_past_exact_range(step):
+		return b             # a plain number: every other field null
+	var y := absolute_year(cal, step)
+	var era := era_for_step(cal, step)
+	var shown := display_year(cal, step, era)
+	if _year_past_exact_range(cal, y, shown):
+		return b
+	b.abs_year = y
+	b.era = era
+	b.year = shown
 	var slot: Array = ["", null, null, 0]
 	if cal.has_months:
-		slot = _slot(cal, b.abs_year, step - year_start_step(cal, b.abs_year))
-	b.era = era_for_step(cal, step)
-	b.year = display_year(cal, step, b.era)
+		slot = _slot(cal, y, step - year_start_step(cal, y))
 	if slot[0] == "month":
 		b.month = slot[1]
 		b.month_name = cal.month_names[slot[1] - 1]
 		b.day = slot[2]
 	elif slot[0] == "intercalary":
 		b.intercalary = (slot[1] as Intercalary).name
-	b.weekday = _weekday(cal, step, b.abs_year, slot)
+	b.weekday = _weekday(cal, step, y, slot)
 	return b
+
+## True when [param step] is a date past the exact range (the profile, serial 149): the step, its year index plus each
+## leap rule's [code]offset[/code], or the year it shows in its era lies outside -(2^53 - 1) to 2^53 - 1. Such a date
+## is shown as a plain number, every field of its breakdown null; the calendar stays a calendar. The step is compared
+## first, so the arithmetic after it never leaves a 64-bit int.
+static func is_past_exact_range(cal: Calendar, step: int) -> bool:
+	if _step_past_exact_range(step):
+		return true
+	var y := absolute_year(cal, step)
+	return _year_past_exact_range(cal, y, display_year(cal, step, era_for_step(cal, step)))
+
+static func _step_past_exact_range(step: int) -> bool:
+	return step < -_MAX_SAFE or step > _MAX_SAFE
+
+## The year index [param y] plus each leap rule's offset, or the year shown, outside the safe integers.
+static func _year_past_exact_range(cal: Calendar, y: int, shown: int) -> bool:
+	for ic in _rules(cal):
+		var shifted := y + ic.offset
+		if shifted < -_MAX_SAFE or shifted > _MAX_SAFE:
+			return true
+	return shown < -_MAX_SAFE or shown > _MAX_SAFE
 
 # -- words ------------------------------------------------------------------------------------------------------------
 
 ## [param step] in words (the profile's step 5; npm [code]formatStep[/code]): the calendar's template, or the default
 ## for the step (an intercalary day's, with months, without), each known token filled; a known token with no value
 ## prints empty and one [code],[/code] [code];[/code] [code]·[/code] or white space on each side of it closes up (a dash
-## never does); an unknown token prints as written. A null calendar prints the bare step.
+## never does); an unknown token prints as written. A null calendar, or a date past the exact range
+## ([method is_past_exact_range]), prints the bare step.
 static func format_step(cal: Calendar, step: int) -> String:
 	if cal == null:
 		return str(step)
 	var b := breakdown_step(cal, step)
+	if b.year == null:
+		return str(step)     # past the exact range: a plain number
 	var values := {
 		"day": str(b.day) if b.day != null else null,
 		"month": b.month_name,
@@ -659,12 +753,14 @@ static func _js_string(v: Variant) -> String:
 ## The compact year label for an axis tick zoomed wide (npm [code]formatYearLabel[/code]): the era's year and its
 ## abbrev, or its name when the abbrev is null; outside every era, or when that word is falsy as JavaScript reads it
 ## ([code]""[/code], 0, false), the year alone. A word that is not a string prints as JavaScript's String() does. A
-## null calendar prints the bare step.
+## null calendar, or a date past the exact range, prints the bare step.
 static func format_year_label(cal: Calendar, step: int) -> String:
-	if cal == null:
+	if cal == null or _step_past_exact_range(step):
 		return str(step)
 	var era := era_for_step(cal, step)
 	var year := display_year(cal, step, era)
+	if _year_past_exact_range(cal, absolute_year(cal, step), year):
+		return str(step)     # past the exact range: a plain number
 	if era == null:
 		return str(year)
 	var word: Variant = era.abbrev if era.abbrev != null else era.name
@@ -672,11 +768,13 @@ static func format_year_label(cal: Calendar, step: int) -> String:
 
 ## The mid-rung label for dense axis ticks (npm [code]formatMidLabel[/code]): day, month and the era's year with no
 ## era word ("11 Greening 454"), an intercalary day's name and year ("Hearthmoot 454"), and on a calendar with no
-## months [method format_year_label]. A null calendar prints the bare step.
+## months [method format_year_label]. A null calendar, or a date past the exact range, prints the bare step.
 static func format_mid_label(cal: Calendar, step: int) -> String:
 	if cal == null:
 		return str(step)
 	var b := breakdown_step(cal, step)
+	if b.year == null:
+		return str(step)     # past the exact range: a plain number
 	if b.intercalary != null:
 		return "%s %d" % [b.intercalary, b.year]
 	if b.month_name != null and b.day != null:
