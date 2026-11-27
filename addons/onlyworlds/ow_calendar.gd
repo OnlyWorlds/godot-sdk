@@ -798,7 +798,7 @@ static func approx_year_length(cal: Calendar) -> Variant:
 ## left ([code]step_name: ""[/code] reads [code]step[/code], never the grain); a grain or step word that lowercases
 ## to [code]year[/code] with no year structure makes each step a year (so the count stays in that word). The plural
 ## adds [code]s[/code] to anything but exactly 1. A [code]step_name[/code] that is not a string is passed over for
-## the grain (npm throws on one). A null calendar counts steps.
+## the grain, as npm reads it since 4.212.1. A whole count is shown as it is. A null calendar counts steps.
 static func format_duration(cal: Calendar, steps: float) -> String:
 	var n := absf(steps)
 	var unit := "step"
@@ -818,7 +818,9 @@ static func format_duration(cal: Calendar, steps: float) -> String:
 		var years: float = n / year_len
 		var rounded: float = roundf(years) if years >= 10.0 else roundf(years * 10.0) / 10.0
 		return "%s %s" % [_js_string(rounded), "year" if rounded == 1.0 else "years"]
-	var shown: float = roundf(n * 100.0) / 100.0   # roundf is half away from zero: JavaScript's half up, for n >= 0
+	# A whole count is shown as it is: n * 100 is not exact past 2^53 / 100 (npm 4.212.1). Otherwise roundf, half away
+	# from zero: JavaScript's half up, for n >= 0.
+	var shown: float = n if floorf(n) == n else roundf(n * 100.0) / 100.0
 	return "%s %s" % [_js_string(shown), unit if shown == 1.0 else unit + "s"]
 
 ## The first step of each month of year index [param year], in order (npm [code]monthStartSteps[/code]):
@@ -1197,7 +1199,7 @@ static func validate_config(value: Variant) -> PackedStringArray:
 ## npm's boundsProblem on a raw value: the first of the profile's size bounds it is past, in npm's order and words, or
 ## "". Only lists count as lists here (a string in place of one holds nothing), only strings as names, only numbers as
 ## lengths; [code]except[/code] counts on version 2 alone, and the longest year (the months' lengths plus every entry in
-## [code]intercalary[/code]) is summed as JavaScript sums it, in doubles.
+## [code]intercalary[/code], or with no months [code]year.steps[/code]) is summed as JavaScript sums it, in doubles.
 static func _bounds_problem(value: Variant) -> String:
 	var bundles: Variant = _js_get(value, "bundles")
 	var months: Variant = _js_get(bundles, "months")
@@ -1241,6 +1243,11 @@ static func _bounds_problem(value: Variant) -> String:
 			if _is_number(l):
 				longest += float(l)
 		if longest > float(_MAX_SAFE):
+			return "A year holds at most 2^53 - 1 steps"
+	elif _jt(_js_get(bundles, "year")):
+		# With no months a year is year.steps, held to the same line (npm 4.212.2).
+		var year_steps: Variant = _js_get(_js_get(bundles, "year"), "steps")
+		if _is_number(year_steps) and float(year_steps) > float(_MAX_SAFE):
 			return "A year holds at most 2^53 - 1 steps"
 	return ""
 

@@ -22,6 +22,13 @@ build. The entries below are in the detail a maintainer needs; the history befor
   at most 16 festival days", "An except list holds at most 8 numbers" (version 2), "A name or template holds at most
   256 characters" and "A year holds at most 2^53 - 1 steps". One message at most, the first bound in that order, after
   the era checks and before the overlaps. The reader already refused such a value; now the validator says why.
+- **Parity with the TypeScript SDK 4.212.2: the year bound on a calendar with no months.** `OWCalendar.validate_config`
+  now says "A year holds at most 2^53 - 1 steps" when a calendar with no months has a `year.steps` past 2^53 - 1,
+  as the reader already refused it.
+- **Parity with the TypeScript SDK 4.212.1: a whole count is worded exactly.** `OWCalendar.format_duration` showed a
+  whole count past 2^53 / 100 rounded through `n * 100`, so 9007199254740990 steps read 9007199254740989 days; a
+  whole count is now shown as it is. A `step_name` that is not a string already read as absent here; the TypeScript
+  SDK now reads it the same way, so the two agree.
 
 ## [0.6.0] - 2026-11-27
 

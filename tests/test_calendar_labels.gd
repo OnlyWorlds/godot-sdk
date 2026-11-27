@@ -250,11 +250,20 @@ func test_the_lowercasing_godot_does_not_reproduce(t) -> void:
 	t.eq(OWCalendar.parse_date(cal, "ΣΑΣ 5"), {"step": 4}, "the name as written reads in both")
 	t.done()
 
-func test_a_step_name_not_a_string(t) -> void:
-	# npm throws a TypeError (it trims the value); Godot reads the grain.
-	var cal := OWCalendar.read_value({"version": 1, "grain": "day", "step_name": 5})
-	t.eq(OWCalendar.format_duration(cal, 3), "3 days", "the grain's word")
-	t.eq(OWCalendar.format_duration(cal, 2.5), "2.5 days", "a fraction of a step")
+func test_a_step_name_not_a_string_reads_as_absent_and_a_whole_count_is_exact(t) -> void:
+	# npm 4.212.1's vectors (sdk 0ac4694): a step_name of the wrong kind reads as absent, the duration worded in the
+	# grain, and a whole count is shown as it is (n * 100 is not exact past 2^53 / 100).
+	var day := func(extra: Dictionary) -> OWCalendar.Calendar:
+		var value := {"version": 2, "grain": "day"}
+		value.merge(extra)
+		return OWCalendar.read_value(value)
+	t.eq(OWCalendar.format_duration(day.call({"step_name": 5}), 3), "3 days", "a number")
+	t.eq(OWCalendar.format_duration(day.call({"step_name": null}), 1), "1 day", "null")
+	t.eq(OWCalendar.format_duration(day.call({"step_name": ["sol"]}), 2), "2 days", "a list")
+	t.eq(OWCalendar.format_duration(day.call({}), 9007199254740990), "9007199254740990 days", "a whole count, exact")
+	t.eq(OWCalendar.format_duration(day.call({}), 9007199254740991), "9007199254740991 days", "2^53 - 1, exact")
+	t.eq(OWCalendar.format_duration(day.call({}), 0.333), "0.33 days", "a fraction, to two decimals")
+	t.eq(OWCalendar.format_duration(day.call({"step_name": 5}), 2.5), "2.5 days", "a fraction of a step")
 	t.done()
 
 func test_resolve_never_chosen_is_its_own_value(t) -> void:
@@ -303,5 +312,17 @@ func test_validate_names_the_size_bound_past_its_line_and_not_at_it(t) -> void:
 	t.eq(OWCalendar.validate_config(year_of.call([safe])), PackedStringArray(), "a year of 2^53 - 1 steps: at the line")
 	t.eq(OWCalendar.validate_config(year_of.call([safe, 1])), PackedStringArray(["A year holds at most 2^53 - 1 steps"]), "a year one step longer: past it")
 	var parsed: Variant = JSON.parse_string(JSON.stringify(year_of.call([safe, 1])))
+	t.eq(OWCalendar.validate_config(parsed), PackedStringArray(["A year holds at most 2^53 - 1 steps"]), "the same, read from JSON")
+	t.done()
+
+func test_validate_names_the_year_bound_on_a_calendar_with_no_months(t) -> void:
+	# As npm 4.212.2 (sdk 002211c): with no months a year is year.steps, held to the same line.
+	var steps_of := func(steps: int) -> Dictionary:
+		return {"version": 2, "grain": "day", "bundles": {"year": {"steps": steps}}}
+	var safe := 9007199254740991
+	t.eq(OWCalendar.validate_config(steps_of.call(safe + 1)), PackedStringArray(["A year holds at most 2^53 - 1 steps"]), "year.steps of 2^53: past the line")
+	t.eq(OWCalendar.validate_config(steps_of.call(safe)), PackedStringArray(), "year.steps of 2^53 - 1: at it")
+	t.eq(OWCalendar.read_config(steps_of.call(safe + 1)), null, "the reader refuses it, as npm's does")
+	var parsed: Variant = JSON.parse_string(JSON.stringify(steps_of.call(safe + 1)))
 	t.eq(OWCalendar.validate_config(parsed), PackedStringArray(["A year holds at most 2^53 - 1 steps"]), "the same, read from JSON")
 	t.done()
