@@ -113,7 +113,7 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   each, and the names the type takes.
 - **Joining by link**: `OWJoin.parse_link(pasted)` reads the `ow_j_` code out of an invite link (`""` when there is
   none); `OWJoin.preview(code)` reads what it holds (an `OWJoin.Preview`: the reader, the world, the role, a person
-  link's note, a contributor's glimpse, a table's picks), and `OWJoin.redeem(code, {"name": ...})` redeems a player's
+  link's note and the Character it names, a contributor's glimpse, a table's picks), and `OWJoin.redeem(code, {"name": ...})` redeems a player's
   or an agent's code (an `OWJoin.Joined`: a read key, or a seat's key and secret with its front door), both sending no
   credential. A person's link is accepted signed in, `client.accept_join(code)` on an account token. Each refusal
   keel answers has its helper (`is_not_found`, `is_character_taken`, `is_character_invalid`, `is_world_full`,
