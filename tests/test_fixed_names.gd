@@ -121,6 +121,34 @@ func test_a_pack_of_a_folder_holding_a_fixed_name_in_another_case_is_refused(t) 
 	_cleanup()
 	t.done()
 
+func test_a_pack_of_spatial_in_another_case_beside_elements_is_refused_as_a_copy_and_as_a_share(t) -> void:
+	# The TypeScript SDK 4.212.3's vectors: Spatial/ (or a long s) beside elements/ was dropped from npm's copy and
+	# emptied its share; a pack that lists the folder refuses both, and the names as written pack as before.
+	for hidden in [true, false]:
+		var mode := "copy" if hidden else "share"
+		for top in ["Spatial", String.chr(0x17F) + "patial"]:
+			var root := _root("spatial-" + mode)
+			_write_tree(root, {"world.json": WORLD, "elements/character/ada--c1.json": _body(ID_A),
+				top + "/pin/p--p1.json": _body(ID_B, "P")})
+			var p := OWWorldArchive.pack_folder(root, false, false, false, hidden)
+			t.ok(not p.ok and p.bytes.is_empty(), "%s, %s: refused, nothing packed" % [mode, top])
+			t.ok(p.message.contains("name_case") and p.message.contains("'" + top + "'"),
+				"%s, %s: the cause and the spelling (%s)" % [mode, top, p.message])
+		var alone := _root("elements-" + mode)
+		_write_tree(alone, {"world.json": WORLD, "Elements/character/ada--c1.json": _body(ID_A)})
+		var a := OWWorldArchive.pack_folder(alone, false, false, false, hidden)
+		t.ok(not a.ok and a.message.contains("name_case"), "%s, Elements/ alone: refused (%s)" % [mode, a.message])
+		var control := _root("control-" + mode)
+		_write_tree(control, {"world.json": WORLD, "elements/character/ada--c1.json": _body(ID_A),
+			"spatial/pin/p--p1.json": _body(ID_B, "P")})
+		var c := OWWorldArchive.pack_folder(control, false, false, false, hidden)
+		t.eq(c.names, PackedStringArray(["mimetype", "fixed-control-%s/elements/character/ada--c1.json" % mode,
+			"fixed-control-%s/spatial/pin/p--p1.json" % mode, "fixed-control-%s/world.json" % mode]),
+			"%s: the names as written pack, the legacy pin in a share too" % mode)
+		t.ok(OWWorldArchive.read(c.bytes).ok, "%s: and read back" % mode)
+	_cleanup()
+	t.done()
+
 func test_a_write_into_a_folder_holding_elements_in_another_case_is_refused(t) -> void:
 	var root := _root("write")
 	_write_tree(root, {"world.json": WORLD, "Elements/character/a.json": _body(ID_A)})

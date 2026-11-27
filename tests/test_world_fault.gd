@@ -33,3 +33,14 @@ func test_a_world_json_that_cannot_be_read_says_why_any_other_not_a_world_has_no
 		"b/world.json": ("{\"id\":\"%s\",\"name\":\"B\"}" % WID).to_utf8_buffer()}, "").bytes)
 	t.ok(not two.ok and two.reason == "more_than_one" and two.world_fault == "", "more_than_one has none (%s)" % two.reason)
 	t.done()
+
+func test_a_world_json_past_200_says_it_in_words_the_code_the_field(t) -> void:
+	# The TypeScript SDK 4.212.3: a world file's refusal for a world.json nested past 200 says it in words alone; the
+	# code is world_fault. npm's vector, '[' 201 deep inside the object.
+	var deep := "{\"id\": \"%s\", \"x\": %s%s}" % [WID, "[".repeat(201), "]".repeat(201)]
+	var r := OWWorldArchive.read(OWWorldArchive.pack_files({"world.json": deep.to_utf8_buffer()}, "w").bytes)
+	t.ok(not r.ok and r.reason == "not_a_world", "not_a_world (%s)" % r.reason)
+	t.eq(r.world_fault, "too_deep", "the code is the field")
+	t.ok(not r.message.contains("too_deep"), "no code mark in the words: " + r.message)
+	t.ok(r.message.ends_with("nested more than 200 deep"), "the words: " + r.message)
+	t.done()

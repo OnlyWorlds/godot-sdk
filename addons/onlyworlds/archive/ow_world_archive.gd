@@ -223,10 +223,11 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 	# OW-3: the world's own world.json is a JSON object whose id is a non-empty string once trimmed.
 	r.held_world_json = content[r.prefix + WORLD]
 	# OW-25: the world's own file counted as an element file is, in its text before any parse: a world.json the reader
-	# cannot read, so no world (OW-3), its message naming the word.
+	# cannot read, so no world (OW-3). The message says it in words, the code is world_fault (the TypeScript SDK
+	# 4.212.3).
 	if OWJson.opens_past(r.held_world_json.get_string_from_utf8()):
 		r.world_fault = "too_deep"
-		return _refuse(r, "not_a_world", "world.json: " + OWJson.TOO_DEEP_WHY)
+		return _refuse(r, "not_a_world", "world.json is " + OWJson.TOO_DEEP_WORDS)
 	var parsed := {}
 	var world = _parse_strict(r.held_world_json, parsed)
 	if not parsed.get("ok", false):
@@ -385,7 +386,7 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 		return out
 	var world_bytes := FileAccess.get_file_as_bytes(world_path)
 	if OWJson.opens_past(world_bytes.get_string_from_utf8()):
-		out.message = "world.json in %s: %s" % [folder, OWJson.TOO_DEEP_WHY]
+		out.message = "world.json in %s is %s" % [folder, OWJson.TOO_DEEP_WORDS]  # as writeWorldFile refuses it
 		return out
 	var world = OWJson.parse_bytes(world_bytes)
 	if OWJson.holds_out_of_range(world):

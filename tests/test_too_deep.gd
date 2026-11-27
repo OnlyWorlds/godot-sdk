@@ -119,6 +119,8 @@ func test_a_world_json_past_200_is_no_world(t) -> void:
 	_write_tree(root, _files(_nest(5), _nest(201)))
 	var packed = OWWorldArchive.pack_folder(root)
 	t.ok(not packed.ok, "refused")
-	t.ok(str(packed.message).contains("too_deep"), "by the word: " + str(packed.message))
+	# In the words of the TypeScript SDK's writeWorldFile, which refuses it the same way (4.212.3), never "not JSON".
+	t.ok(str(packed.message).ends_with("is nested more than 200 deep") and not str(packed.message).contains("too_deep"),
+		"in words: " + str(packed.message))
 	P.remove_tree(root)
 	t.done()
