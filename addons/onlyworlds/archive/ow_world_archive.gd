@@ -125,32 +125,17 @@ static func read(raw: PackedByteArray, max_bytes := DEFAULT_MAX_BYTES, max_entri
 			return _refuse(r, "too_big", "declares more than %d bytes" % max_bytes)
 
 	# OW-18: no two names (or folders) one after folding (NFC, then simple case folding).
-	var folded := {}
-	var done := {}
-	for name: String in seen:
-		var segs := name.rstrip("/").split("/")
-		var prefix := ""
-		for i in segs.size():
-			prefix = segs[i] if i == 0 else prefix + "/" + segs[i]
-			if done.has(prefix):
-				continue
-			done[prefix] = true
-			var key := OWUnicode.fold(prefix)
-			if folded.has(key):
-				return _refuse(r, "collision", "names collide after NFC and case folding: %s, %s" % [folded[key].c_escape(), prefix.c_escape()])
-			folded[key] = prefix
+	var collision := _collision_fault(seen.keys())
+	if collision != "":
+		return _refuse(r, "collision", collision)
 
 	# OW-19: no path is both a file and a folder.
 	var names := {}
 	for e: OWZip.Entry in files:
 		names[e.name] = e
-	for name: String in names:
-		var segs := name.split("/")
-		var prefix := ""
-		for i in segs.size() - 1:
-			prefix = segs[i] if i == 0 else prefix + "/" + segs[i]
-			if names.has(prefix):
-				return _refuse(r, "unsafe_path", "%s is a file and a folder" % prefix.c_escape())
+	var both := _file_and_folder_fault(names.keys())
+	if both != "":
+		return _refuse(r, "unsafe_path", both)
 
 	# OW-6: a marker is never required; one present with other bytes is refused. Its shape binds the writer only.
 	if names.has(MARKER):
@@ -261,6 +246,66 @@ static func _under_a_dot_folder(rel: String) -> bool:
 		if segs[i].begins_with("."):
 			return true
 	return false
+
+## OW-18: why two of [param names] (entry names, a folder's ending in "/"), or two folders above them, are one name after
+## folding (NFC, then simple case folding), or "". The reader and [method entry_names_fault] both ask it.
+static func _collision_fault(names: Array) -> String:
+	var folded := {}
+	var done := {}
+	for name: String in names:
+		var segs := name.rstrip("/").split("/")
+		var prefix := ""
+		for i in segs.size():
+			prefix = segs[i] if i == 0 else prefix + "/" + segs[i]
+			if done.has(prefix):
+				continue
+			done[prefix] = true
+			var key := OWUnicode.fold(prefix)
+			if folded.has(key):
+				return "names collide after NFC and case folding: %s, %s" % [folded[key].c_escape(), prefix.c_escape()]
+			folded[key] = prefix
+	return ""
+
+## OW-19: why a path among [param file_names] is also a folder above another of them, or "".
+static func _file_and_folder_fault(file_names: Array) -> String:
+	var names := {}
+	for name: String in file_names:
+		names[name] = true
+	for name: String in names:
+		var segs := name.split("/")
+		var prefix := ""
+		for i in segs.size() - 1:
+			prefix = segs[i] if i == 0 else prefix + "/" + segs[i]
+			if names.has(prefix):
+				return "%s is a file and a folder" % prefix.c_escape()
+	return ""
+
+## Why a world file holding [param names] (each as a writer writes it: the marker, then every file under its top
+## folder) would be refused for a name by [method read], or [code]{}[/code]: [code]{"reason": cause, "message":
+## words}[/code]. The reader's own checks, in its order (folder spec section 4.7, whose fixture marks every such file
+## writer: refuse): [method path_fault] (unsafe_path, OW-16), [method name_fault] (name, OW-22), a name given twice
+## (unsafe_path, the TypeScript SDK's writeWorldFile's cause, where a reader answers duplicate), two names or folders
+## one after the fold (collision, OW-18) and a path that is a file and a folder (unsafe_path, OW-19). A top folder named
+## mimetype is a file and a folder beside the marker, and MimeType one name with it, as writeWorldFile refuses them.
+static func entry_names_fault(names: PackedStringArray) -> Dictionary:
+	var seen := {}
+	for name in names:
+		var fault := path_fault(name)
+		if fault != "":
+			return {"reason": "unsafe_path", "message": "entry %s %s" % [name.c_escape(), fault]}
+		fault = name_fault(name)
+		if fault != "":
+			return {"reason": "name", "message": "entry %s: %s" % [name.c_escape(), fault]}
+		if seen.has(name):
+			return {"reason": "unsafe_path", "message": "entry %s is listed twice" % name.c_escape()}
+		seen[name] = true
+	var collision := _collision_fault(seen.keys())
+	if collision != "":
+		return {"reason": "collision", "message": collision}
+	var both := _file_and_folder_fault(seen.keys())
+	if both != "":
+		return {"reason": "unsafe_path", "message": both}
+	return {}
 
 static func _refuse(r: Result, reason: String, message: String) -> Result:
 	r.ok = false
@@ -426,6 +471,16 @@ static func pack_folder(folder: String, keep_api := false, include_private := fa
 		top = "world"
 	var share := {} if include_hidden else leave_out_for_share(files)
 	var left := PackedStringArray() if include_author_fields else strip_author_fields(files)
+	# Section 4.7: a writer never emits a file its reader refuses for a name, so the names about to be written go
+	# through the reader's own checks first, and nothing is packed on a fault.
+	var entry_names := PackedStringArray([MARKER])
+	for rel: String in files:
+		entry_names.append(top + "/" + rel)
+	var unwritable := entry_names_fault(entry_names)
+	if not unwritable.is_empty():
+		out.message = "the world folder %s is refused, %s: %s; nothing was written" % [folder, unwritable["reason"],
+			unwritable["message"]]
+		return out
 	var packed := pack_files(files, top)
 	packed.author_fields_left_out = left
 	if not include_hidden:

@@ -14,6 +14,19 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Fixed
+
+- **`OWWorldArchive.pack` and `pack_folder` refuse to write a world file their own reader would refuse for a name**,
+  as the folder format's writer rules ask (section 4.7: OW-16, OW-18, OW-19, OW-22) and as the TypeScript SDK's
+  `writeWorldFile` refuses it. Before anything is packed, every entry name goes through the reader's checks: a name
+  some disk cannot hold (a Windows device name such as `media/aux.png`, a name ending in a dot or a space, a reserved
+  or control character) is refused `name`; two names that are one after case folding, `collision`; a path that would
+  be a file and a folder, `unsafe_path`, and so is a world folder named `mimetype` (the marker's name), while one
+  named `MimeType` is refused `collision`. The message names the cause and ends "nothing was written". Before, such a
+  folder was packed into a file that `OWWorldArchive.read` then refused. The checks are one function,
+  `OWWorldArchive.entry_names_fault`, which a tool can call on its own list of names. `pack_files` still packs exactly
+  the files it is given.
+
 ### Changed
 
 - **Parity with the TypeScript SDK 4.212.0: the validator names the size bounds.** `OWCalendar.validate_config` now
