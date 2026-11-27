@@ -34,10 +34,21 @@ const TYPES := {
 }
 
 static var _table: Dictionary = TYPES
+static var _family_of_warned := false
 
-## The family of [param type] (the lens profile's graph node key).
-static func family_of(type: String) -> String:
+## The colour group of [param type], one of [constant ORDER] (the TypeScript SDK's [code]groupOf[/code]; the lens
+## profile's graph node key [code]family[/code] holds it).
+static func group_of(type: String) -> String:
 	return _table[type]["family"]
+
+## The colour group of [param type], as [method group_of] answers it, under its name before npm 5.0. It warns
+## once per run, with the words below.
+## @deprecated: Since 0.7.0. Leaves in 1.0. Use [method group_of].
+static func family_of(type: String) -> String:
+	if not _family_of_warned:
+		_family_of_warned = true
+		push_warning("OnlyWorlds: OWPresentation.family_of is deprecated. Since 0.7.0. Leaves in 1.0. Use OWPresentation.group_of.")
+	return group_of(type)
 
 ## The icon of [param type] (a Material Symbols name).
 static func icon_of(type: String) -> String:

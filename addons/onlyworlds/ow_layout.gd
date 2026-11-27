@@ -45,6 +45,8 @@ static var _anchors := PackedFloat64Array()
 ## Answers [code]{method: "by-kind", version: 1, points}[/code], one [code]{id, x, y}[/code] per node in the order
 ## handed; an empty graph answers no points, one element answers 0, 0. Self-links pull nothing; a link to an id that is
 ## not a node is passed over. [code]{error}[/code] on a graph it cannot read.
+## The [code]version[/code] key is deprecated: Since 0.7.0. Leaves in 1.0. The layout profile's mark carries no version
+## key; read [code]method[/code], whose word changes when the method does. Until 1.0 the key is always 1.
 static func layout_by_kind(graph: Variant) -> Dictionary:
 	var g := _read_graph("layout_by_kind", graph)
 	if g.has("error"):
@@ -223,6 +225,8 @@ static func layout_by_kind(graph: Variant) -> Dictionary:
 ## order the nodes were handed in, each [code]{id, depth, x, y}[/code] (depth 0, 1 or 2). [code]{error}[/code] on a
 ## [param steps] that is not the integer 1 or 2 (checked first), a graph it cannot read, or a focus that is not one of the
 ## graph's nodes.
+## The [code]version[/code] key is deprecated: Since 0.7.0. Leaves in 1.0. The layout profile's mark carries no version
+## key; read [code]method[/code], whose word changes when the method does. Until 1.0 the key is always 1.
 static func layout_around(graph: Variant, focus: Variant, steps: Variant = 1) -> Dictionary:
 	if typeof(steps) != TYPE_INT or (steps != 1 and steps != 2):
 		return {"error": "layout_around: steps is 1 or 2, not %s" % str(steps)}

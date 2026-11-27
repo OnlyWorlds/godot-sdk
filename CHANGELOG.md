@@ -23,7 +23,12 @@ build. The entries below are in the detail a maintainer needs; the history befor
   Leaves in 1.0. Use Y.` in the doc comment, and a deprecated function also warns with `push_warning()` when it is
   called. `tools/verify_promise.py` holds the addon's public names, listed in `tools/public-names.json` and read by
   Godot's own doctool, and their marks to the promise in CI beside the suite; `tools/mutants_promise.py` watches it fail
-  once for each rule. No name is deprecated today, and no release so far has removed or renamed a public name.
+  once for each rule. No release so far has removed or renamed a public name; the first marks are below.
+- **npm 5.0's name for a type's colour group: `OWPresentation.group_of`.** As the TypeScript SDK's `groupOf`, it
+  answers a type's colour group, one of `OWPresentation.ORDER` (`blue`, `green`, `pink`, `amber`), from the table in
+  use. It answers exactly what `family_of` answered: the addon's `family_of` always gave the colour words, the words
+  of the TypeScript SDK's `groupOf`, never the older words of its `familyOf`. The graph's nodes now read their
+  `family` key through it; the key itself stays, as in the TypeScript SDK.
 
 ### Changed
 
@@ -49,6 +54,17 @@ build. The entries below are in the detail a maintainer needs; the history befor
 - `pack_folder` already refused a folder holding `Spatial/` (or `spatial/` with a long s) beside `elements/`, as a copy
   and as a share, naming `name_case` and packing nothing; the TypeScript SDK 4.212.3's writer now refuses it too, and a
   test holds the shape.
+
+### Deprecated
+
+- **`OWPresentation.family_of`: use `OWPresentation.group_of`.** The same answer under npm 5.0's name. Marked
+  `@deprecated: Since 0.7.0. Leaves in 1.0.` in its doc comment, and it warns once per run with `push_warning()` when
+  called; it leaves in 1.0, no sooner than six months after 0.7.0.
+- **The `version` key of `OWLayout.layout_by_kind`'s and `OWLayout.layout_around`'s answers**, as in the TypeScript
+  SDK 4.177.0: the layout profile's mark carries no version key, so read `method`, whose word changes when the method
+  does. Nothing replaces it. Until 1.0 the key is still there and always 1; it leaves in 1.0. A key has no name to
+  mark, so each function's doc comment says so. `layout_by_links_3d`'s `version` stays, as the TypeScript SDK's
+  `BY_LINKS_3D_VERSION` does.
 
 ### Fixed
 

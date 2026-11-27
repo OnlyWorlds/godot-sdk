@@ -1048,7 +1048,13 @@
   "OWPresentation": {},
   "OWPresentation.ORDER": {},
   "OWPresentation.TYPES": {},
-  "OWPresentation.family_of": {},
+  "OWPresentation.family_of": {
+   "deprecated": {
+    "since": "0.7.0",
+    "leaves": "1.0"
+   }
+  },
+  "OWPresentation.group_of": {},
   "OWPresentation.icon_of": {},
   "OWPresentation.refusal_of": {},
   "OWPresentation.reset": {},
