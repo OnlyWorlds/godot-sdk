@@ -103,12 +103,16 @@ func test_the_refusal_names_the_rule_in_the_words_the_other_packages_use(t) -> v
 	t.eq(_world("a\\b", "Named").write_refusal(),
 		"character element id \"a\\\\b\" cannot be a file name: it holds a path separator, / or \\.", "a backslash, named")
 	t.eq(_world("..", "").write_refusal(), "character element id \"..\" cannot be a file name: it is . or ...", "dot dot")
-	t.ok(_world("C:evil", "").write_refusal().begins_with(
-		"character element id \"C:evil\" cannot be a file name: its file name \"C:evil.json\" "), "a drive")
-	t.ok(_world("urn:uuid:" + U, "Probe Name").write_refusal().begins_with(
-		"character element id \"urn:uuid:%s\" cannot be a file name: its file name \"probe-name--urn:uuid:%s.json\" " % [U, U]),
-		"a colon in the full-id form, though the short name is plain")
-	t.ok(_world("ctl" + String.chr(1) + "id", "").write_refusal().contains("\"ctl\\u0001id\""), "a control character, escaped")
+	t.eq(_world("C:evil", "").write_refusal(), "character element id \"C:evil\" cannot be a file name: it holds a colon.",
+		"a drive")
+	t.eq(_world("urn:uuid:" + U, "Probe Name").write_refusal(),
+		"character element id \"urn:uuid:%s\" cannot be a file name: it holds a colon." % U,
+		"a colon in the id, though the short name is plain")
+	t.eq(_world("ctl" + String.chr(1) + "id", "").write_refusal(),
+		"character element id \"ctl\\u0001id\" cannot be a file name: it holds a control character.", "a control character, escaped")
+	# Behind those rules, the archive's name checks, wider, in their own words.
+	t.ok(_world("x" + String.chr(0x7f), "").write_refusal().begins_with(
+		"character element id \"x%s\" cannot be a file name: its file name " % String.chr(0x7f)), "U+007F, the name check's")
 	t.ok(_world("con", "").write_refusal().contains("con.json"), "a device name")
 	t.done()
 
