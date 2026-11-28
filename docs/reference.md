@@ -116,7 +116,11 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   `error.limit()` names the limit (`element_bytes`, `element_link_ids`, `extensions_bytes`, or a later name; a key of
   the API document's `info.x-ow-limits`), read by `is_element_too_large()`, `is_element_too_many_links()` and
   `is_extensions_too_large()`, on a bulk slot's `error` too; until keel sends the key, `limit()` is null. A write body
-  that holds itself, or that is nested more than 200 deep, is refused, nothing sent.
+  that holds itself is refused, nothing sent, and so is one holding a NaN or an infinity (named with its place, as
+  `a request body holds NaN at items[1].element.x_weight, ...`) or one nested more than 256 deep, counted from the
+  body's top as sent, the envelope of a bulk or a proposal included (where onlyworlds.com stops reading a body). An
+  element 200 deep, the most onlyworlds.com stores, counted from the element, is sent in a bulk too; past that it is
+  the server's 422 that names the key.
 - **Proposed changes**: a proposal waits beside an element for a keeper (the owner or a co-builder); the element does
   not change until one accepts it. `propose(type, id, fields, evidence, {"expires": ..., "idempotency_key": ...})`
   makes one with any member key that reads the element, a read key included; `list_proposals(type, id, options)` and
