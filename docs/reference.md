@@ -31,6 +31,9 @@ for pin: OWPin in world.of_type("pin"):
 var r := OWWorldArchive.read_file("moppetopia.owworld")  # every archive rule of the folder format; r.reason on a refusal
 if r.ok:
     var w := r.to_world()
+var x := OWWorldExport.read_file("user://my-world.json")   # the download from a world's page; x.reason on a refusal
+if x.ok:
+    var w := x.to_world()                                    # as a folder reads; x.to_cache() a frozen cache
 OWWorldArchive.pack("res://worlds/moppetopia", "user://moppetopia.owworld")
 # A pack carries every element, hidden ones included (the addon has no share yet), without the author fields
 # (created_by, changed_by, changed_via, changed_client, doors); a last `true` (include_author_fields) keeps them.
@@ -212,6 +215,18 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   another new element holds that path: the names the TypeScript and Python packages give.
 - **Reading an archive**: its own central-directory walk, zlib through a gzip frame for the CRC and
   size, a GDScript CRC-32 for stored entries, NFC and CaseFolding 15.1 tables for collisions.
+- **Reading a world export** (`OWWorldExport`, keel's API spec section 8c, the file onlyworlds.com's "Export world"
+  downloads): keyed by `format` alone, `schema_version` and `exported_at` kept as information, unknown keys ignored.
+  The file is one JSON text, so a refusal is the whole file's: not UTF-8 or not one value (`not_json`), nested past
+  200 counted whole (`too_deep`: a body sits at level 4, so one nesting 197 levels of its own is read and 198 is not,
+  where a folder's element file reads to 200), a number past a double anywhere (`number_out_of_range`), another
+  `format` (`not_an_export`), no `world.id` that is a String non-empty once trimmed (`no_world_id`). Inside the
+  elements a skip is a line in `OWWorld.errors`, never a refusal: a group read only when its key is one of the 22
+  type slugs as written (as a folder's type folder is), an entry that is no object, a body whose `id` is no non-empty
+  String (the folder reader keeps such a file to carry back; a download has no file to carry, so it is skipped), and
+  of two bodies with one id the first is served. The world block is kept whole and in the API's names: the world's
+  now is `time_range_current`, so `OWWorldInfo.time_current` reads null on a download. `to_cache()` is frozen: the
+  download carries no cursor, so a sync could not tell what changed since, and `OWSync` refuses it.
 - **Addresses** (the address profile, serial 77): `ow://` links and the site's URL, read and written as the npm and
   Python packages do: every case of the profile's fixture, the reader's refusals in its order, the writer's
   `bad_form`, `segments`, `no_world` before them, a moment of `3.0` the step 3, an empty string present.

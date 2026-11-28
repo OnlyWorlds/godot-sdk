@@ -15,6 +15,24 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **The world export, the file onlyworlds.com hands an owner.** `OWWorldExport` reads the one-file download from a
+  world's page (`format: onlyworlds-world-export`, keel's API spec section 8c), so a game can open the file the site
+  gives without a key or a connection. `OWWorldExport.read_file(path)` (or `read(bytes, source)`) answers a `Result`:
+  the envelope's `format`, `schema_version` and `exported_at`, the world block whole (`world`, `world_id`,
+  `world_name`), or one refusal of `OWWorldExport.REASONS` with a message naming the file: `not_openable`, `not_json`
+  (not UTF-8, or not one JSON value), `too_deep` (past 200, the file counted whole), `number_out_of_range`,
+  `not_an_export` (not an object, or another `format`), `no_world_id` (no `world.id` that is a non-empty String).
+  `Result.to_world()` is the `OWWorld` a folder read gives, so a game opens the download as it opens a folder:
+  typed elements in the file's order, a body's own `type` beating its group, every body whole, and `errors` naming
+  each skip (`<file>#elements/<group>/<index>: no id in body`, a group that is not one of the 22 type slugs, not a
+  list, not an object; of two bodies with one id the first is served and the second named). `Result.to_cache()` is
+  a frozen `OWWorldCache`, which `OWSync` refuses: a download has no cursor to keep current. The world block keeps
+  the API's own names, so the world's now is `time_range_current` (`info.get_value("time_range_current")`), and
+  `info.time_current` reads null on a download. Tested against schema-dist's `example/world-export.json`, the
+  emitter's own output, as the Unity SDK's envelope reader is.
+
 ## [0.12.0] - 2026-11-28
 
 A game can set an element's image and attach files to it: a portrait, a screenshot, a save. The ten image and
