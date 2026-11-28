@@ -20,7 +20,9 @@ class Request:
 	var url := ""
 	## Header name -> value, as the client names them ([code]API-Key[/code], [code]If-None-Match[/code]).
 	var headers := {}
-	## The serialized JSON body, or null for a bodiless request (every read).
+	## The serialized JSON body (a String); the raw bytes of an upload to the host a ticket names (a
+	## [PackedByteArray], [method OWClient.upload_image] and [method OWClient.upload_file]); or null for a bodiless
+	## request (every read). A transport of your own sends a [PackedByteArray] as it is, with no media type.
 	var body: Variant = null
 
 	static func make(m: String, u: String, h: Dictionary, b: Variant = null) -> Request:

@@ -73,6 +73,28 @@ static func _proposals(c: OWClient) -> void:
 	await c.review_new_element("character", "c1", "accept")
 	await c.review_new_element("character", "c1", "decline", "not canon")
 
+## One answer for every files and images request: a ticket of each kind (for the two-step calls' second request) that
+## is also a page of rows.
+const TICKETS := "{\"ticket\":\"t.sig\",\"upload_url\":\"https://upload.example/v1/upload\",\"remove_url\":\"https://upload.example/v1/remove\",\"max_bytes\":100,\"data\":[]}"
+
+## Every files and images call, every option given: ten requests to keel (the three two-step calls' tickets among
+## them) and three to the upload host, which are not keel's and leave the recording (see [method _record]).
+static func _files(c: OWClient) -> void:
+	await c.list_files("location", "l1")
+	await c.world_files()
+	await c.create_file_ticket("location", "l1", "notes.md", 3, {"kind": "md", "label": "description"})
+	await c.upload_file("location", "l1", PackedByteArray([1, 2, 3]), {"name": "notes.md", "label": "description",
+		"on_progress": func(_a, _b): pass})
+	await c.file_download_link("location", "l1", "f1")
+	await c.remove_file("location", "l1", "f1")
+	await c.create_media_ticket()
+	await c.upload_image(PackedByteArray([0x89, 0x50]), {"key": "u/w1/x.png"})
+	await c.create_removal_ticket("https://media.onlyworlds.com/u/w1/x.png")
+	await c.remove_image("u/w1/x.png")
+
+## The requests the last [method _record] sent to a host that is not keel's (the uploads and the removal).
+var _host_calls: Array = []
+
 ## Every read call and every write, every option given, on each credential: keel's requests, which the checks below
 ## judge. An agent client reads too, so a declaration sent on a read would be seen.
 func _record() -> Array:
@@ -110,6 +132,8 @@ func _record() -> Array:
 		fake.headers = {}
 		fake.body = "{}"
 		await _proposals(c)
+		fake.body = TICKETS
+		await _files(c)
 	# The world reads an account token, or no key, sends with a world: world= beside each read's own query.
 	for c: OWClient in [
 		OWClient.new({"api_key": "ow_a_test", "api_pin": "0000", "world": "w1", "base_url": BASE, "transport": fake}),
@@ -127,13 +151,15 @@ func _record() -> Array:
 		fake.body = "{}"
 		await _writes(c)   # refused, nothing sent: neither writes
 		await _proposals(c)   # refused, nothing sent: neither proposes nor reads the queue
+		await _files(c)   # refused, nothing sent: files and images need a world key
 	# Joining is keyless, so it is not on the client; the same transport records it. The redeem passes every option. A
 	# person's join goes on an account token.
 	fake.body = "{}"
 	await OWJoin.preview("ow_j_x", {"transport": fake, "base_url": BASE})
 	await OWJoin.redeem("ow_j_x", {"name": "N", "agent_name": "A", "character": "c1", "transport": fake, "base_url": BASE})
 	await OWClient.new({"api_key": "ow_a_test", "api_pin": "0000", "base_url": BASE, "transport": fake}).accept_join("ow_j_x")
-	return fake.calls
+	_host_calls = fake.calls.filter(func(q): return not q.url.begins_with(BASE))
+	return fake.calls.filter(func(q): return q.url.begins_with(BASE))
 
 static func _keel_path(url: String) -> String:
 	return "/api/v2" + url.get_slice("?", 0).trim_prefix(BASE).trim_suffix("/")
@@ -249,15 +275,17 @@ func test_every_body_key_is_one_keel_declares(t) -> void:
 			t.eq(_undeclared(item["element"], _declared_body(create)), [],
 				"%s: a %s item's element, every key one POST /%s/ declares" % [label, item["type"], item["type"]])
 			checked += 1
-	t.eq(checked, 4 * (6 + 2 + 4) + 3, "six bodies, two bulk items and four proposal bodies on each world key, and the three joins")
+	t.eq(checked, 4 * (6 + 2 + 4 + 4) + 3, ("six bodies, two bulk items, four proposal bodies and four files and images bodies "
+		+ "on each world key, and the three joins"))
 	t.done()
 
 func test_the_recording_covers_every_read_and_write(t) -> void:
 	# An empty recording would pass the checks above with nothing checked.
 	var calls := await _record()
-	t.eq(calls.size(), 4 * (12 + 7 + 9) + 6 + 5 + 3,
-		"12 reads, 7 writes and 9 proposal calls on each world key (list_all one page), 6 reads on an account token, 5 on no key (its "
-		+ "roster refused); neither writes nor proposes; the keyless preview and redeem, and a person's join on an account token")
+	t.eq(calls.size(), 4 * (12 + 7 + 9 + 10) + 6 + 5 + 3,
+		("12 reads, 7 writes, 9 proposal calls and 10 files and images requests to keel on each world key (list_all one page), "
+		+ "6 reads on an account token, 5 on no key (its roster refused); neither writes, proposes nor sends a file; the keyless "
+		+ "preview and redeem, and a person's join on an account token"))
 	var paths := {}
 	for c in calls:
 		paths[c.method + " " + _keel_path(c.url)] = true
@@ -268,7 +296,9 @@ func test_the_recording_covers_every_read_and_write(t) -> void:
 			"POST /api/v2/join", "POST /api/v2/account/join", "POST /api/v2/character/c1/proposals",
 			"GET /api/v2/character/c1/proposals", "GET /api/v2/world/proposals", "POST /api/v2/character/c1/proposals/p1/accept",
 			"POST /api/v2/character/c1/proposals/p1/decline", "DELETE /api/v2/character/c1/proposals/p1",
-			"POST /api/v2/character/c1/review"]:
+			"POST /api/v2/character/c1/review", "GET /api/v2/location/l1/files", "GET /api/v2/world/files",
+			"POST /api/v2/location/l1/files", "GET /api/v2/location/l1/files/f1/download", "DELETE /api/v2/location/l1/files/f1",
+			"POST /api/v2/media/ticket", "POST /api/v2/media/remove-ticket"]:
 		t.ok(paths.has(p), "%s is recorded" % p)
 	t.eq(calls.filter(func(c): return c.url.contains("world=")).size(), 9, "the world reads of an account token and of no key")
 	t.ok(calls.any(func(c): return c.headers.has("If-None-Match")), "a tip read with a tag is recorded")
@@ -282,6 +312,19 @@ func test_the_recording_covers_every_read_and_write(t) -> void:
 		t.ok(calls.any(func(c): return c.headers.has(h)), "%s is recorded" % h)
 	t.eq(calls.filter(func(c): return c.method == "GET" and c.headers.has("API-Pin") and c.headers.get("API-Key") == "ow_w_seat").size(),
 		1, "the agent reads too (its /me alone with the PIN)")
+	t.done()
+
+func test_the_upload_host_gets_the_ticket_and_nothing_of_the_clients(t) -> void:
+	await _record()
+	t.eq(_host_calls.size(), 4 * 3, "the two uploads and the removal on each world key")
+	for q in _host_calls:
+		t.ok(q.url.begins_with("https://upload.example/"), q.url)
+		t.eq(q.method, "POST", q.url)
+		var names: Array = q.headers.keys()
+		names.sort()
+		t.eq(names, ["Authorization", "X-Key"] if q.url.ends_with("/upload") and q.body is PackedByteArray and q.body.size() == 2
+			else ["Authorization"], "%s: the ticket alone (and an image's X-Key)" % q.url)
+		t.eq(q.headers["Authorization"], "Bearer t.sig", q.url)
 	t.done()
 
 # -- What the models read ----------------------------------------------------------------------------------------------

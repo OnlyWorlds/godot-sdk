@@ -142,8 +142,8 @@ static func _judge(literal: String, values: PackedStringArray, where: String) ->
 		problems.append("a path format other than %s: " + where)
 	if slots != values.size():
 		problems.append("a path with %d slots and %d values: %s" % [slots, values.size(), where])
-	# _seg("id", id): the checking helper, named for the value it checks (type, id, field or a proposal's pid).
-	var checked := RegEx.create_from_string('^_seg\\("(type|id|field|pid)", \\1\\)$')
+	# _seg("id", id): the checking helper, named for the value it checks (type, id, field, a proposal's pid or a file's file_id).
+	var checked := RegEx.create_from_string('^_seg\\("(type|id|field|pid|file_id)", \\1\\)$')
 	for v in values:
 		if checked.search(v) == null:
 			problems.append("a value not checked by _seg (%s) in a request path: %s" % [v, where])
@@ -156,7 +156,7 @@ func test_source_every_value_in_a_request_path_goes_through_seg(t) -> void:
 	var problems := scan(src, stats)
 	for p in problems:
 		t.fail(p)
-	# The shape guard: a scan that found few paths lost its shape. The client builds 21 call sites and one helper.
+	# The shape guard: a scan that found few paths lost its shape. The client builds 28 call sites and one helper.
 	t.ok(stats["paths"] >= 19, "the scan found %d request paths; it lost its shape" % stats["paths"])
 	t.eq(stats["helpers"], ["_element_path"], "the path helpers the scan reads")
 	t.done()

@@ -15,6 +15,33 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **Parity with the TypeScript SDK's file and image routes.** A game can upload an image for an element's
+  picture and remove it, and attach files to elements, list them, link to them and remove them. The ten calls on
+  `OWClient`: `create_media_ticket`, `upload_image`, `create_removal_ticket`, `remove_image`, `list_files`,
+  `world_files`, `create_file_ticket`, `upload_file`, `file_download_link` and `remove_file`; with
+  `OWClient.FILE_EXTENSIONS` and `OWClient.file_kind_of(name)` (the kind a file name gives, as onlyworlds.com reads
+  it), and four `OWApiError` helpers, `is_file_too_large`, `is_files_full`, `is_not_author` and
+  `is_quota_exceeded`. An upload is a ticket from the API (a write key and its PIN; `X-OW-Agent` on the file ticket
+  alone, for an agent client) and then the bytes, a `PackedByteArray`, straight to the host the ticket names, with
+  the ticket alone: no key, PIN or media type. Bytes over the ticket's `max_bytes` are a 413 `too_large` (kind `api`,
+  as the host would answer) before anything is sent. A ticket passed in without its `ticket`, an http(s) URL or (for
+  an upload) a number `max_bytes` is refused, nothing sent; the TypeScript SDK leaves that to its types. Answers are
+  Dictionaries as served. `upload_file`'s `on_progress` is called once, at the end, as in the TypeScript SDK outside
+  a browser. The TypeScript SDK's test vectors are ported, but for a `File`'s own name (Godot's bytes carry none) and
+  the browser's progress events. Uploads have not been tested in a web export.
+- **`OWHttpTransport` sends a `PackedByteArray` body byte for byte** (`HTTPClient.request_raw`), with its length and
+  no media type; a String body goes as before. Before, a body that was not a String went out as an empty one. A
+  transport of your own receives a `PackedByteArray` body on an upload and must send it as it is.
+
+### Changed
+
+- **A POST, PUT or PATCH with no body now says `Content-Length: 0`**, as fetch does; Godot's `HTTPClient` sent no
+  length at all. The calls this changes on the wire: `accept_proposal`, `decline_proposal` with no reason, and the
+  new `create_media_ticket` and `remove_image`'s request to the upload host. No other call sends a write without a
+  body.
+
 ## [0.11.1] - 2026-11-28
 
 An answer whose connection drops while its body comes in is now a transport failure, never a value read from

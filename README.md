@@ -152,7 +152,7 @@ poll it on a timer.
 
 | Part | Classes | What it does |
 |---|---|---|
-| **Client** | `OWClient`, `OWJoin`, `OWProposal` | The API: read a world, list and page through its elements, the change feed, writes (create, upsert, patch, delete, link edits, bulk), proposed changes (propose, the world's queue, accept, decline, withdraw, review a proposed new element), joining by invite link. |
+| **Client** | `OWClient`, `OWJoin`, `OWProposal` | The API: read a world, list and page through its elements, the change feed, writes (create, upsert, patch, delete, link edits, bulk), proposed changes (propose, the world's queue, accept, decline, withdraw, review a proposed new element), joining by invite link, images (upload one for an element's picture, remove it) and files on elements (attach, list, download, remove). |
 | **Held world** | `OWWorldCache`, `OWSync` | A world held in the game and kept current from the API's change feed: a first walk, then only what changed, with the server's resets, rewinds and deletes applied; kept between launches in one file. |
 | **Models** | `OWCharacter`, `OWLocation`, … (all 22), `OWElement` | One class per element type, generated from the schema; `OWTypes.make(type, body)` builds the right one. |
 | **On disk** | `OWWorld`, `OWWorldArchive`, `OWJson` | World folders and `.owworld` files, read and written in the folder format's own bytes. |

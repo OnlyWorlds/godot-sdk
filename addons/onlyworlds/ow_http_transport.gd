@@ -30,6 +30,8 @@ const _METHODS := {
 	"GET": HTTPClient.METHOD_GET, "POST": HTTPClient.METHOD_POST, "PUT": HTTPClient.METHOD_PUT,
 	"PATCH": HTTPClient.METHOD_PATCH, "DELETE": HTTPClient.METHOD_DELETE, "HEAD": HTTPClient.METHOD_HEAD,
 }
+## The methods that carry a body: one sent with none says [code]Content-Length: 0[/code].
+const _BODIED := ["POST", "PUT", "PATCH"]
 
 ## [param url] as [code][scheme, host, port, path and query][/code], or an empty array when it is not an
 ## [code]http[/code] or [code]https[/code] URL with a host. The path is [code]/[/code] when the URL names none.
@@ -65,7 +67,11 @@ static func split_url(url: String) -> Array:
 	return [scheme, host, port, path]
 
 ## Send [param request] over a fresh connection and answer the status, headers and body; a request that gets no
-## answer answers status 0 and why. Mirrors the TypeScript SDK's [code]fetch[/code] call in [code]request()[/code].
+## answer answers status 0 and why. A String body goes as its UTF-8 bytes, a [PackedByteArray] body (an upload) byte
+## for byte through [method HTTPClient.request_raw]; neither adds a [code]Content-Type[/code] of its own. A POST, PUT
+## or PATCH with no body sends [code]Content-Length: 0[/code], as fetch does. The whole request, an upload's bytes
+## included, must be done within [member timeout_sec]: raise it for a large upload on a slow connection. Mirrors the
+## TypeScript SDK's [code]fetch[/code] call in [code]request()[/code].
 func send(request: OWTransport.Request) -> OWTransport.Response:
 	var out := OWTransport.Response.new()
 	var parts := split_url(request.url)
@@ -94,9 +100,18 @@ func send(request: OWTransport.Request) -> OWTransport.Response:
 		c.close()
 		return out
 	var lines := PackedStringArray()
+	var has_length := false
 	for name: String in request.headers:
 		lines.append("%s: %s" % [name, request.headers[name]])
-	err = c.request(_METHODS[request.method], parts[3], lines, request.body if request.body is String else "")
+		has_length = has_length or name.nocasecmp_to("Content-Length") == 0
+	# HTTPClient declares a length only for a body that has bytes; a write with none says so, as fetch does.
+	var empty: bool = request.body.is_empty() if (request.body is String or request.body is PackedByteArray) else true
+	if empty and _BODIED.has(request.method) and not has_length:
+		lines.append("Content-Length: 0")
+	if request.body is PackedByteArray:
+		err = c.request_raw(_METHODS[request.method], parts[3], lines, request.body)
+	else:
+		err = c.request(_METHODS[request.method], parts[3], lines, request.body if request.body is String else "")
 	if err != OK:
 		out.failure = "could not send %s %s (%s)" % [request.method, request.url, error_string(err)]
 		c.close()
