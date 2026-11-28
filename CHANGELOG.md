@@ -15,6 +15,21 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Fixed
+
+- **A world folder write refuses an element id that cannot be one file name inside the folder** (empty, `/`, `\`, a
+  colon, a control character, `.` or `..`), before writing anything. A new element's id must be one non-empty
+  segment, and the file name made from it, short or with the full id, must pass the archive's own name checks
+  (`OWWorldArchive.path_fault` and `name_fault`, folder spec §4.7's OW-16 and OW-22, so a drive, a character Windows
+  refuses or a device name is refused too). `OWWorld.write_refusal` names the type, the id and why, in the words of
+  the TypeScript and Python packages (`character element id "a/b" cannot be a file name: it holds a path separator,
+  / or \.`); `write_folder` returns `ERR_INVALID_DATA` and `pack` is not ok with that message, a world read from the
+  onlyworlds.com download included. A UUID and an id such as `c-1` are written as before.
+- **`write_folder` holds every resolved path inside the folder**, whatever made the name, and writes nothing when one
+  would leave it (the error printed names the file).
+- **`OWWorld.pack` holds every entry name to the reader's own checks** (`OWWorldArchive.entry_names_fault`), as
+  `OWWorldArchive.pack_folder` already did: it no longer makes an archive its own reader refuses.
+
 ## [0.13.0] - 2026-11-28
 
 A game can open the one file an owner downloads from their world's page on onlyworlds.com, as it opens a world
