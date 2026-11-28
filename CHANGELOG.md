@@ -15,6 +15,18 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Fixed
+
+- **A value the server would store as another is refused before sending.** The server takes a value of the wrong
+  kind with a 200 and changes it: an integer field stores `2.5` as `2`, `"7"` as `7` and `true` as `1`; a text field
+  stores a list as `"['a', 'b']"` and `12` as `"12"`. `create`, `upsert`, `patch`, `bulk` (each item, `bulk:
+  items[N]`) and `propose` now answer kind `REFUSED`: `patch: character.height is an integer field; 2.5 would be
+  stored as another value. Nothing was sent.` (and `... is a text field; 12 is not a string`), the value as
+  `JSON.stringify` writes it (a NaN as `null`). An integer field takes an `int` or a whole `float` (`2.0`: Godot reads
+  every JSON number as a float), never a `bool`; a text field a `String` or a `StringName`, the pin's `element_type`
+  included; each or null. Extensions, link fields and a type outside the standard are not checked, and a typed
+  element is checked as its data. Parity with the TypeScript SDK 4.220.0, its test vector ported.
+
 ## [0.10.1] - 2026-11-28
 
 A write body holding a NaN or an infinity is refused by name, where it was sent as `null`, and the depth line on a

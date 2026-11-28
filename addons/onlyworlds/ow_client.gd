@@ -971,6 +971,9 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 		return ("%s: this body is a known-of stub (known_of: true), not the element: its empty fields are not its "
 			+ "values, and writing it would blank them. Write from a whole copy, or send only the fields you mean to "
 			+ "change. Nothing was sent.") % where
+	var wrong_kind := _kinds_why(type, data, where)
+	if wrong_kind != "":
+		return wrong_kind
 	var why := []
 	var body: Dictionary = _copy_body(data, [], "", why)
 	if not why.is_empty():
@@ -986,6 +989,41 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 		if kind == "scalar_str":
 			body[k] = ""   # string-empty-is-unset: "" is the wire's unset, and keel has no null to store
 	return body
+
+## "" when every standard field of [param data] holds its kind, else the refusal, in the TypeScript SDK's words
+## (4.220.0's [code]checkKinds[/code], the Python package's [code]check_kinds[/code]): keel takes a value of another
+## kind with a 200 and changes it ([code]2.5[/code], [code]"7"[/code] or [code]true[/code] in an integer field stored as
+## 2, 7 or 1, a list or a number in a text field as its text). An integer field ([code]scalar_int[/code]) takes an
+## [code]int[/code] or a whole finite [code]float[/code] ([code]2.0[/code]; a JSON number reads as a float), never a
+## [code]bool[/code]; a text field (a [code]scalar_str[/code], the base ones but [code]id[/code] and
+## [code]world[/code], and the generic link's type key [code]element_type[/code], which the wire carries as text) a
+## [code]String[/code] or a [code]StringName[/code]; each or null. The body's own keys only; an extension, a link field
+## and a type outside the standard are not checked. The value is named as [method _compact] writes it (a NaN as
+## [code]null[/code], as [code]JSON.stringify[/code] writes it).
+static func _kinds_why(type: String, data: Dictionary, where: String) -> String:
+	var script = OWTypes.SCRIPTS.get(type)
+	if script == null:
+		return ""
+	for k in data:
+		var v = data[k]
+		if v == null or not (k is String):
+			continue
+		var kind: String = ""
+		if OWElement.BASE_FIELDS.has(k) and k != "id" and k != "world":
+			kind = OWElement.BASE_FIELDS[k][0]
+		elif script.FIELDS.has(k):
+			kind = script.FIELDS[k][0]
+			if kind == "generic" and k == "element_type":
+				kind = "scalar_str"   # the generic pair's type key is text on the wire; its id half is a link
+		if kind == "scalar_int":
+			var whole: bool = v is int or (v is float and is_finite(v) and v == floor(v))
+			if not whole:
+				return "%s: %s.%s is an integer field; %s would be stored as another value. Nothing was sent." % [
+					where, type, k, _compact(v)]
+		elif kind == "scalar_str":
+			if not (v is String or v is StringName):
+				return "%s: %s.%s is a text field; %s is not a string. Nothing was sent." % [where, type, k, _compact(v)]
+	return ""
 
 ## The deepest request body keel's reader takes, its top counted as 1 (it answers 422 past it).
 const _BODY_MAX_DEPTH := 256
