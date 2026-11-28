@@ -4,7 +4,7 @@ Notable changes to the OnlyWorlds SDK for Godot. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Where it stands.** 0.13.1 is the latest release. `onlyworlds-godot-0.13.1.zip`, on the repository's Releases page,
+**Where it stands.** 0.13.2 is the latest release. `onlyworlds-godot-0.13.2.zip`, on the repository's Releases page,
 holds the addon folder to copy into a game, and a zip of a commit holds that folder alone; the [README](README.md) has the install and a first run. What a game can
 do with it: read and write an OnlyWorlds world over the onlyworlds.com API and on disk (world folders, `.owworld`
 files and the one-file download from onlyworlds.com), as typed elements of all 22 types; hold a world in the game and keep it current from the API's change
@@ -14,6 +14,11 @@ same answers as the other OnlyWorlds SDKs on a shared set of test cases. Built a
 build. The entries below are in the detail a maintainer needs; the history before this file is in the git log.
 
 ## [Unreleased]
+
+## [0.13.2] - 2026-11-28
+
+A refused element id now says why in the same words as the TypeScript and Python packages, and their
+shared cases are held as a test.
 
 ### Fixed
 
