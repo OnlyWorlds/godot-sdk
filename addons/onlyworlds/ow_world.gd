@@ -297,6 +297,10 @@ func add_element(e: OWElement) -> void:
 ## Also a new element whose type is not one of the 22 type slugs as written ([code]"Character"[/code], an unknown word,
 ## [code]""[/code] for a plain [OWElement], a path such as [code]"../x"[/code]): its file would go to a folder no reader
 ## reads, or outside elements/.
+##
+## Also a new element whose id cannot be one file name inside its type folder ([method _id_refusal]: empty, holding
+## [code]/[/code] or [code]\\[/code], [code].[/code] or [code]..[/code], or a file name the archive's name checks refuse,
+## such as a drive, a colon or a control character), whatever its name.
 func write_refusal(only_edited := false) -> String:
 	if info.edited or not only_edited:
 		var id = info.get_value("id")
@@ -314,6 +318,8 @@ func write_refusal(only_edited := false) -> String:
 			return _not_utf8_refusal(e)
 		if e.source_path == "":
 			var why := _type_refusal(e)
+			if why == "":
+				why = _id_refusal(e)
 			if why != "":
 				return why
 	var fresh := _new_paths()
@@ -342,6 +348,41 @@ static func _type_refusal(e: OWElementCore) -> String:
 	return ("a new element (%s) has the type '%s', which is not one of the 22 type slugs as the standard spells them "
 		+ "(%s): a reader reads no other type folder, so nothing is written") \
 		% [e.get_value("id"), type, ", ".join(OWTypes.slugs())]
+
+## Why a new element's id cannot name its file, or [code]""[/code] (folder spec section 3.2): a file name is made from an
+## id only when the id is one non-empty segment (no [code]/[/code], no [code]\\[/code], not [code].[/code] or
+## [code]..[/code]) and the name passes the archive's own name checks ([method OWWorldArchive.path_fault] and
+## [method OWWorldArchive.name_fault], section 4.7's OW-16 and OW-22: no drive, no colon or other character Windows
+## refuses, no control character, no device name). The short name and the full-id form are both asked, whatever the
+## name, since the collision rule may take the full id at any time; then each must lie in the type folder. In the
+## TypeScript and Python packages' words: [code]character element id "a/b" cannot be a file name: it holds a path
+## separator, / or \\.[/code]
+static func _id_refusal(e: OWElement) -> String:
+	var id := e.id
+	var type := String(e.get_type())
+	var why := ""
+	if id == "":
+		why = "it is empty"
+	elif id.contains("/") or id.contains("\\"):
+		why = "it holds a path separator, / or \\"
+	elif id == "." or id == "..":
+		why = "it is . or .."
+	else:
+		var folder := "elements/%s/" % type
+		for rel: String in [_name_of(e, false), _name_of(e, true)]:
+			var file := rel.trim_prefix(folder)
+			var fault := OWWorldArchive.path_fault(file)
+			if fault == "":
+				fault = OWWorldArchive.name_fault(file)
+			if fault != "":
+				why = "its file name %s %s" % [OWJson.quote(file), fault]
+				break
+			if rel.simplify_path() != rel or rel.get_base_dir() + "/" != folder:   # the second guard
+				return "%s element id %s gives the file name %s, which does not lie inside its type folder." \
+					% [type, OWJson.quote(id), OWJson.quote(file)]
+	if why == "":
+		return ""
+	return "%s element id %s cannot be a file name: %s." % [type, OWJson.quote(id), why]
 
 ## True when [param e] was read from a file whose bytes are not well-formed UTF-8.
 static func _read_not_utf8(e: OWElementCore) -> bool:
@@ -387,7 +428,8 @@ func to_files(only_edited := false) -> Dictionary:
 ## [method fixed_name_fault]). So too when a file would go into a type folder that the folder, or this write itself,
 ## holds in another spelling ([code]elements/character/[/code] beside [code]elements/Character/[/code]): on such a disk
 ## the two are one folder, and a type folder is read as written, so the file would be read by no one (the error printed
-## names both folders, [method type_folder_fault]).
+## names both folders, [method type_folder_fault]). And when any file's resolved path would not lie inside the folder,
+## whatever made its name (the error printed names it).
 func write_folder(path: String, only_edited := false) -> Error:
 	if write_refusal(only_edited) != "":
 		return ERR_INVALID_DATA
@@ -401,6 +443,13 @@ func write_folder(path: String, only_edited := false) -> Error:
 	if why != "":
 		push_error("OnlyWorlds: nothing written to the world folder %s: %s" % [path, why])
 		return ERR_INVALID_DATA
+	# The second guard, whatever made a name: every file's resolved path lies inside the folder written.
+	var inside := path.simplify_path() + "/"
+	for rel: String in files:
+		if not (path + "/" + rel).simplify_path().begins_with(inside):
+			push_error("OnlyWorlds: nothing written to the world folder %s: the file %s would not lie inside it"
+				% [path, OWJson.quote(rel)])
+			return ERR_INVALID_DATA
 	for rel: String in files:
 		var full := path + "/" + rel
 		var err := DirAccess.make_dir_recursive_absolute(full.get_base_dir())
@@ -416,7 +465,9 @@ func write_folder(path: String, only_edited := false) -> Error:
 ## Pack the world as an [code].owworld[/code]'s bytes, its top folder [param top]. The author fields are left out
 ## of every file under elements/ and spatial/ that is one JSON object ([method OWWorldArchive.strip_author_fields],
 ## counted in [member OWWorldArchive.Packed.author_fields_left_out]) unless [param include_author_fields]. Not ok,
-## its message [method write_refusal]'s, when the world would not be written. A copy by default; with
+## its message [method write_refusal]'s, when the world would not be written, and when an entry name would be one its
+## reader refuses ([method OWWorldArchive.entry_names_fault], as [method OWWorldArchive.pack_folder] holds them).
+## A copy by default; with
 ## [param include_hidden] false a share ([method OWWorldArchive.leave_out_for_share], folder spec section 4.8).
 func pack(top: String, include_author_fields := false, include_hidden := true) -> OWWorldArchive.Packed:
 	var why := write_refusal()
@@ -425,6 +476,17 @@ func pack(top: String, include_author_fields := false, include_hidden := true) -
 		refused.message = why
 		return refused
 	var files := to_files()
+	# Section 4.7: a writer never emits a file its reader refuses for a name, so the names go through the reader's own
+	# checks first, as OWWorldArchive.pack_folder holds them, and nothing is packed on a fault.
+	var entry_names := PackedStringArray([OWWorldArchive.MARKER])
+	for rel: String in files:
+		entry_names.append(rel if top == "" else top + "/" + rel)
+	var unwritable := OWWorldArchive.entry_names_fault(entry_names)
+	if not unwritable.is_empty():
+		var refused := OWWorldArchive.Packed.new()
+		refused.message = "the world's files are refused, %s: %s; nothing was written" % [unwritable["reason"],
+			unwritable["message"]]
+		return refused
 	var share := {} if include_hidden else OWWorldArchive.leave_out_for_share(files)
 	var left := PackedStringArray() if include_author_fields else OWWorldArchive.strip_author_fields(files)
 	var packed := OWWorldArchive.pack_files(files, top)
@@ -456,7 +518,7 @@ func _new_paths() -> Dictionary:
 	var out := {}
 	for e in fresh:
 		var pick := ""
-		if _type_refusal(e) != "":       # no type folder a reader reads: no path, and no name taken from a sibling
+		if _type_refusal(e) != "" or _id_refusal(e) != "":   # no file a reader reads: no path, no name taken from a sibling
 			out[e] = pick
 			continue
 		for rel in [_name_of(e, false), _name_of(e, true)]:
