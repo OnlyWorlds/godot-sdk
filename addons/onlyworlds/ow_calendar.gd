@@ -936,6 +936,24 @@ static func parse_date(cal: Calendar, input: String, options: Variant = null) ->
 				rest = eaten
 				month = m + 1
 				break
+	# A weekday name last, longest first, and only from a calendar that prints one (as many names as the week's length):
+	# a word that is a month's and a weekday's reads as the month, and a name that reads as a number is never tried. It
+	# names no date alone; the date must be whole without it, and a weekday that is not that date's own is refused
+	# (_checked below), never guessed past. The TypeScript SDK 4.220.1's parseDate.
+	var weekday: Variant = null
+	if cal.has_week and cal.week_length >= 1 and cal.week_names.size() == cal.week_length:
+		var day_names := []
+		for n in cal.week_names:
+			var bare := _js_trim(_normalize(n))
+			if bare != "" and _int_re.search(bare) == null:
+				day_names.append([n, null, day_names.size()])
+		day_names.sort_custom(_longest_first)
+		for c in day_names:
+			var eaten: Variant = _eat(rest, c[0])
+			if eaten != null:
+				rest = eaten
+				weekday = c[0]
+				break
 	var numbers: Array[int] = []
 	for p in _js_trim(rest).split(" ", false):
 		var n: Variant = _parse_int(p) if _int_re.search(p) != null else null
@@ -976,20 +994,34 @@ static func parse_date(cal: Calendar, input: String, options: Variant = null) ->
 	if year == null:
 		if now == null:
 			return {"error": "add a year (the world clock has no now set)"}
-		return _resolve_in_year(cal, absolute_year(cal, now), at)
+		return _checked(cal, _resolve_in_year(cal, absolute_year(cal, now), at), weekday)
 	var target: Era = era if era != null else _default_era(cal, now)
 	if target == null:
-		return _resolve_in_year(cal, year, at)
+		return _checked(cal, _resolve_in_year(cal, year, at), weekday)
 	# The era's reading first; a step outside the era's own range (a format may print a year index under a literal era
 	# word) falls back to the year index, so format(parse(format(n))) holds.
 	var via_era := _resolve_in_year(cal, abs_year_for_era_year(cal, target, year), at)
-	if is_parse_error(via_era) or era_for_step(cal, via_era["step"]) == target:
+	if is_parse_error(via_era):
 		return via_era
+	if era_for_step(cal, via_era["step"]) == target:
+		return _checked(cal, via_era, weekday)
 	var via_abs := _resolve_in_year(cal, year, at)
 	# A named era names the date's era: a year index that lands in an era is a date the input never named.
 	if era != null and not is_parse_error(via_abs) and era_for_step(cal, via_abs["step"]) != null:
 		return {"error": "not a date in %s" % era.name}
-	return via_abs
+	return _checked(cal, via_abs, weekday)
+
+## [param r] as it is, unless [param weekday] (the name read beside the date, or null) is not its step's own: then
+## the refusal naming both, or naming none for a day outside the week. An error stays as it is.
+static func _checked(cal: Calendar, r: Dictionary, weekday: Variant) -> Dictionary:
+	if weekday == null or is_parse_error(r):
+		return r
+	var own: Variant = weekday_for_step(cal, r["step"])
+	if own == weekday:
+		return r
+	if own == null:
+		return {"error": "that date has no weekday, not %s" % weekday}
+	return {"error": "that date falls on %s, not %s" % [own, weekday]}
 
 ## True when [param result] is [method parse_date]'s error (npm [code]isParseError[/code]).
 static func is_parse_error(result: Dictionary) -> bool:
