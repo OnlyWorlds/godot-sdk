@@ -112,9 +112,13 @@ func send(request: OWTransport.Request) -> OWTransport.Response:
 		return out
 	var code := c.get_response_code()
 	var headers := c.get_response_headers_as_dictionary()
+	var length := c.get_response_body_length()
+	var chunked := c.is_response_chunked()
 	var body := PackedByteArray()
 	while c.get_status() == HTTPClient.STATUS_BODY:
 		c.poll()
+		if c.get_status() != HTTPClient.STATUS_BODY:
+			break   # the connection ended or failed: a read now gives nothing and makes the engine print an error
 		var chunk := c.read_response_body_chunk()
 		if chunk.is_empty():
 			if _late(started):
@@ -122,11 +126,32 @@ func send(request: OWTransport.Request) -> OWTransport.Response:
 			await _pause()
 		else:
 			body.append_array(chunk)
+	var cut := _cut(code, c.get_status(), length, chunked, body.size(), parts[1])
 	c.close()
+	if cut != "":
+		out.failure = cut
+		return out
 	out.status = code
 	out.headers = headers
 	out.body = body.get_string_from_utf8()
 	return out
+
+## Why an answer whose body ended in [param end] is not whole, or "" when it is. Whole: the body reached its end as
+## [HTTPClient] reads it ([constant HTTPClient.STATUS_CONNECTED]: its length met or its last chunk read), or it was
+## read to the end of the connection, neither chunked nor short of a length it declared. A 204 or a 304 has no body,
+## whatever its headers say. Mirrors the TypeScript SDK's [code]OwNetworkError[/code] for an answer lost while its
+## body is read (4.223.1).
+static func _cut(code: int, end: int, length: int, chunked: bool, got: int, host: String) -> String:
+	if code == 204 or code == 304 or end == HTTPClient.STATUS_CONNECTED:
+		return ""
+	if end == HTTPClient.STATUS_DISCONNECTED and not chunked and (length < 0 or got >= length):
+		return ""
+	var lost := "the answer was lost while it was read: "
+	if length >= 0:
+		return lost + "%d of its %d bytes came from %s (%s)" % [got, length, host, _status_word(end)]
+	if chunked:
+		return lost + "%d bytes came from %s, and not its last chunk (%s)" % [got, host, _status_word(end)]
+	return lost + "%d bytes came from %s (%s)" % [got, host, _status_word(end)]
 
 func _late(started: int) -> bool:
 	return Time.get_ticks_msec() - started > int(timeout_sec * 1000.0)
