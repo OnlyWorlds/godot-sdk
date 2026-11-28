@@ -41,7 +41,7 @@ const FORMAT_VERSION := "0.3.25"
 const PRODUCER_TOOL := "onlyworlds-godot"
 ## This addon's version, as [code]plugin.cfg[/code] says (a test holds the two equal): the [code]version[/code] of the
 ## [code]producer[/code] line.
-const PRODUCER_VERSION := "0.13.2"
+const PRODUCER_VERSION := "0.14.0"
 ## The keys every known-of stub keeps, written even when empty (folder spec section 4.4).
 const KNOWN_OF_KEEPS := ["id", "type", "name", "description", "supertype", "subtype", "image_url", "created_at",
 	"updated_at", "change_seq"]
