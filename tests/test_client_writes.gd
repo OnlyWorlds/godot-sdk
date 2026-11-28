@@ -277,11 +277,11 @@ func test_the_body_is_cleaned_as_unity_cleans_it(t) -> void:
 	fake.body = ELEMENT
 	var element := {"world": "w1", "type": "character", "id": "c1", "name": null, "created_at": "t0", "updated_at": "t1",
 		"change_seq": 41.0, "known_of": false, "description": "", "background": null, "birthplace": null, "level": 3.0,
-		"height": 1.5, "weight": 0.30000000000000004, "traits": ["t1"], "x_tool": {"a": null, "b": 2.0}, "x_null": null}
+		"x_height": 1.5, "x_weight": 0.30000000000000004, "traits": ["t1"], "x_tool": {"a": null, "b": 2.0}, "x_null": null}
 	var before := element.duplicate(true)
 	await _make(fake).upsert("character", "c1", element)
 	t.eq(fake.last().body, "{\"id\":\"c1\",\"name\":\"\",\"description\":\"\",\"background\":\"\",\"birthplace\":null,"
-		+ "\"level\":3,\"height\":1.5,\"weight\":0.30000000000000004,\"traits\":[\"t1\"],\"x_tool\":{\"a\":null,\"b\":2},"
+		+ "\"level\":3,\"x_height\":1.5,\"x_weight\":0.30000000000000004,\"traits\":[\"t1\"],\"x_tool\":{\"a\":null,\"b\":2},"
 		+ "\"x_null\":null}",
 		"the six read-only keys left out; a null string field as \"\"; a single link's null kept; x_* as given; "
 		+ "numbers as JSON.stringify writes them; key order kept; compact")

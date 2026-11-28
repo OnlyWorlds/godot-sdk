@@ -104,7 +104,11 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   (the id the Unity, TypeScript and Python clients derive), so a retry replays. Every write sends the PIN and
   `X-OW-Client` (the config's `client`, `godot-sdk` by default), and `X-OW-Agent` when the config says `agent: true`;
   an account token and a keyless client write nothing. Refused before sending: a known-of stub, an `if_match` that is
-  not a whole number. A link array in a patch is sent as given and replaces the whole array, as in the Unity and
+  not a whole number, and a value the server would store as another (`patch: character.height is an integer field;
+  2.5 would be stored as another value. Nothing was sent.`, and `... is a text field; 12 is not a string`): an
+  integer field takes an `int` or a whole `float` (`2.0`), never a `bool`, a text field a `String` or a `StringName`
+  (the pin's `element_type` included), each or null; extensions, link fields and a type outside the standard are not
+  checked. A link array in a patch is sent as given and replaces the whole array, as in the Unity and
   TypeScript SDKs: to add or remove one id, use `edit_links` (keel's merge).
 - **Errors**: one type, `OWApiError`, with a `kind`: `api` (keel's envelope: `status`, `code`, `message`, `param`,
   `doc_url`, `retry_after`), `transport` (no answer), `refused` (a caller's mistake, nothing sent: an unknown option, a
