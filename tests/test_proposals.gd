@@ -173,6 +173,7 @@ func test_list_proposals_sends_state_since_limit_and_cursor_and_reads_the_page(t
 	t.eq(page.data.size(), 1, "one row")
 	t.ok(page.data[0] is OWProposal and page.data[0].id == PID, "the row, typed")
 	t.eq([page.has_more, page.next_cursor], [true, "c2"], "the page")
+	t.eq([page.etag, page.unchanged], [null, false], "no ETag in this answer: etag null")
 	var q = fake.last()
 	t.eq(_path(q), BASE + "/location/" + EL + "/proposals", "")
 	t.eq(q.method, "GET", "")
@@ -204,6 +205,7 @@ func test_world_proposals_sends_state_since_element_limit_and_cursor(t) -> void:
 	if page == null:
 		return
 	t.eq(page.data[0].id, PID, "")
+	t.eq([page.etag, page.unchanged], [null, false], "no ETag: etag null")
 	t.eq(_path(fake.last()), BASE + "/world/proposals", "")
 	t.eq(fake.last().method, "GET", "")
 	t.eq(_query(fake.last()), {"state": "open", "since": "2026-10-21T00:00:00Z", "element": EL, "limit": "10",
@@ -225,6 +227,7 @@ func test_world_proposals_reads_both_kinds_in_keels_order_and_sends_the_cursor_b
 	if page == null:
 		return
 	t.eq(page.data.map(func(p): return p.kind), ["new_element", "proposal"], "the kinds, in keel's order")
+	t.eq([page.etag, page.unchanged], [null, false], "no ETag: etag null")
 	t.eq(page.data.map(func(p): return p.is_new_element()), [true, false], "")
 	var marked: OWProposal = page.data[0]
 	t.eq([marked.id, marked.element_type, marked.element_id, marked.state, marked.by],
@@ -314,6 +317,66 @@ func _reads(t, key: String, json: String) -> void:
 	t.eq(typeof(read), typeof(served), "the same kind")
 	t.eq(read, served, "%s as itself" % key)
 	t.eq(_json(read), KNOWN_LOSS.get(json, json), "the same value, to the digit")
+	t.done()
+
+# -- a conditional poll of either list (the TypeScript SDK's 4.221.0 vectors) -------------------------------------------
+
+const TAG := "W/\"2026-11-28T04:38:17.066832Z:1:0\""
+
+static func _both_lists() -> Array:
+	return [
+		func(c: OWClient, o: Dictionary): return await c.list_proposals("location", EL, o),
+		func(c: OWClient, o: Dictionary): return await c.world_proposals(o),
+	]
+
+func test_a_conditional_poll_of_either_list_hands_back_the_tag_and_the_same_tag_answers_unchanged(t) -> void:
+	for read in _both_lists():
+		# keel's rule as measured on production: 304 to its own tag, 200 to any other
+		var fake = Fake.new()
+		fake.then(200, _list([_proposal()]), {"ETag": TAG})
+		fake.then(304, "", {"ETag": TAG})
+		fake.then(200, _list([_proposal()]), {"ETag": TAG})
+		var c := _make(fake)
+		var first: OWProposal.Page = _value(t, await read.call(c, {"state": "open"}), "the first read")
+		if first == null:
+			continue
+		t.eq([first.etag, first.unchanged], [TAG, false], "the 200 hands back the tag")
+		t.eq(first.data.size(), 1, "its rows")
+		t.ok(not fake.calls[0].headers.has("If-None-Match"), "no tag sent on the first read")
+		var again: OWProposal.Page = _value(t, await read.call(c, {"state": "all", "if_none_match": first.etag}), "the poll")
+		if again == null:
+			continue
+		t.eq([again.unchanged, again.etag], [true, TAG], "unchanged, with the tag")
+		t.eq([again.data, again.has_more, again.next_cursor], [[], false, ""], "a 304 carries no rows")
+		t.eq(fake.calls[1].headers.get("If-None-Match"), TAG, "sent exactly as it came, W/ and quotes")
+		t.ok(not _query(fake.calls[1]).has("if_none_match") and not _query(fake.calls[1]).has("ifNoneMatch"),
+			"never in the query")
+		var moved: OWProposal.Page = _value(t, await read.call(c, {"if_none_match": "W/\"older\""}), "another tag")
+		if moved == null:
+			continue
+		t.eq([moved.unchanged, moved.data.size()], [false, 1], "another tag: the rows")
+	t.done()
+
+func test_a_conditional_poll_refuses_a_tag_that_is_not_one_and_a_304_nobody_asked_for_is_an_error(t) -> void:
+	for bad in ["", 5]:
+		var fake = Fake.new()
+		_refused(t, await _make(fake).world_proposals({"if_none_match": bad}), fake,
+			"world_proposals: if_none_match is the etag of an earlier read, a non-empty string", "world: %s" % var_to_str(bad))
+		_refused(t, await _make(fake).list_proposals("location", EL, {"if_none_match": bad}), fake,
+			"list_proposals: if_none_match is the etag of an earlier read, a non-empty string", "list: %s" % var_to_str(bad))
+	for read in _both_lists():
+		var unasked = Fake.new()
+		unasked.then(304, "", {"ETag": "W/\"t\""})
+		var r: OWClient.Reply = await read.call(_make(unasked), {})
+		t.ok(r.error != null and r.error.kind == OWApiError.API and r.error.status == 304
+			and r.error.message.contains("sent no If-None-Match"), "a 304 nobody asked for: %s" % [r.error])
+	# A null tag is no tag: sent as none, as every option's null is.
+	var plain = Fake.new()
+	plain.body = _list([_proposal()])
+	var page: OWProposal.Page = _value(t, await _make(plain).world_proposals({"if_none_match": null}), "a null tag")
+	if page != null:
+		t.eq([page.etag, page.unchanged, page.data.size()], [null, false, 1], "a 200, its rows")
+		t.ok(not plain.calls[0].headers.has("If-None-Match"), "no tag sent")
 	t.done()
 
 func test_a_new_element_row_without_the_keys_reads_null_and_writes_null(t) -> void:

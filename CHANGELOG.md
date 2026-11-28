@@ -15,6 +15,19 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Added
+
+- **A poll of the proposals lists costs little when nothing moved.** `list_proposals` and `world_proposals` take
+  `if_none_match`, and every `OWProposal.Page` now carries `etag` (keel's ETag exactly as sent, or null) and
+  `unchanged` (false on every 200). Pass the tag back and, while nothing in the list moved, keel answers 304 with no
+  body, refunded against the request budget, and the page is `unchanged` with no rows: `data` empty, `has_more`
+  false, `next_cursor` "". Read `unchanged` before the rows: an empty `data` there is not an empty queue (the
+  TypeScript SDK's 304 answer carries no rows either). keel's tag covers the key's whole visible list whatever
+  `state`, `since`, `element` or `cursor` asks; a new proposal or mark, a settled one or a lapse moves it. The caller
+  holds the tag; the client keeps none, unlike `changes_head`. An `if_none_match` that is not a non-empty String is
+  refused before sending (null sends none, as every option's null does), and a 304 to a read that sent no tag is an
+  `OWApiError` of kind `API`, status 304. Parity with the TypeScript SDK 4.221.0, its test vectors ported.
+
 ### Fixed
 
 - **The wrong-kind refusal names a number that is not finite by its own name.** A NaN or an infinity in an integer or

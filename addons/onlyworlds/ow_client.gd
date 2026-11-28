@@ -69,8 +69,8 @@ const _IF_MATCH_KEYS := ["if_match"]
 const _EDIT_KEYS := ["add", "remove"]
 const _BULK_KEYS := ["atomic", "idempotency_key", "create_only"]
 const _PROPOSE_KEYS := ["expires", "idempotency_key"]
-const _PROPOSAL_LIST_KEYS := ["state", "since", "limit", "cursor"]
-const _QUEUE_KEYS := ["state", "since", "element", "limit", "cursor"]
+const _PROPOSAL_LIST_KEYS := ["state", "since", "limit", "cursor", "if_none_match"]
+const _QUEUE_KEYS := ["state", "since", "element", "limit", "cursor", "if_none_match"]
 const _WORLD_READS := "list, list_all, get_element and get_world"
 ## Around the refusal [method _seg] puts in a path for a value that is not one segment.
 const _REFUSED_OPEN := "\u0001"
@@ -805,9 +805,13 @@ func propose(type: String, id: String, fields: Variant, evidence: String, option
 ## key included. [param options], each optional: [code]state[/code] ([code]open[/code], keel's default,
 ## [code]lapsed[/code], [code]accepted[/code], [code]declined[/code] or [code]all[/code]), [code]since[/code] (only
 ## rows whose [code]updated_at[/code] is at or after this ISO 8601 time, sent as given), [code]limit[/code] (rows a
-## page, 1 to 1,000; the page size by default) and [code]cursor[/code] (a page's [code]next_cursor[/code]).
-## [code]element[/code] filters the world's queue alone ([method world_proposals]) and is refused here, nothing sent.
-## Mirrors the Unity SDK's [code]ListProposalsAsync[/code].
+## page, 1 to 1,000; the page size by default), [code]cursor[/code] (a page's [code]next_cursor[/code]) and
+## [code]if_none_match[/code] (an earlier page's [member OWProposal.Page.etag], sent as [code]If-None-Match[/code] exactly as
+## given: while nothing in the list moved, keel answers 304, refunded against the request budget, and the page is
+## [member OWProposal.Page.unchanged] with no rows; keel's tag covers the key's whole visible list, whatever the other
+## options ask, and the client keeps none). [code]element[/code] filters the world's queue alone ([method world_proposals])
+## and is refused here, nothing sent. Mirrors the Unity SDK's [code]ListProposalsAsync[/code] and the TypeScript SDK's
+## [code]listProposals[/code] (its poll since 4.221.0).
 func list_proposals(type: String, id: String, options: Dictionary = {}) -> Reply:
 	if options.has("element"):
 		return _refused("list_proposals: element filters the world's queue (world_proposals); one element's list is "
@@ -815,7 +819,9 @@ func list_proposals(type: String, id: String, options: Dictionary = {}) -> Reply
 	var refused := _check(options, _PROPOSAL_LIST_KEYS, "list_proposals")
 	if refused != "":
 		return _refused(refused)
-	return _proposal_page(await _request("GET", "/%s/%s/proposals" % [_seg("type", type), _seg("id", id)], _proposal_query(options)))
+	return _tagged_page(await _request("GET", "/%s/%s/proposals" % [_seg("type", type), _seg("id", id)], _proposal_query(options),
+		{"if_none_match": _opt(options, "if_none_match"), "not_modified": true}), _opt(options, "if_none_match"),
+		"/%s/%s/proposals" % [type, id])
 
 ## [code]GET /world/proposals[/code]: the world's queue, newest first, an [OWProposal.Page]: every row for the owner's
 ## and a co-builder's keys (the owner's read key, or its write key with no PIN, included), a member's own for any other
@@ -830,7 +836,9 @@ func world_proposals(options: Dictionary = {}) -> Reply:
 	var refused := _check(options, _QUEUE_KEYS, "world_proposals")
 	if refused != "":
 		return _refused(refused)
-	return _proposal_page(await _request("GET", "/world/proposals", _proposal_query(options)))
+	return _tagged_page(await _request("GET", "/world/proposals", _proposal_query(options),
+		{"if_none_match": _opt(options, "if_none_match"), "not_modified": true}), _opt(options, "if_none_match"),
+		"/world/proposals")
 
 ## [code]POST /{type}/{id}/proposals/{pid}/accept[/code]: write the proposal's fields to the element as one ordinary
 ## write by this key ([code]changed_by[/code] is the keeper, a new [code]change_seq[/code], a row in the change feed);
@@ -935,6 +943,27 @@ func _proposal_of(r: Reply) -> Reply:
 	return r
 
 ## A reply whose value is a page of proposals, an [OWProposal.Page].
+## One list read that may be conditional (the TypeScript SDK's [code]taggedList[/code], 4.221.0): the page with
+## keel's [code]ETag[/code] in [member OWProposal.Page.etag], or, on keel's 304 to [param tag], an
+## [member OWProposal.Page.unchanged] page with no rows. A 304 to a read that sent no tag is an [OWApiError] of kind
+## [constant OWApiError.API], status 304: there is no list to return.
+func _tagged_page(r: Reply, tag: String, path: String) -> Reply:
+	if r.ok and r.response != null and r.response.status == 304:
+		if tag == "":
+			return Reply.failed(OWApiError.of(OWApiError.API, ("GET %s answered 304 Not Modified to a read that sent no "
+				+ "If-None-Match: there is no list to return") % path, 304, r.response.body), r.response)
+		var unchanged := OWProposal.Page.new()
+		var sent_back = r.response.header("ETag")
+		unchanged.etag = sent_back if sent_back is String else tag
+		unchanged.unchanged = true
+		r.value = unchanged
+		return r
+	r = _proposal_page(r)
+	if r.ok:
+		var etag = r.response.header("ETag")
+		r.value.etag = etag if etag is String else null
+	return r
+
 func _proposal_page(r: Reply) -> Reply:
 	r = _object(r)
 	if not r.ok:
@@ -1335,6 +1364,10 @@ static func _check(options: Dictionary, keys: Array, call: String) -> String:
 				if not whole:
 					return ("%s: if_match is a whole number (an element's change_seq, as read); got %s. Nothing was "
 						+ "sent.") % [call, var_to_str(v)]
+			"if_none_match":
+				if not (v is String and v != ""):
+					return ("%s: if_none_match is the etag of an earlier read, a non-empty string; got %s. Nothing was "
+						+ "sent.") % [call, "\"\"" if v is String else type_string(typeof(v))]
 			"atomic", "create_only":
 				if not (v is bool):
 					return "%s: %s is a bool; got %s. Nothing was sent." % [call, k, type_string(typeof(v))]
