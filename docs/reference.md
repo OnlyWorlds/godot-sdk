@@ -323,7 +323,8 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   and `format_mid_label` ("11 Greening 454"), `format_duration` ("19 years", "12 days", "1.5 years"),
   `approx_year_length` and `month_start_steps` read as npm's `formatYearLabel`, `formatMidLabel`, `formatDuration`,
   `approxYearLength` and `monthStartSteps` do; `parse_date(calendar, text, {"now": step})` reads a typed date as
-  npm's `parseDate` (a bare number is the raw step; the calendar's words without regard to case; `{"step"}` or
+  npm's `parseDate` (a bare number is the raw step; the calendar's words without regard to case; a weekday beside a
+  whole date read last and refused when it is not that date's own, `that date falls on Tresk, not Ondel`; `{"step"}` or
   `{"error"}` in npm's words, an unknown option refused by name), with `abs_year_for_era_year` its inverse of an era's
   year; `validate_config` is npm's `validateCalendarConfig`, a builder's messages word for word on any JSON value
   (where npm throws, on eras or intercalary days that are no list, it says so);
