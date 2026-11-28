@@ -31,6 +31,9 @@ extends RefCounted
 ## keyless client write nothing. A proposed change waits beside an element for a keeper: [method propose], the
 ## queue ([method list_proposals], [method world_proposals]) and its decisions ([method accept_proposal],
 ## [method decline_proposal], [method withdraw_proposal], [method review_new_element]), each row an [OWProposal].
+## Images ([method upload_image], [method remove_image]) and files on elements ([method upload_file],
+## [method list_files], [method world_files], [method file_download_link], [method remove_file]) go in two steps: a
+## ticket from the API with the key and PIN, then the bytes to the upload host the ticket names, with the ticket alone.
 ## Mirrors the TypeScript SDK's [code]OwV2Client[/code].
 ##
 ## [codeblock]
@@ -71,6 +74,10 @@ const _BULK_KEYS := ["atomic", "idempotency_key", "create_only"]
 const _PROPOSE_KEYS := ["expires", "idempotency_key"]
 const _PROPOSAL_LIST_KEYS := ["state", "since", "limit", "cursor", "if_none_match"]
 const _QUEUE_KEYS := ["state", "since", "element", "limit", "cursor", "if_none_match"]
+const _UPLOAD_IMAGE_KEYS := ["key", "ticket"]
+const _REMOVE_IMAGE_KEYS := ["ticket"]
+const _FILE_TICKET_KEYS := ["kind", "label"]
+const _UPLOAD_FILE_KEYS := ["name", "kind", "label", "ticket", "on_progress"]
 const _WORLD_READS := "list, list_all, get_element and get_world"
 ## Around the refusal [method _seg] puts in a path for a value that is not one segment.
 const _REFUSED_OPEN := "\u0001"
@@ -982,6 +989,324 @@ func _proposal_page(r: Reply) -> Reply:
 	r.value = page
 	return r
 
+# -- Images ---------------------------------------------------------------------------------------------------------------
+#
+# An upload is two steps: a short-lived, single-use ticket from the API (a write key and its PIN), then the bytes
+# straight to the host the ticket names, with the ticket as their Bearer and nothing of this client's (no key, PIN or
+# write header, no media type: the host reads the type from the bytes). The API never sees the bytes, and the key
+# never leaves for the host. A ticket is a credential: keep it out of logs. Every call here needs a world key.
+
+## [code]POST /media/ticket[/code]: permission to upload ONE image into this world (a write key and its PIN; no
+## body). Short-lived ([code]exp[/code]), single-use, counted toward the world's daily limit. The value is the ticket as
+## served: [code]ticket[/code], [code]upload_url[/code], [code]prefix[/code], [code]max_bytes[/code], [code]exp[/code],
+## [code]uses[/code], [code]issued_to[/code]. [method upload_image] asks for one itself; ask here to upload yourself
+## (POST the bytes to [code]upload_url[/code] with [code]Authorization: Bearer <ticket>[/code]). Refusals: 403
+## [code]storage_full[/code] (the account's image storage is used up), 429 [code]quota_exceeded[/code] (the world's
+## daily limit, [method OWApiError.is_quota_exceeded], with [member OWApiError.retry_after]) as well as the wrong-PIN
+## 429 [code]rate_limited[/code], 503 [code]media_unavailable[/code]. Mirrors the TypeScript SDK's
+## [code]createMediaTicket[/code].
+func create_media_ticket() -> Reply:
+	return _object(await _request("POST", "/media/ticket", []))
+
+## Upload one image and get its permanent public URL: a ticket from the API ([method create_media_ticket]), then
+## [param image]'s bytes to the ticket's [code]upload_url[/code]. The value is the host's 201: [code]url[/code] (set it
+## as an element's [code]image_url[/code] yourself, with [method patch]), [code]key[/code], [code]bytes[/code],
+## [code]type[/code], [code]etag[/code]. webp, png, jpeg or avif, read from the bytes (never SVG or gif): a game's
+## screenshot is [code]get_viewport().get_texture().get_image().save_png_to_buffer()[/code], a file on disk
+## [code]FileAccess.get_file_as_bytes(path)[/code].
+##
+## [param options]: [code]key[/code] (the object's name, sent as [code]X-Key[/code]; it must start with the ticket's
+## [code]prefix[/code]; without it the host picks one), [code]ticket[/code] (a ticket from [method create_media_ticket]
+## to use instead of asking for one). An image larger than the ticket's [code]max_bytes[/code] is a 413
+## [code]too_large[/code] (kind [constant OWApiError.API], as the host would answer) before any byte is sent; a ticket
+## passed without its [code]ticket[/code], an http(s) [code]upload_url[/code] or a number [code]max_bytes[/code] is
+## refused, nothing sent. The host's refusals arrive with its code: 401 [code]ticket_expired[/code],
+## [code]ticket_used[/code] or [code]ticket_invalid[/code], 400 [code]bad_key[/code], 409 [code]exists[/code], 413
+## [code]too_large[/code], 415 [code]unsupported_type[/code], 502 [code]write_failed[/code] (nothing stored; the ticket
+## is still unspent). A ticket is spent once the upload succeeds: a retry needs a new one. Mirrors the TypeScript SDK's
+## [code]uploadImage[/code].
+func upload_image(image: PackedByteArray, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _UPLOAD_IMAGE_KEYS, "upload_image")
+	if refused != "":
+		return _refused(refused)
+	var got := await _ticket(options, "upload_image", "upload_url", func(): return await create_media_ticket())
+	if not got.ok:
+		return got
+	var over := _over_max("Image", image.size(), got.value["max_bytes"])
+	if over != null:
+		return Reply.failed(over)
+	var headers := {}
+	if _opt(options, "key") != "":
+		headers["X-Key"] = options["key"]
+	return await _send_to_host("image upload", got.value["upload_url"], got.value["ticket"], image, headers)
+
+## [code]POST /media/remove-ticket[/code]: permission to remove ONE image (a write key and its PIN). The image's
+## uploader may remove it, and so may the world's owner key; an AI seat answers as its sponsor. Only images uploaded
+## with a ticket qualify. [param key_or_url] is the object key, or the whole [code]image_url[/code] (the path after
+## the host is taken, unescaped as a URL's path is: a [code]+[/code] stays one). The value is the ticket as served:
+## [code]ticket[/code], [code]remove_url[/code], [code]exp[/code], [code]key[/code] and [code]referenced[/code], the
+## world's elements still showing the image. Refusals: 403 [code]permission_error[/code] (neither uploader nor owner),
+## 404 [code]not_found[/code] (no removable image under this key), 409 [code]removal_in_flight[/code] (a ticket for
+## this image is already out) and 409 [code]upload_pending[/code] (an upload is not yet recorded), both with
+## [member OWApiError.retry_after]. Mirrors the TypeScript SDK's [code]createRemovalTicket[/code].
+func create_removal_ticket(key_or_url: String) -> Reply:
+	return _object(await _request("POST", "/media/remove-ticket", [], {"body": {"key": _object_key(key_or_url)}}))
+
+## Remove one uploaded image: a removal ticket from the API ([method create_removal_ticket]), then the removal at the
+## ticket's [code]remove_url[/code], with the ticket alone and no body. The bytes go back to the uploading account's
+## storage. The value is the host's 200: [code]removed[/code] (the key), [code]bytes[/code], [code]cache[/code].
+## [param options]: [code]ticket[/code] (one from [method create_removal_ticket] to use instead of asking for one;
+## without its [code]ticket[/code] or an http(s) [code]remove_url[/code] it is refused, nothing sent).
+##
+## Removal does not touch elements: clear or replace their [code]image_url[/code] yourself (the ticket's
+## [code]referenced[/code] says how many there are). A copy already cached by the network or a browser can keep
+## answering for a while ([code]cache[/code] [code]may_linger[/code]). The host's refusals arrive with its code: 401
+## [code]ticket_expired[/code], [code]ticket_used[/code] or [code]ticket_invalid[/code], 403 [code]not_removable[/code],
+## 502 [code]remove_failed[/code] (nothing removed; the ticket is still unspent). Mirrors the TypeScript SDK's
+## [code]removeImage[/code].
+func remove_image(key_or_url: String, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _REMOVE_IMAGE_KEYS, "remove_image")
+	if refused != "":
+		return _refused(refused)
+	var got := await _ticket(options, "remove_image", "remove_url", func(): return await create_removal_ticket(key_or_url))
+	if not got.ok:
+		return got
+	return await _send_to_host("image removal", got.value["remove_url"], got.value["ticket"], null, {})
+
+# -- Files on elements ----------------------------------------------------------------------------------------------------
+#
+# A file is seen by whoever may see its element, and never rides on the element: it is not in its body, its
+# change_seq or the change feed. An upload is the image's two steps: a ticket from the API, then the raw bytes to the
+# upload host with the ticket alone.
+
+## Every extension a file on an element may end in, to the kind it gives, as onlyworlds.com reads a name:
+## [code].yml[/code], [code].markdown[/code] and [code].jpeg[/code] included. Read-only. A file dialog's filters are
+## [code]FILE_EXTENSIONS.keys().map(func(e): return "*." + e)[/code]. Mirrors the TypeScript SDK's
+## [code]FILE_EXTENSIONS[/code].
+const FILE_EXTENSIONS := {
+	"pdf": "pdf", "txt": "txt", "md": "md", "markdown": "md", "json": "json",
+	"csv": "csv", "yaml": "yaml", "yml": "yaml", "toml": "toml", "zip": "zip",
+	"png": "png", "jpg": "jpg", "jpeg": "jpg", "webp": "webp", "avif": "avif",
+}
+
+## The kind [param name]'s extension gives, read as onlyworlds.com reads it: the last path part (after [code]/[/code]
+## or [code]\\[/code]), then what follows its last dot, which must have something before it, trimmed and in lower
+## case. "" when there is none or no file is taken with it. Mirrors the TypeScript SDK's [code]fileKindOf[/code].
+static func file_kind_of(name: String) -> String:
+	var base := _last_part(name)
+	var dot := base.rfind(".")
+	var ext := base.substr(dot + 1).strip_edges().to_lower() if dot > 0 else ""
+	return FILE_EXTENSIONS.get(ext, "")
+
+## [code]GET /{type}/{id}/files[/code]: the element's files, newest first, an Array of rows as served (keel sends them
+## as [code]{data}[/code], with no paging): each with its [code]id[/code], [code]name[/code], [code]kind[/code],
+## [code]size[/code] in bytes, [code]label[/code] (or null), who added it ([code]added_by[/code]: [code]name[/code],
+## [code]membership[/code], [code]agent[/code] true when an agent did, [code]owner[/code] when the world's current owner
+## did) and [code]added_at[/code]. Any key that may read the element; an element it cannot see is a 404
+## [code]not_found[/code]. Mirrors the TypeScript SDK's [code]listFiles[/code].
+func list_files(type: String, id: String) -> Reply:
+	var r := _object(await _request("GET", "/%s/%s/files" % [_seg("type", type), _seg("id", id)], []))
+	if r.ok:
+		var rows = r.value.get("data")
+		r.value = rows if rows is Array else []
+	return r
+
+## [code]GET /world/files[/code]: every file in the world this key may see, newest first, each with its element's
+## [code]element_type[/code] and [code]element_id[/code] (under [code]data[/code]); and the world's total,
+## [code]used_bytes[/code] of [code]cap_bytes[/code] (for a line like "41 MB of 250 MB"). [code]used_bytes[/code] counts
+## all the world's files, also those on elements this key cannot see. Any key. Mirrors the TypeScript SDK's
+## [code]worldFiles[/code].
+func world_files() -> Reply:
+	return _object(await _request("GET", "/world/files", []))
+
+## [code]POST /{type}/{id}/files[/code]: permission to upload ONE file onto this element: a write key (and its PIN)
+## that may change the element. [param name] is the file's name with its extension, sent as given; [param size] its
+## size in bytes. [param options]: [code]kind[/code] (sent as given; without it, read from [param name] by
+## [method file_kind_of], and a name it reads none from is refused, nothing sent), [code]label[/code] (a field of the
+## element's type the file belongs to, or your own words, at most 80 characters; null is sent as null). The value is
+## the ticket as served: [code]ticket[/code], [code]upload_url[/code], [code]prefix[/code], [code]key[/code],
+## [code]max_bytes[/code], [code]exp[/code] (10 minutes), [code]uses[/code], [code]issued_to[/code],
+## [code]kind[/code] ([code]file[/code]) and [code]file_id[/code]. An agent client declares itself here
+## ([code]X-OW-Agent[/code]), the one files route that reads it, so the file's [code]added_by.agent[/code] reads true.
+## No [code]Idempotency-Key[/code]: the single-use ticket is the idempotency, and a second call is a second ticket.
+##
+## Refusals: 413 [code]file_too_large[/code] ([method OWApiError.is_file_too_large]: over 25 MB, param
+## [code]size[/code]), 403 [code]files_full[/code] ([method OWApiError.is_files_full]: the world's 250 MB has no room
+## for it) or [code]not_author[/code] ([method OWApiError.is_not_author]: a contributor's key on an element someone else
+## made), 422 [code]invalid_request[/code] (param [code]kind[/code], [code]name[/code], [code]size[/code] or
+## [code]label[/code]), 429 [code]quota_exceeded[/code] ([method OWApiError.is_quota_exceeded]: the world's 200 tickets a
+## day) or [code]rate_limited[/code] (wrong PINs), both with [member OWApiError.retry_after]; 503
+## [code]media_unavailable[/code]. Mirrors the TypeScript SDK's [code]createFileTicket[/code].
+func create_file_ticket(type: String, id: String, name: String, size: int, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _FILE_TICKET_KEYS, "create_file_ticket")
+	if refused != "":
+		return _refused(refused)
+	if name.strip_edges() == "":
+		return _refused("create_file_ticket needs the file's name, with its extension. Nothing was sent.")
+	var kind = options.get("kind")
+	if kind == null:
+		kind = file_kind_of(name)
+		if kind == "":
+			return _refused(("create_file_ticket: cannot tell the kind of \"%s\" from its name: a file on an element must "
+				+ "end in one of %s (or pass options.kind). Nothing was sent.") % [_last_part(name),
+				" ".join(FILE_EXTENSIONS.keys().map(func(e): return "." + e))])
+	var body := {"name": name, "kind": kind, "size": size}
+	if options.has("label"):
+		body["label"] = options["label"]
+	return _object(await _request("POST", "/%s/%s/files" % [_seg("type", type), _seg("id", id)], [],
+		{"body": body, "agent": true}))
+
+## Attach one file to an element: a ticket from the API ([method create_file_ticket], with [param file]'s byte length
+## as its size), then the bytes straight to the ticket's [code]upload_url[/code], with the ticket alone. The value is
+## the host's 201: [code]key[/code], [code]fid[/code] (the file's id), [code]bytes[/code], [code]type[/code],
+## [code]etag[/code]. The file appears in [method list_files] once the host has reported it to the API, which can be a
+## moment after this answers.
+##
+## [param options]: [code]name[/code] (the file's name with its extension; needed unless a ticket is given),
+## [code]kind[/code] and [code]label[/code] as [method create_file_ticket]'s, [code]ticket[/code] (one from
+## [method create_file_ticket] to use instead of asking for one: then no name, kind or label is read), and
+## [code]on_progress[/code] (a Callable, called once with (bytes sent, total), both the file's length, when the host
+## has stored it; never on a failure: [HTTPClient] reports no bytes sent along the way). The whole upload must be done
+## within the transport's [member OWHttpTransport.timeout_sec] (30 s): raise it for a large file on a slow connection.
+##
+## A file larger than the ticket's [code]max_bytes[/code] is a 413 [code]too_large[/code] (kind
+## [constant OWApiError.API], as the host would answer) before any byte is sent; a ticket passed without its
+## [code]ticket[/code], an http(s) [code]upload_url[/code] or a number [code]max_bytes[/code] is refused, nothing sent.
+## The API's refusals are [method create_file_ticket]'s; the host's arrive with its code: 401
+## [code]ticket_expired[/code], [code]ticket_invalid[/code] or [code]ticket_used[/code], 409 [code]exists[/code] (an
+## earlier send with this ticket succeeded, so the file is there), 413 [code]too_large[/code], 415
+## [code]unsupported_type[/code] (the bytes are not the kind: a pdf must start as one, a text file must be UTF-8 with no
+## NUL in its first 8 KB, a zip must be a world's own bundle, an image must be the kind its first bytes say; nothing is
+## stored and the ticket is still unspent), 502 [code]write_failed[/code] (nothing stored; the ticket is still
+## unspent). A ticket is spent once the upload succeeds: another file needs a new one. Mirrors the TypeScript SDK's
+## [code]uploadFile[/code], as it runs without XMLHttpRequest.
+func upload_file(type: String, id: String, file: PackedByteArray, options: Dictionary = {}) -> Reply:
+	var refused := _check(options, _UPLOAD_FILE_KEYS, "upload_file")
+	if refused != "":
+		return _refused(refused)
+	if options.get("ticket") == null and _opt(options, "name").strip_edges() == "":
+		return _refused(("upload_file needs a name (with its extension) for its bytes, or a ticket from "
+			+ "create_file_ticket: pass options.name. Nothing was sent."))
+	var more := {}
+	for k in ["kind", "label"]:
+		if options.has(k):
+			more[k] = options[k]
+	var ask := func(): return await create_file_ticket(type, id, _opt(options, "name"), file.size(), more)
+	var got := await _ticket(options, "upload_file", "upload_url", ask)
+	if not got.ok:
+		return got
+	var over := _over_max("File", file.size(), got.value["max_bytes"])
+	if over != null:
+		return Reply.failed(over)
+	var r := await _send_to_host("file upload", got.value["upload_url"], got.value["ticket"], file, {})
+	if r.ok and options.get("on_progress") != null:
+		(options["on_progress"] as Callable).call(file.size(), file.size())
+	return r
+
+## [code]GET /{type}/{id}/files/{file_id}/download[/code]: a link to the file and when it stops working, as served:
+## [code]url[/code] (the file as an attachment, from the download host), [code]exp[/code] (unix seconds, 5 minutes
+## after issue), and the file's [code]name[/code], [code]kind[/code] and [code]size[/code]. The link is the credential:
+## anyone holding it can fetch the file until [code]exp[/code], more than once. So ask for it when the file is opened,
+## use it at once (an [HTTPRequest], or [method OS.shell_open]), and never log, store or share it. Any key that may read
+## the element. Mirrors the TypeScript SDK's [code]fileDownloadLink[/code].
+func file_download_link(type: String, id: String, file_id: String) -> Reply:
+	return _object(await _request("GET", "/%s/%s/files/%s/download" % [_seg("type", type), _seg("id", id), _seg("file_id", file_id)], []))
+
+## [code]DELETE /{type}/{id}/files/{file_id}[/code]: remove a file for real: it leaves the lists and the world's total
+## at once, and its bytes are deleted from the store. Answers no value. The world's owner key may, and so may the key of
+## whoever added it (an AI seat answers as its sponsor); any other key is 403 [code]permission_error[/code]. A file that
+## is not there is 404 [code]not_found[/code]. Deleting an element removes its files too. Mirrors the TypeScript SDK's
+## [code]removeFile[/code].
+func remove_file(type: String, id: String, file_id: String) -> Reply:
+	var r := await _request("DELETE", "/%s/%s/files/%s" % [_seg("type", type), _seg("id", id), _seg("file_id", file_id)], [],
+		{"allow_empty": true})
+	if r.ok:
+		r.value = null
+	return r
+
+## A name's last path part, after its last [code]/[/code] or [code]\\[/code].
+static func _last_part(name: String) -> String:
+	return name.substr(maxi(name.rfind("/"), name.rfind("\\")) + 1)
+
+## An image's object key: [param key_or_url] as given, or the path of a whole [code]http(s)[/code] URL without its
+## leading slashes, its query and fragment, unescaped as a URL's path is (a [code]+[/code] stays one, where
+## [method String.uri_decode] would make it a space). Mirrors the TypeScript SDK's [code]objectKey[/code].
+static func _object_key(key_or_url: String) -> String:
+	var lower := key_or_url.to_lower()
+	var scheme := "https://" if lower.begins_with("https://") else ("http://" if lower.begins_with("http://") else "")
+	if scheme == "":
+		return key_or_url
+	var rest := key_or_url.substr(scheme.length())
+	var path := ""
+	for i in rest.length():
+		if rest[i] == "?" or rest[i] == "#":
+			break
+		if rest[i] == "/":
+			path = rest.substr(i)
+			break
+	for ch in ["?", "#"]:
+		var cut := path.find(ch)
+		if cut != -1:
+			path = path.substr(0, cut)
+	while path.begins_with("/"):
+		path = path.substr(1)
+	return path.uri_file_decode()
+
+## The ticket a two-step call uses: [param options]' own, checked, or the one [param ask] gets from the API. A ticket
+## passed without its [code]ticket[/code], an http(s) [param url_key] or (for an upload) a number
+## [code]max_bytes[/code] is refused; the API's own answer without them is kind [constant OWApiError.ANSWER]. Neither
+## sends anything to the host, and neither message names the ticket.
+func _ticket(options: Dictionary, call: String, url_key: String, ask: Callable) -> Reply:
+	var given = options.get("ticket")
+	var r: Reply = Reply.of(given, null) if given != null else await ask.call()
+	if not r.ok:
+		return r
+	var t = r.value
+	var missing := ""
+	if not (t.get("ticket") is String and t["ticket"] != ""):
+		missing = "its ticket (a String)"
+	elif not (t.get(url_key) is String and not OWHttpTransport.split_url(t[url_key]).is_empty()):
+		missing = "%s (an absolute http or https URL, the upload host's)" % url_key
+	elif url_key == "upload_url" and not (t.get("max_bytes") is int or t.get("max_bytes") is float):
+		missing = "max_bytes (a number)"
+	if missing == "":
+		return r
+	if given != null:
+		return _refused("%s: the ticket needs %s. Nothing was sent." % [call, missing])
+	return _bad(r, "%s: the API's ticket lacks %s; nothing was sent to the upload host" % [call, missing])
+
+## Bytes past a ticket's [code]max_bytes[/code]: a 413 [code]too_large[/code] before any byte is sent, as the host
+## would answer, with the TypeScript SDK's body; null when they fit.
+static func _over_max(what: String, size: int, max_bytes: Variant) -> OWApiError:
+	if float(size) <= float(max_bytes):
+		return null
+	var cap := int(max_bytes)
+	var e := OWApiError.of(OWApiError.API, "%s is %d bytes; this ticket accepts at most %d. Nothing was sent." % [what, size, cap],
+		413, _compact({"error": "too_large", "max_bytes": cap, "got": size}))
+	e.code = "too_large"
+	return e
+
+## The second step of a ticketed call: one POST to the host the ticket names, with the ticket as its Bearer and
+## nothing of this client's, [param bytes] the body when there are any. Not a request to the API, so none of
+## [method _request]'s rules apply. The host's refusal is an [OWApiError] with its code ([method OWApiError.from_response]
+## reads its [code]{"error": "<code>"}[/code]); no answer is kind [constant OWApiError.TRANSPORT], naming the URL, never
+## the ticket; a 2xx that is not a JSON object is kind [constant OWApiError.ANSWER].
+func _send_to_host(what: String, url: String, ticket: String, bytes: Variant, headers: Dictionary) -> Reply:
+	if error != "":
+		return _refused("OWClient was not built: %s Nothing was sent." % error)
+	headers["Authorization"] = "Bearer " + ticket
+	var response: OWTransport.Response = await transport.send(OWTransport.Request.make("POST", url, headers, bytes))
+	if response == null or response.failure != "":
+		var why := "no response" if response == null else response.failure
+		return Reply.failed(OWApiError.of(OWApiError.TRANSPORT, "OnlyWorlds %s failed: POST %s: %s" % [what, url, why]), response)
+	if not response.is_success():
+		return Reply.failed(OWApiError.from_response(response.status, response.body, response.headers), response)
+	var json := JSON.new()
+	if response.body.strip_edges() == "" or json.parse(response.body) != OK or not (json.data is Dictionary):
+		return Reply.failed(OWApiError.of(OWApiError.ANSWER, "OnlyWorlds %s: POST %s answered %d with a body that is not a JSON object"
+			% [what, url, response.status], response.status, response.body), response)
+	return Reply.of(json.data, response)
+
 ## The body of an element write: a cleaned copy of [param element] (an [OWElement] of [param type], or a Dictionary),
 ## or the refusal as a String.
 static func _element_body(type: String, element: Variant, where: String) -> Variant:
@@ -1185,7 +1510,9 @@ func _element(type: String, r: Reply) -> Reply:
 ## [code]idempotency_key[/code], [code]if_match[/code] (a [code]change_seq[/code], sent quoted), [code]write[/code] (an
 ## element write: [code]X-OW-Client[/code], and [code]X-OW-Agent[/code] on an agent client, the operations keel's
 ## document declares both on), [code]named[/code] ([code]X-OW-Client[/code] alone, never [code]X-OW-Agent[/code]: the
-## proposal routes that declare the one and not the other), [code]proposable[/code] (a 202 is a proposal, never the element) and
+## proposal routes that declare the one and not the other), [code]agent[/code] ([code]X-OW-Agent[/code] alone on an
+## agent client, never [code]X-OW-Client[/code]: the file ticket, the one files route keel's document lists it on),
+## [code]proposable[/code] (a 202 is a proposal, never the element) and
 ## [code]allow_empty[/code] (an empty 2xx body answers null). The value is the parsed body. The rule is the Unity
 ## SDK's [code]RequestWithResponseAsync[/code] and the TypeScript SDK's [code]request()[/code].
 func _request(method: String, path: String, query: Array, how: Dictionary = {}) -> Reply:
@@ -1237,7 +1564,7 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 	# Presence is the declaration, the value is never stored; opt-in, and on the element writes alone, where keel's
 	# document declares it. The client's name goes on the same writes and never on a read.
 	var write: bool = how.get("write", false)
-	if agent and write:
+	if agent and (write or how.get("agent", false)):
 		headers["X-OW-Agent"] = "1"
 	if write or how.get("named", false):
 		headers["X-OW-Client"] = client_name
@@ -1368,6 +1695,13 @@ static func _check(options: Dictionary, keys: Array, call: String) -> String:
 				if not (v is String and v != ""):
 					return ("%s: if_none_match is the etag of an earlier read, a non-empty string; got %s. Nothing was "
 						+ "sent.") % [call, "\"\"" if v is String else type_string(typeof(v))]
+			"ticket":
+				if not (v is Dictionary):
+					return ("%s: ticket is a Dictionary, as the ticket call answers it; got %s. Nothing was sent."
+						% [call, type_string(typeof(v))])
+			"on_progress":
+				if not (v is Callable):
+					return "%s: on_progress is a Callable; got %s. Nothing was sent." % [call, type_string(typeof(v))]
 			"atomic", "create_only":
 				if not (v is bool):
 					return "%s: %s is a bool; got %s. Nothing was sent." % [call, k, type_string(typeof(v))]

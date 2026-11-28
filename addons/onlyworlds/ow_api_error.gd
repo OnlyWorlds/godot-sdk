@@ -397,6 +397,30 @@ func is_already_member() -> bool:
 func is_pin_required() -> bool:
 	return status == 409 and code == "pin_required"
 
+## A contributor's key changed an element someone else made (403 [code]not_author[/code]): the file ticket's refusal
+## among others. Retrying will not help; owners and co-builders never see it. Mirrors the TypeScript SDK's
+## [code]isNotAuthor[/code].
+func is_not_author() -> bool:
+	return status == 403 and code == "not_author"
+
+## A daily allowance is used up (429 [code]quota_exceeded[/code]): the world's image or file tickets (200 a day), or
+## the account's asks. Wait [member retry_after] seconds. Mirrors the TypeScript SDK's [code]isQuotaExceeded[/code].
+func is_quota_exceeded() -> bool:
+	return status == 429 and code == "quota_exceeded"
+
+## [method OWClient.create_file_ticket] and [method OWClient.upload_file]: the file is over the 25 MB a file may be
+## (413 [code]file_too_large[/code], [member param] [code]size[/code]); the message gives both sizes. Nothing was
+## issued. Not the upload host's 413 [code]too_large[/code] (bytes past a ticket's [code]max_bytes[/code]). Mirrors
+## the TypeScript SDK's [code]isFileTooLarge[/code].
+func is_file_too_large() -> bool:
+	return status == 413 and code == "file_too_large"
+
+## [method OWClient.create_file_ticket] and [method OWClient.upload_file]: the world's files have no room for this one
+## (403 [code]files_full[/code]: 250 MB a world); the message gives the world's use, its cap and the file's size.
+## Remove a file, or ask the owner. Nothing was issued. Mirrors the TypeScript SDK's [code]isFilesFull[/code].
+func is_files_full() -> bool:
+	return status == 403 and code == "files_full"
+
 ## Worth sending again later: a 429 or a 5xx, and the three 409s that clear by themselves; never a used-up allowance
 ## or a service turned off. Mirrors the Unity SDK's [code]IsRetryable[/code] (the TypeScript SDK has none: it names
 ## each code, [code]isBusy[/code], [code]isRateLimited[/code], [code]isIdempotencyInFlight[/code]).

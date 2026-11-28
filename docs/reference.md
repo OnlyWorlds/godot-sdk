@@ -68,7 +68,9 @@ elements back. The reads: `health`, `get_world`, `me`, `members`, `list` (one pa
 `get_element`, `changes` (a page of the change feed) and `changes_head` (its tip, conditional on the last ETag). The
 writes: `create`, `upsert`, `patch`, `delete`, `edit_links` (the one way to change a link array) and `bulk`. The
 proposed changes: `propose`, `list_proposals`, `world_proposals`, `accept_proposal`, `decline_proposal`,
-`withdraw_proposal` and `review_new_element`. Each
+`withdraw_proposal` and `review_new_element`. Images: `create_media_ticket`, `upload_image`, `create_removal_ticket`
+and `remove_image`. Files on elements: `list_files`, `world_files`, `create_file_ticket`, `upload_file`,
+`file_download_link` and `remove_file`. Each
 returns through `await` and answers an `OWClient.Reply`: `value` on success, else `error`.
 
 ```gdscript
@@ -160,17 +162,44 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   credential. A person's link is accepted signed in, `client.accept_join(code)` on an account token. Each refusal
   keel answers has its helper (`is_not_found`, `is_character_taken`, `is_character_invalid`, `is_world_full`,
   `is_already_member`, `is_pin_required`); none spends the code.
+- **Images and files**: an upload is two steps, a short-lived single-use ticket from the API (a write key and its
+  PIN), then the bytes straight to the upload host the ticket names, with the ticket as their Bearer and nothing of
+  the client's: no key, no PIN, no media type (the host reads the type from the bytes). `upload_image(bytes,
+  {"key": ...})` answers the image's permanent `url`, to set as an element's `image_url` with `patch`;
+  `remove_image(key_or_url)` removes one (elements keep their `image_url` until you change it).
+  `upload_file(type, id, bytes, {"name": ..., "label": ...})` attaches a file to an element (pdf, text, json, csv,
+  yaml, toml, zip, or an image; `OWClient.FILE_EXTENSIONS` and `OWClient.file_kind_of(name)` for a file dialog's
+  filters), `list_files` and `world_files` list them (the world's with its `used_bytes` of `cap_bytes`),
+  `file_download_link` gives a link that works for 5 minutes (it is the credential: use it at once, never store it),
+  and `remove_file` deletes one. Each two-step call takes a `ticket` from its ticket call instead of asking for one.
+  Bytes over the ticket's `max_bytes` are a 413 `too_large` before anything is sent, as the host would answer; a
+  ticket passed without its fields is refused. Each refusal has its code, and keel's their helpers
+  (`is_file_too_large`, `is_files_full`, `is_not_author`, `is_quota_exceeded`). Answers are Dictionaries as served.
+  `upload_file`'s `on_progress` is called once, at the end: `HTTPClient` reports no bytes sent along the way. The
+  whole upload must finish within the transport's `timeout_sec` (30 s by default): for a large file on a slow
+  connection, give the client an `OWHttpTransport` with a higher one. Uploads have not been tested in a web export.
+
+  ```gdscript
+  var png := get_viewport().get_texture().get_image().save_png_to_buffer()
+  var up := await client.upload_image(png)
+  if up.ok: await client.patch("character", id, {"image_url": up.value.url})
+  var notes := await client.upload_file("location", id, FileAccess.get_file_as_bytes("user://notes.md"), {"name": "notes.md"})
+  var link: String = (await client.file_download_link("location", id, notes.value.fid)).value.url
+  ```
 - **Options** are Dictionaries, and an unknown key is refused, never dropped (a dropped filter lists everything).
 - **The cursor walk** is driven by `has_more`, never by a page's size; it stops at a page with no cursor and refuses a
   page that hands back the cursor it was sent.
 - **Transport**: `OWHttpTransport` (Godot's `HTTPClient`, one connection a request, polled between frames, or with
   `blocking` without yielding) by default; any `OWTransport` subclass goes in the config's `transport` (the tests use a
   fake that records each request). Inside a `SceneTree` script's `_init`, before its first frame, TLS does not start:
-  await one `process_frame` first.
+  await one `process_frame` first. A request's body is a String (JSON) or, for an upload, a `PackedByteArray`, sent
+  byte for byte; a transport of your own sends the bytes as they are. A POST, PUT or PATCH with no body says
+  `Content-Length: 0`, as fetch does.
 - **The wire**: every request the read and write calls make is held to keel's document (`tests/data/keel-wire.json`,
   keel's OpenAPI document as the Unity SDK reduces it, vendored byte for byte): every path, method, query parameter,
   header and body key one keel declares there; every key the models, the bulk result and the proposal row read one
-  keel serves.
+  keel serves. The uploads' second request goes to the upload host, which that document does not describe: its
+  tests hold it to the ticket alone.
 
 
 ## What each reader holds to
