@@ -62,6 +62,7 @@ for row in menu.rows: print(row["name"], " ", row["href"], " ", row["state"])   
 
 var client := OWClient.new({"api_key": "ow_r_..."})            # client.error: "" when built
 var r := await client.list_all("character")                    # r.value, or r.error (an OWApiError)
+var copy := await OWFolderExport.export(client, "user://worlds/mine")   # copy.ok, else copy.message (copy.error)
 ```
 
 ## The API client
@@ -227,6 +228,22 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   of two bodies with one id the first is served. The world block is kept whole and in the API's names: the world's
   now is `time_range_current`, so `OWWorldInfo.time_current` reads null on a download. `to_cache()` is frozen: the
   download carries no cursor, so a sync could not tell what changed since, and `OWSync` refuses it.
+- **Writing an account world as a folder** (`OWFolderExport.export`, folder spec sections 3.2, 4.1, 4.2 and 4.4): the
+  onlyworlds Python package's `export_world`, element files byte for byte. GETs only: `/world/`, `/me/`, then each of
+  the 22 types page by page, all read before the first file. `world.json` is the `GET /world/` body with
+  `time_range_current` written `time_current`, `format_version` 0.3.25, and three lines of its own after the served
+  keys: `source` (`{server, world, at}`, `at` read before the first request, UTC with milliseconds), `exported_as` (the
+  slice `GET /me/` names: owner, member with its role, or a guest's Character by id and name; absent when it cannot be
+  told, and never asked by an account token or a keyless client) and `producer`
+  (`{"tool": "onlyworlds-godot", "version": <plugin.cfg's>, "input": "server"}`). A body that already carries
+  `source` or `producer` has them replaced where they stand; `origin` rides along as served. Elements are written as
+  served, `x_served_trimmed` and the author fields included; a known-of stub (`known_of: true`) keeps the ten keys a
+  stub keeps and every other key served with a value. Within a type a repeated id keeps its last body, at its last
+  place. Refused, with nothing written: a folder that exists and is not empty (a file, or a dot-folder, counts), an
+  element with no id, one id under two types, an id `OWWorld.write_refusal` refuses, a world with no id or name. The
+  tree is built in `.ow-<8 hex>` beside the folder and moved into place last, and removed on any refusal after it was
+  made. Not kept: Map images. An integer past 2^53 is written rounded (Godot reads JSON numbers as doubles), where the
+  Python package writes every digit.
 - **Addresses** (the address profile, serial 77): `ow://` links and the site's URL, read and written as the npm and
   Python packages do: every case of the profile's fixture, the reader's refusals in its order, the writer's
   `bad_form`, `segments`, `no_world` before them, a moment of `3.0` the step 3, an empty string present.
