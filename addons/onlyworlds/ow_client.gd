@@ -998,8 +998,7 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 ## [code]bool[/code]; a text field (a [code]scalar_str[/code], the base ones but [code]id[/code] and
 ## [code]world[/code], and the generic link's type key [code]element_type[/code], which the wire carries as text) a
 ## [code]String[/code] or a [code]StringName[/code]; each or null. The body's own keys only; an extension, a link field
-## and a type outside the standard are not checked. The value is named as [method _compact] writes it (a NaN as
-## [code]null[/code], as [code]JSON.stringify[/code] writes it).
+## and a type outside the standard are not checked. The value is named as [method _shown_value] names it.
 static func _kinds_why(type: String, data: Dictionary, where: String) -> String:
 	var script = OWTypes.SCRIPTS.get(type)
 	if script == null:
@@ -1019,11 +1018,21 @@ static func _kinds_why(type: String, data: Dictionary, where: String) -> String:
 			var whole: bool = v is int or (v is float and is_finite(v) and v == floor(v))
 			if not whole:
 				return "%s: %s.%s is an integer field; %s would be stored as another value. Nothing was sent." % [
-					where, type, k, _compact(v)]
+					where, type, k, _shown_value(v)]
 		elif kind == "scalar_str":
 			if not (v is String or v is StringName):
-				return "%s: %s.%s is a text field; %s is not a string. Nothing was sent." % [where, type, k, _compact(v)]
+				return "%s: %s.%s is a text field; %s is not a string. Nothing was sent." % [where, type, k, _shown_value(v)]
 	return ""
+
+## A value as a refusal names it, the TypeScript SDK's [code]shownValue[/code] (4.220.2): as [method _compact] writes
+## it, but a number that is not finite by its own name ([code]NaN[/code], [code]Infinity[/code],
+## [code]-Infinity[/code]), never the [code]null[/code] JSON would write in its place.
+static func _shown_value(v: Variant) -> String:
+	if v is float and is_nan(v):
+		return "NaN"
+	if v is float and is_inf(v):
+		return "Infinity" if v > 0 else "-Infinity"
+	return _compact(v)
 
 ## The deepest request body keel's reader takes, its top counted as 1 (it answers 422 past it).
 const _BODY_MAX_DEPTH := 256

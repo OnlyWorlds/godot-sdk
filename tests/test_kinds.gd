@@ -1,9 +1,9 @@
 extends RefCounted
 ## A value the server would store as another is refused before sending, through a fake transport
-## (tests/fake_transport.gd). The TypeScript SDK's test (test/v2-client.test.mjs, 4.220.0: "a value keel would store as
-## another is refused before sending, as Python check_kinds refuses it") ported with its let-through half, and cases of
-## our own: the pin's element_type is text, a NaN in an integer field is the kind's refusal (named null, as
-## JSON.stringify names it), a typed element and a parsed 2.0 go.
+## (tests/fake_transport.gd). The TypeScript SDK's test (test/v2-client.test.mjs, 4.220.0, and 4.220.2's three cases of
+## a number that is not finite, named by its own name: "a value keel would store as another is refused before sending,
+## as Python check_kinds refuses it") ported with its let-through half, and cases of our own: the pin's element_type is
+## text, a Vector2i is not a string, a typed element and a parsed 2.0 go.
 
 const Fake := preload("res://tests/fake_transport.gd")
 const BASE := "https://example.test/api/v2"
@@ -28,11 +28,16 @@ func test_a_value_keel_would_store_as_another_is_refused_before_sending(t) -> vo
 				{"type": "character", "element": {"name": "L", "supertype": 12}}]),
 		"propose: character.height is an integer field; 1.5 would be stored":
 			func(c: OWClient): return await c.propose("character", ID, {"height": 1.5}, "a source"),
+		# A number that is not finite is named by its own name, never the null JSON writes in its place (4.220.2).
+		"create: character.height is an integer field; NaN would be stored":
+			func(c: OWClient): return await c.create("character", {"name": "K", "height": NAN}),
+		"patch: character.height is an integer field; -Infinity would be stored":
+			func(c: OWClient): return await c.patch("character", ID, {"height": -INF}),
+		"patch: character.supertype is a text field; Infinity is not a string":
+			func(c: OWClient): return await c.patch("character", ID, {"supertype": INF}),
 		# beyond the TypeScript SDK's
 		"patch: pin.element_type is a text field; 12 is not a string":
 			func(c: OWClient): return await c.patch("pin", ID, {"element_type": 12}),
-		"patch: character.height is an integer field; null would be stored as another value":
-			func(c: OWClient): return await c.patch("character", ID, {"height": NAN}),
 		"patch: character.supertype is a text field; \"(1, 2)\" is not a string":
 			func(c: OWClient): return await c.patch("character", ID, {"supertype": Vector2i(1, 2)}),
 	}
