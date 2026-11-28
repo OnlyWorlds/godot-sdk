@@ -974,7 +974,7 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 	var why := []
 	var body: Dictionary = _copy_body(data, [], "", why)
 	if not why.is_empty():
-		return "%s: %s. Nothing was sent." % [where, why[0]]
+		return why[0] if why[0] == _BODY_TOO_DEEP else "%s: %s. Nothing was sent." % [where, why[0]]
 	for f in READ_ONLY_FIELDS:
 		body.erase(f)
 	var script = OWTypes.SCRIPTS.get(type)
@@ -987,12 +987,20 @@ static func _element_body(type: String, element: Variant, where: String) -> Vari
 			body[k] = ""   # string-empty-is-unset: "" is the wire's unset, and keel has no null to store
 	return body
 
-## A deep copy of a write's body, every object and array copied whole to [constant OWJson.MAX_DEPTH] (the body itself
-## at 1), so the caller's own is never changed. A body that holds itself (an object or array inside itself, which JSON
-## cannot write) or one nested past the line is not copied: [param why] gets the reason, named by its key path, and
-## the write is refused with nothing sent, never sent cut ([method Dictionary.duplicate] stops at the engine's own
-## recursion line, about 100 deep). A value held in two places is no cycle and is copied in each. The TypeScript SDK
-## throws its own TypeError, before sending, for a body JSON cannot hold.
+## The deepest request body keel's reader takes, its top counted as 1 (it answers 422 past it).
+const _BODY_MAX_DEPTH := 256
+## The refusal of a body nested past [constant _BODY_MAX_DEPTH], in the TypeScript SDK's words (4.219.3).
+const _BODY_TOO_DEEP := ("a request body is nested more than 256 deep (an object or list at the top is depth 1), past "
+	+ "what onlyworlds.com reads. Nothing was sent.")
+
+## A deep copy of a write's body, every object and array copied whole, so the caller's own is never changed. A body
+## that holds itself (an object or array inside itself, which JSON cannot write) is not copied: [param why] gets the
+## reason, named by its key path, and the write is refused with nothing sent, never sent cut
+## ([method Dictionary.duplicate] stops at the engine's own recursion line, about 100 deep). A value held in two places
+## is no cycle and is copied in each. The TypeScript SDK throws its own TypeError, before sending, for a body JSON
+## cannot hold. The copy stops past [constant _BODY_MAX_DEPTH] counted in the caller's body, its recursion's bound: an
+## envelope only adds levels, so such a body is past the line as sent too, and [param why] gets
+## [constant _BODY_TOO_DEEP], the refusal [method _body_why] gives.
 static func _copy_body(v: Variant, ancestors: Array, at: String, why: Array) -> Variant:
 	var t := typeof(v)
 	if t != TYPE_DICTIONARY and t != TYPE_ARRAY:
@@ -1001,8 +1009,8 @@ static func _copy_body(v: Variant, ancestors: Array, at: String, why: Array) -> 
 		if is_same(a, v):
 			why.append("the body holds itself at %s (an object or array inside itself), which JSON cannot write" % at)
 			return null
-	if ancestors.size() >= OWJson.MAX_DEPTH:
-		why.append("the body is %s (at %s)" % [OWJson.TOO_DEEP_WORDS, at])
+	if ancestors.size() >= _BODY_MAX_DEPTH:
+		why.append(_BODY_TOO_DEEP)
 		return null
 	ancestors.push_back(v)
 	var out = v.duplicate()   # shallow: keeps a typed Array's or Dictionary's type
@@ -1018,6 +1026,46 @@ static func _copy_body(v: Variant, ancestors: Array, at: String, why: Array) -> 
 				break
 	ancestors.pop_back()
 	return out
+
+## "" when [param body] can be sent as written, else the refusal, in the TypeScript SDK's words (4.219.2 and 4.219.3),
+## for the two bodies keel cannot read as written: one nested more than [constant _BODY_MAX_DEPTH] deep, an object or
+## array at the top at 1, the envelope of a bulk or a proposal included (keel's reader of a body takes no more; what it
+## stores is held to the standard's 200 counted from the element a value sits in, refused by keel by name); and one
+## holding a NaN or an infinity, named with its place ([code]items[1].element.x_weight[/code]), which [method _compact]
+## would write as [code]null[/code], clearing the field without a word. A body with both is refused for its depth.
+## Walked with a stack of its own, in the order [method _compact] writes it; a packed array it writes as a list is a
+## level, and a [code]PackedFloat64Array[/code]'s items are numbers.
+static func _body_why(body: Variant) -> String:
+	var non_finite := ""
+	var stack: Array = [[body, 0, ""]]
+	while not stack.is_empty():
+		var top: Array = stack.pop_back()
+		var v = top[0]
+		var place: String = top[2]
+		var t := typeof(v)
+		if t == TYPE_FLOAT:
+			if non_finite == "" and (is_nan(v) or is_inf(v)):
+				var token := "NaN" if is_nan(v) else ("Infinity" if v > 0 else "-Infinity")
+				non_finite = "%s at %s" % [token, place if place != "" else "the top"]
+			continue
+		if not (t in [TYPE_DICTIONARY, TYPE_ARRAY, TYPE_PACKED_STRING_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY,
+				TYPE_PACKED_FLOAT64_ARRAY]):
+			continue
+		var depth: int = top[1] + 1
+		if depth > _BODY_MAX_DEPTH:
+			return _BODY_TOO_DEEP
+		if t == TYPE_DICTIONARY:
+			var keys: Array = v.keys()
+			for i in range(keys.size() - 1, -1, -1):
+				var k := str(keys[i])
+				stack.append([v[keys[i]], depth, k if place == "" else "%s.%s" % [place, k]])
+		else:
+			for i in range(v.size() - 1, -1, -1):
+				stack.append([v[i], depth, "%s[%d]" % [place, i]])
+	if non_finite != "":
+		return ("a request body holds %s, which JSON cannot carry: send a finite number, or null to clear the field. "
+			+ "Nothing was sent.") % non_finite
+	return ""
 
 ## True when a body carries no id to keep: absent, null or "".
 static func _no_id(body: Dictionary) -> bool:
@@ -1123,6 +1171,10 @@ func _request(method: String, path: String, query: Array, how: Dictionary = {}) 
 	var if_match = how.get("if_match")
 	if if_match != null:
 		headers["If-Match"] = "\"%d\"" % int(if_match)
+	if body != null:
+		var refused_body := _body_why(body)
+		if refused_body != "":
+			return _refused(refused_body)
 	var response: OWTransport.Response = await transport.send(
 		OWTransport.Request.make(method, url, headers, _compact(body) if body != null else null))
 	if response == null or response.failure != "":

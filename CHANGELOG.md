@@ -15,6 +15,23 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Changed
+
+- **A NaN or an infinity in a write's body is refused before sending, by name and with its place**, where it was sent
+  as `null`, which cleared the field without a word: onlyworlds.com could not tell it from a `null` that was meant.
+  The reply is kind `REFUSED`: `a request body holds NaN at x_score, which JSON cannot carry: send a finite number, or
+  null to clear the field. Nothing was sent.` The place is read in the body as sent, a list index in brackets
+  (`items[1].element.x_weight` in a `bulk`, `fields.x_score` in a `propose`), a `PackedFloat64Array`'s items
+  included. Parity with the TypeScript SDK 4.219.2, its test vector ported.
+- **A write's body is refused for its depth only past 256 levels, counted from its top as sent**, where onlyworlds.com
+  stops reading a body: `a request body is nested more than 256 deep (an object or list at the top is depth 1), past
+  what onlyworlds.com reads. Nothing was sent.` The line was 200, counted in the caller's element, which refused a
+  bulk or a patch the server would have read and answered itself. The envelope counts: a bulk item's element sits at
+  depth 4, so an element 200 deep, the most the server stores counted from the element, is a body 203 deep and is
+  sent; an element past 200 is the server's 422 that names its key. A body with both faults is refused for its
+  depth. Parity with the TypeScript SDK 4.219.3, its test vector ported (its 200,000-deep case at 10,000: Godot itself
+  crashes freeing a caller's Array that deep).
+
 ## [0.10.0] - 2026-11-27
 
 An error names the size limit a write passed, an element says whether it was written as proposed, and a write body
