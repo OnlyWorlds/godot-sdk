@@ -15,6 +15,17 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Fixed
+
+- **An answer cut off while its body is read is kind `transport`, never a value.** Parity with the TypeScript SDK
+  4.223.1, its test vector ported. `OWHttpTransport` handed back whatever bytes had come when a connection dropped
+  mid-body, so a 200 cut after a part that parsed answered as a value, a cut that did not parse as kind `answer`,
+  and a DELETE whose answer never came as done. It now tells a whole body (its length met, its last chunk read, or
+  read to the end of a connection that declared neither) from a cut one, and answers a cut one as no answer: `the
+  answer was lost while it was read: 10 of its 100 bytes came from <host> (disconnected)`. A 204 or a 304 has no
+  body, whatever its headers say. A whole body that is not JSON is still kind `answer`. The transport also no longer
+  reads after the connection ended, which made the engine print an error for each cut answer.
+
 ## [0.11.0] - 2026-11-28
 
 A game can poll the proposals queue cheaply: an unchanged queue answers without its rows. And the wrong-kind refusal

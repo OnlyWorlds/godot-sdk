@@ -111,8 +111,9 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   checked. A link array in a patch is sent as given and replaces the whole array, as in the Unity and
   TypeScript SDKs: to add or remove one id, use `edit_links` (keel's merge).
 - **Errors**: one type, `OWApiError`, with a `kind`: `api` (keel's envelope: `status`, `code`, `message`, `param`,
-  `doc_url`, `retry_after`), `transport` (no answer), `refused` (a caller's mistake, nothing sent: an unknown option, a
-  value of the wrong type, `world` beside a world key) and `answer` (a 2xx that is not what the route answers). A write
+  `doc_url`, `retry_after`), `transport` (no answer, or one cut off while its body was read), `refused` (a caller's
+  mistake, nothing sent: an unknown option, a value of the wrong type, `world` beside a world key) and `answer` (a 2xx
+  that is not what the route answers; a body cut off is `transport`, a whole one that is not JSON is `answer`). A write
   that became a proposal is kind `api` with `status` 202 and `error.proposal` the row (`is_proposed()`), as the Unity
   SDK's `OWProposedError` is: the element did not change. A read whose `fields` list names fields its type does not
   have is refused whole in one 422 on `fields`; `error.fields_refusal()` reads every unknown name, the types that have
