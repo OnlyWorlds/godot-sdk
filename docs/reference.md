@@ -129,7 +129,10 @@ var done: OWClient.BulkResult = (await client.bulk([ana, bo], {"atomic": true}))
   not change until one accepts it. `propose(type, id, fields, evidence, {"expires": ..., "idempotency_key": ...})`
   makes one with any member key that reads the element, a read key included; `list_proposals(type, id, options)` and
   `world_proposals(options)` page one element's rows and the world's queue (`state`, `since`, `limit`, `cursor`; the
-  queue's `element` too), as `OWProposal.Page`s; `accept_proposal`, `decline_proposal(type, id, pid, reason)` and
+  queue's `element` too), as `OWProposal.Page`s. A poll costs little when nothing moved: every page carries `etag`
+  (keel's tag, exactly as sent, or null); pass it back as `if_none_match` and, while nothing in the list moved, keel
+  answers 304 and the page is `unchanged` with no rows (`data` empty: read `unchanged` before the rows). The caller
+  holds the tag; the client keeps none. `accept_proposal`, `decline_proposal(type, id, pid, reason)` and
   `withdraw_proposal` decide or take back a row. The queue also lists every new element written as proposed (one
   carrying `x_review_proposed`, `row.is_new_element()`), settled with `review_new_element(type, id,
   OWProposal.Reviewed.ACCEPT)` or `DECLINE` (which deletes it). To tell whether an element you hold was written as

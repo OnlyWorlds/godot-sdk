@@ -147,6 +147,14 @@ class Page:
 	var has_more := false
 	## The opaque cursor of the next page, "" when there is none. Pass it back as it came.
 	var next_cursor := ""
+	## keel's [code]ETag[/code] for the list, exactly as sent ([code]W/[/code] and quotes included), or null when none
+	## came; on an [member unchanged] page the 304's tag, else the one sent. Pass it back as the call's
+	## [code]if_none_match[/code]. The TypeScript SDK's [code]etag[/code] (4.221.0).
+	var etag: Variant = null
+	## True when keel answered 304 to [code]if_none_match[/code]: nothing in the list moved, and keel's 304 carries no
+	## rows, so [member data] is empty, [member has_more] false and [member next_cursor] "". Read it before the rows: an
+	## empty [member data] here is not an empty queue. False on every 200.
+	var unchanged := false
 
 ## [method OWClient.accept_proposal]'s answer: the row, now accepted, beside the element as written (the accept is an
 ## ordinary write by the keeper: a new [code]change_seq[/code], a row in the change feed).
