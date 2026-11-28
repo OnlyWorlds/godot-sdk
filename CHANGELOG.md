@@ -15,6 +15,18 @@ build. The entries below are in the detail a maintainer needs; the history befor
 
 ## [Unreleased]
 
+### Fixed
+
+- **A refused element id now says why in the same words as the TypeScript and Python packages.** An id holding a colon
+  or a control character from U+0001 to U+001F was refused in the archive name check's words (`its file name
+  "a:b.json" names a drive`); `OWWorld.write_refusal` now checks those itself, in the packages' order (a path
+  separator, a colon, a control character, `.` or `..`), and says `it holds a colon.` or `it holds a control
+  character.`. The archive's wider name checks still follow in their own words, so an id holding U+007F or U+0080 to
+  U+009F, another character Windows refuses or a device name is refused as before. An empty id keeps the writer's
+  no-id refusal. The packages' shared cases (`unsafe-ids.cases.json`, TypeScript SDK 4.224.0) are held as a test; the
+  one they write and this addon refuses, `c-` followed by U+007F, is the wider check's, and the one holding U+0000 in
+  the middle of an id is skipped, since a Godot String turns U+0000 into U+FFFD before any reader sees it.
+
 ## [0.13.1] - 2026-11-28
 
 A world folder write, and a pack, refuse an element id that cannot be one file name inside the folder, before

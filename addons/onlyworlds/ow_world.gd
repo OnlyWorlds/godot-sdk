@@ -298,9 +298,11 @@ func add_element(e: OWElement) -> void:
 ## [code]""[/code] for a plain [OWElement], a path such as [code]"../x"[/code]): its file would go to a folder no reader
 ## reads, or outside elements/.
 ##
-## Also a new element whose id cannot be one file name inside its type folder ([method _id_refusal]: empty, holding
-## [code]/[/code] or [code]\\[/code], [code].[/code] or [code]..[/code], or a file name the archive's name checks refuse,
-## such as a drive, a colon or a control character), whatever its name.
+## Also a new element whose id cannot be one file name inside its type folder ([method _id_refusal]: holding
+## [code]/[/code] or [code]\\[/code], a colon or a control character U+0000 to U+001F, or [code].[/code] or
+## [code]..[/code], in the TypeScript and Python packages' words; or a file name the archive's name checks refuse, such
+## as U+007F, another character Windows refuses or a device name, in the archive's words), whatever its name. An empty
+## id is the no-id refusal.
 func write_refusal(only_edited := false) -> String:
 	if info.edited or not only_edited:
 		var id = info.get_value("id")
@@ -350,13 +352,15 @@ static func _type_refusal(e: OWElementCore) -> String:
 		% [e.get_value("id"), type, ", ".join(OWTypes.slugs())]
 
 ## Why a new element's id cannot name its file, or [code]""[/code] (folder spec section 3.2): a file name is made from an
-## id only when the id is one non-empty segment (no [code]/[/code], no [code]\\[/code], not [code].[/code] or
-## [code]..[/code]) and the name passes the archive's own name checks ([method OWWorldArchive.path_fault] and
-## [method OWWorldArchive.name_fault], section 4.7's OW-16 and OW-22: no drive, no colon or other character Windows
-## refuses, no control character, no device name). The short name and the full-id form are both asked, whatever the
-## name, since the collision rule may take the full id at any time; then each must lie in the type folder. In the
-## TypeScript and Python packages' words: [code]character element id "a/b" cannot be a file name: it holds a path
-## separator, / or \\.[/code]
+## id only when the id is one plain file name and the name passes the archive's own name checks. First the rules the
+## TypeScript and Python packages hold, in their order and their words (their shared cases,
+## [code]unsafe-ids.cases.json[/code]): empty, a [code]/[/code] or [code]\\[/code], a colon, a control character U+0000
+## to U+001F, [code].[/code] or [code]..[/code], as in [code]character element id "a/b" cannot be a file name: it holds a
+## path separator, / or \\.[/code] Then the archive's name checks ([method OWWorldArchive.path_fault] and
+## [method OWWorldArchive.name_fault], section 4.7's OW-16 and OW-22), wider than theirs, in the archive's own words:
+## U+007F and U+0080 to U+009F, another character Windows refuses, a device name, a trailing dot or space. The short name
+## and the full-id form are both asked, whatever the name, since the collision rule may take the full id at any time;
+## then each must lie in the type folder.
 static func _id_refusal(e: OWElement) -> String:
 	var id := e.id
 	var type := String(e.get_type())
@@ -365,6 +369,10 @@ static func _id_refusal(e: OWElement) -> String:
 		why = "it is empty"
 	elif id.contains("/") or id.contains("\\"):
 		why = "it holds a path separator, / or \\"
+	elif id.contains(":"):
+		why = "it holds a colon"
+	elif _holds_c0(id):
+		why = "it holds a control character"
 	elif id == "." or id == "..":
 		why = "it is . or .."
 	else:
@@ -383,6 +391,14 @@ static func _id_refusal(e: OWElement) -> String:
 	if why == "":
 		return ""
 	return "%s element id %s cannot be a file name: %s." % [type, OWJson.quote(id), why]
+
+## True when [param s] holds a control character from U+0000 to U+001F (a Godot String turns U+0000 itself into
+## U+FFFD, so from U+0001 in practice).
+static func _holds_c0(s: String) -> bool:
+	for i in s.length():
+		if s.unicode_at(i) < 0x20:
+			return true
+	return false
 
 ## True when [param e] was read from a file whose bytes are not well-formed UTF-8.
 static func _read_not_utf8(e: OWElementCore) -> bool:
