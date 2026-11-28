@@ -36,6 +36,8 @@ var other_files: Dictionary = {}
 var errors := PackedStringArray()
 
 var _by_id: Dictionary = {}
+## Where each id in [member _by_id] was read (a file's path, or a place inside an export), for the line a second one gets.
+var _where: Dictionary = {}
 
 ## Read a world folder: world.json and every [code]elements/<type>/*.json[/code] (and the legacy
 ## [code]spatial/{map,pin,zone,marker}/[/code]), the names compared as written, never by the file system's case-blind match: a type
@@ -237,16 +239,24 @@ func _add_parsed(rel: String, type: String, bytes: PackedByteArray, json: JSON) 
 		errors.append("%s: %s" % [rel, OWJson.OUT_OF_RANGE_WHY])
 		other_files[rel] = bytes
 		return
-	var e := OWTypes.make(declared_type(json.data, type), json.data)
+	var e := _add_body(rel, type, json.data)
 	e.source_path = rel
 	e.source_bytes = bytes
+
+## One body read as an element: made in its declared type's class, else [param type]'s, held in the order read. Of two
+## with one id, the first is the one [method get_element] serves; the second's line in [member errors] names both
+## ([param where] is each one's place: a file's path, or a place inside an export).
+func _add_body(where: String, type: String, body: Dictionary) -> OWElement:
+	var e := OWTypes.make(declared_type(body, type), body)
 	elements.append(e)
 	var id := e.id
 	if id != "":
 		if _by_id.has(id):
-			errors.append("%s: id %s is also %s" % [rel, id, _by_id[id].source_path])
+			errors.append("%s: id %s is also %s" % [where, id, _where.get(id, _by_id[id].source_path)])
 		else:
 			_by_id[id] = e
+			_where[id] = where
+	return e
 
 ## The world's id (world.json's [code]id[/code]).
 func get_id() -> String:

@@ -110,8 +110,9 @@ An AI agent that writes to your world takes a seat of its own instead, an
 which the world's owner can remove at any time.
 
 **A world on disk**, with no server at all. `OWWorld.read_folder(path)` reads a world folder,
-`OWWorldArchive.read_file(path)` an `.owworld` file (one zip that holds a folder), and both give the same typed
-elements. A world you never edited is written back byte for byte. A pack (`OWWorldArchive.pack`, `OWWorld.pack`) is
+`OWWorldArchive.read_file(path)` an `.owworld` file (one zip that holds a folder), and `OWWorldExport.read_file(path)`
+the file a world's page on onlyworlds.com downloads (Export world); each gives the same typed elements (`to_world()`
+on the last two). A world you never edited is written back byte for byte. A pack (`OWWorldArchive.pack`, `OWWorld.pack`) is
 a copy by default: every element file travels whole, hidden ones included, as you would back up or move your own
 world. With `include_hidden` false it is a share, a file to hand to someone else: an element marked `hidden` is left
 out, and so is every file under `elements/` the reader could not read as one element; the result names each, hidden
@@ -155,7 +156,7 @@ poll it on a timer.
 | **Client** | `OWClient`, `OWJoin`, `OWProposal` | The API: read a world, list and page through its elements, the change feed, writes (create, upsert, patch, delete, link edits, bulk), proposed changes (propose, the world's queue, accept, decline, withdraw, review a proposed new element), joining by invite link, images (upload one for an element's picture, remove it) and files on elements (attach, list, download, remove). |
 | **Held world** | `OWWorldCache`, `OWSync` | A world held in the game and kept current from the API's change feed: a first walk, then only what changed, with the server's resets, rewinds and deletes applied; kept between launches in one file. |
 | **Models** | `OWCharacter`, `OWLocation`, … (all 22), `OWElement` | One class per element type, generated from the schema; `OWTypes.make(type, body)` builds the right one. |
-| **On disk** | `OWWorld`, `OWWorldArchive`, `OWJson` | World folders and `.owworld` files, read and written in the folder format's own bytes. |
+| **On disk** | `OWWorld`, `OWWorldArchive`, `OWWorldExport`, `OWJson` | World folders and `.owworld` files, read and written in the folder format's own bytes; the one-file download from a world's page on onlyworlds.com, read. |
 | **Readers** | `OWLens`, `OWGraph`, `OWLanding`, `OWMapSpace`, `OWCharter`, `OWStrand`, `OWRecord`, `OWReport`, `OWMessage`, `OWNames`, `OWViews`, `OWNameFinder` | Answers worked out from elements you already hold, with no request of their own: what one reader may see of a world, the world as nodes and edges, its most-linked Characters and the most linked of each type, its maps as points and outlines and which of their Pins one reader knows, the rules and the story a world shows first, a Character's record of game runs, in-world messages and reports, how an element is shown, which element names a text mentions. |
 | **Helpers** | `OWCalendar`, `OWAddress`, `OWOpeners`, `OWTools`, `OWId`, `OWUnicode` | A world's own calendar, `ow://` links, an "Open with" menu of OnlyWorlds tools, ids, name comparison. |
 
